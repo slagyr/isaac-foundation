@@ -3,7 +3,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.cli :as registry]
+    [isaac.cli.registry :as registry]
     [isaac.config.api :as config]
     [isaac.config.paths :as paths]
     [isaac.fs :as fs]

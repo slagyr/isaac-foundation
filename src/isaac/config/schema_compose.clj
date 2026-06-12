@@ -1,6 +1,7 @@
 (ns isaac.config.schema-compose
   (:require
     [isaac.config.berths :as berths]
+    [isaac.schema.meta :as meta-schema]
     [isaac.config.schema-base :as schema-base]
     [isaac.module.loader :as module-loader]))
 
@@ -21,12 +22,12 @@
             :contributors contributors
             :type         :config-schema/collision}))
 
-(defn- invalid-fragment-error [config-key module-id descriptor value]
-  (ex-info (str "config-schema fragment for " config-key " must resolve to a schema map")
+(defn- invalid-schema-error [config-key module-id descriptor value]
+  (ex-info (str "config-schema contribution for " config-key " must carry a valid inline :schema map: " value)
            {:config-key config-key
             :descriptor descriptor
             :module-id  module-id
-            :type       :config-schema/invalid-fragment
+            :type       :config-schema/invalid-schema
             :value      value}))
 
 (defn contribution-entries [module-index]
@@ -38,27 +39,20 @@
                     :module-id  module-id})))
        (sort-by (juxt #(id-str (:module-id %)) #(id-str (:config-key %))))))
 
-(defn- resolve-fragment [{:keys [fragment]}]
-  (let [sym  (cond
-               (symbol? fragment) fragment
-               (keyword? fragment) (symbol (namespace fragment) (name fragment))
-               (string? fragment) (symbol fragment)
-               :else (symbol (str fragment)))
-        resolved (requiring-resolve sym)
-        spec     (if (var? resolved) @resolved resolved)]
-    (if (map? spec)
-      spec
-      (throw (ex-info (str "config-schema fragment must resolve to a map: " sym)
-                      {:fragment fragment :type :config-schema/unresolved-fragment :value spec})))))
+(defn- inline-schema [{:keys [schema]}]
+  (if (map? schema)
+    (meta-schema/conform-spec! schema)
+    (throw (ex-info (str "config-schema contribution :schema must be an inline map, got: " (pr-str schema))
+                    {:schema schema :type :config-schema/invalid-schema :value schema}))))
 
 (defn- merge-contributions [module-index]
   (reduce
     (fn [{:keys [fields descriptors owners]} {:keys [config-key descriptor module-id]}]
       (let [fragment (try
-                       (resolve-fragment descriptor)
+                       (inline-schema descriptor)
                        (catch Throwable t
-                         (throw (invalid-fragment-error config-key module-id descriptor
-                                                        (ex-message t)))))]
+                         (throw (invalid-schema-error config-key module-id descriptor
+                                                      (ex-message t)))))]
         (if-let [existing (get owners config-key)]
           (throw (collision-error config-key [existing {:module-id module-id}]))
           {:fields       (assoc fields config-key fragment)

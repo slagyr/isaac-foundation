@@ -3,9 +3,22 @@
     [c3kit.apron.schema :as schema]
     [clojure.string :as str]))
 
+(defn ->id
+  "Canonical id coercion: keywords become their name, strings pass
+   through, nil stays nil, anything else stringifies."
+  [value]
+  (cond
+    (keyword? value) (name value)
+    (string? value) value
+    (nil? value) nil
+    :else (str value)))
+
 (def ^:private builtin-types
   {:symbol {:validations [{:validate (schema/nil?-or symbol?)
-                           :message  "must be a symbol"}]}})
+                           :message  "must be a symbol"}]}
+   :id     {:coercions   [->id]
+            :validations [{:validate (schema/nil?-or string?)
+                           :message  "must be an id (string or keyword)"}]}})
 
 (defonce registry* (atom {}))
 

@@ -2,7 +2,7 @@
   (:require
     [c3kit.apron.env :as c3env]
     [clojure.java.io :as io]
-    [isaac.cli :as cli-registry]
+    [isaac.cli.registry :as cli-registry]
     [isaac.fs :as fs]
     [isaac.logger :as log]
     [isaac.module.manifest]

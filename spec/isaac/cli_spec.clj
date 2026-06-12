@@ -1,7 +1,7 @@
 (ns isaac.cli-spec
   (:require
     [clojure.edn :as edn]
-    [isaac.cli :as sut]
+    [isaac.cli.registry :as sut]
     [isaac.main :as main]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
@@ -180,7 +180,7 @@
                   *err* (StringWriter.)
                   *fs*  mem]
           ;; Phase 4 of the berth epic: init no longer side-effect-
-          ;; registers at isaac.cli load time — it's a foundation
+          ;; registers at isaac.cli.registry load time — it's a foundation
           ;; manifest :cli contribution. Process core's berths so
           ;; tests see init in the registry without going through
           ;; main/run first.

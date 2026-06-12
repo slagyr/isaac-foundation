@@ -1,11 +1,8 @@
-(ns isaac.config.schema-base)
+(ns isaac.config.schema-base
+  (:require
+    [isaac.schema.lexicon :as lexicon]))
 
-(defn ->id [value]
-  (cond
-    (keyword? value) (name value)
-    (string? value) value
-    (nil? value) nil
-    :else (str value)))
+(def ->id lexicon/->id)
 
 (defn schema-fields [spec]
   (:schema spec))

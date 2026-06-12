@@ -170,13 +170,13 @@
    :berths  {:cli {:description "CLI commands."
                    :manifest    {:schema {:type :seq
                                           :spec {:type    :map
-                                                 :factory 'isaac.cli/register-cli-command!
+                                                 :factory 'isaac.cli.registry/register-cli-command!
                                                  :schema  {:name {:type :string}}}}}}
              :isaac.config/schema {:description "Top-level config schema fragments."
                                    :manifest    {:schema {:type :map
                                                           :key-spec {:type :keyword}
                                                           :value-spec {:type :map
-                                                                       :schema {:fragment {:type :symbol :validations [:present?]}
+                                                                       :schema {:schema   {:type :map :validations [:present?]}
                                                                                 :entity-dir {:type :string}
                                                                                 :frontmatter? {:type :boolean}
                                                                                 :merge-root-entity? {:type :boolean}

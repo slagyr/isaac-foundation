@@ -1,5 +1,5 @@
 ;; mutation-tested: 2026-05-06
-(ns isaac.cli
+(ns isaac.cli.registry
   (:require
     [clojure.pprint :as pprint]
     [clojure.string :as str]

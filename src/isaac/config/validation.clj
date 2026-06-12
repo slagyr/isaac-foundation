@@ -36,6 +36,52 @@
   {:model-exists? (exists-ref :model-exists? known-model-ids "references undefined model")
    :crew-exists?  (exists-ref :crew-exists? known-crew-ids "references undefined crew")})
 
+(def ^:private value-refs
+  ;; nil-tolerant: apron's conform also resolves these refs and (unlike the
+  ;; annotation layer) runs them on absent values.
+  {:positive?          {:validate #(or (nil? %) (pos-int? %))
+                        :message  "must be a positive integer"}
+   :non-negative?      {:validate #(or (nil? %) (and (int? %) (<= 0 %)))
+                        :message  "must be a non-negative integer"}
+   :absolute-path?     {:validate #(or (nil? %) (and (string? %) (str/starts-with? % "/")))
+                        :message  "must be an absolute path"}
+   :keyword-set?       {:validate #(or (nil? %) (and (set? %) (every? keyword? %)))
+                        :message  "must be a set of keywords"}
+   :keyword-or-string? {:validate #(or (nil? %) (keyword? %) (string? %))
+                        :message  "must be a keyword or string"}
+   :cwd-or-path?       {:validate #(or (nil? %) (= :cwd %) (string? %))
+                        :message  "must be :cwd or an absolute path string"}})
+
+(defn- one-of-ref [& allowed]
+  {:validate #(or (nil? %) (contains? (set allowed) %))
+   :message  (str "must be one of " (str/join ", " allowed))})
+
+(defn- retired-ref [hint]
+  {:validate nil?
+   :message  (str "retired; " hint)})
+
+(defn- requires-any-ref [& field-keys]
+  ;; entity-scope; benign when apron's conform hands it a bare (nil)
+  ;; pseudo-field value instead of the entity.
+  {:scope    :entity
+   :validate (fn [entity & _]
+               (or (nil? entity)
+                   (boolean (some #(seq (get entity %)) field-keys))))
+   :message  (str "must include at least one of "
+                  (str/join ", " (map str field-keys)))})
+
+(defn- percentage-ref [hint]
+  {:validate #(or (nil? %) (and (number? %) (<= 0.0 %) (< % 1.0)))
+   :message  (str "must be a percentage in [0.0, 1.0); " hint)})
+
+(defn- less-than-ref [smaller-key larger-key]
+  {:scope    :entity
+   :validate (fn [entity & _]
+               (let [a (get entity smaller-key)
+                     b (get entity larger-key)]
+                 (or (nil? a) (nil? b) (< a b))))
+   :message  (str (name smaller-key) " must be smaller than " (name larger-key))})
+
 (defn- present-when-ref [other-key expected]
   {:scope    :entity
    :validate (fn [entity field-key]
@@ -45,11 +91,14 @@
 
 (defonce ^:private _refs-registered
          (do
-           (when-let [one-of-ref (try (cs/lex! :validations :one-of) (catch Throwable _ nil))]
-             (cs/update-lexicon! :validations assoc :one-of? one-of-ref))
-           (doseq [[k v] existence-refs]
+           (cs/update-lexicon! :validations assoc :one-of? one-of-ref)
+           (doseq [[k v] (merge existence-refs value-refs)]
              (cs/update-lexicon! :validations assoc k v))
            (cs/update-lexicon! :validations assoc :present-when? present-when-ref)
+           (cs/update-lexicon! :validations assoc :retired? retired-ref)
+           (cs/update-lexicon! :validations assoc :requires-any? requires-any-ref)
+           (cs/update-lexicon! :validations assoc :percentage? percentage-ref)
+           (cs/update-lexicon! :validations assoc :less-than? less-than-ref)
            true))
 
 (defn validation-context [config]

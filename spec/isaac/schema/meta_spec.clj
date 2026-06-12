@@ -6,6 +6,9 @@
 
 (describe "schema meta"
 
+  (it "accepts an open :map spec (no :schema, any map allowed)"
+    (should= {:type :map} (sut/conform-spec! {:type :map})))
+
   (it "conforms a minimal string spec"
     (should= {:type :string}
              (lexicon/conform! sut/spec-schema {:type :string})))

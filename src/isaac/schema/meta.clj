@@ -101,11 +101,8 @@
     (validate-spec! child (conj path field))))
 
 (defn- validate-map-spec!
+  ;; a bare {:type :map} is a legal open map — any map allowed
   [spec path]
-  (when-not (or (contains? spec :schema)
-                (contains? spec :key-spec)
-                (contains? spec :value-spec))
-    (invalid-spec! path ":map specs require :schema or :key-spec/:value-spec"))
   (when-let [field-schema (:schema spec)]
     (validate-schema-children! field-schema (conj path :schema)))
   (when-let [key-spec (:key-spec spec)]
@@ -148,7 +145,9 @@
       nil)
     spec))
 
-(defn- conform-spec!
+(defn conform-spec!
+  "Validate `value` as a well-formed schema spec (the meta-schema).
+   Returns the normalized spec or throws naming the offending slot."
   [value]
   (validate-spec! value []))
 

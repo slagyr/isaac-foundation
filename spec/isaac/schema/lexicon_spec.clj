@@ -41,6 +41,18 @@
                               (sut/conform! {:type :bang} :bang))]
       (should= "unknown schema type: :bang" (.getMessage error))))
 
+  (it "conforms an id schema by coercing a keyword to its name"
+    (should= "atticus" (sut/conform! {:type :id} :atticus)))
+
+  (it "conforms an id schema passing a string through untouched"
+    (should= "atticus" (sut/conform! {:type :id} "atticus")))
+
+  (it "conforms a nil id to nil"
+    (should= nil (sut/conform! {:type :id} nil)))
+
+  (it "conforms a non-keyword non-string id via str"
+    (should= "42" (sut/conform! {:type :id} 42)))
+
   (it "reports whether a type is known"
     (should (sut/known-type? :string))
     (should (sut/known-type? :symbol))

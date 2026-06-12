@@ -3,6 +3,7 @@
   (:require
     [c3kit.apron.env :as c3env]
     [c3kit.apron.schema :as cs]
+    [isaac.schema.lexicon :as lexicon]
     [clj-yaml.core :as yaml]
     [clojure.edn :as edn]
     [clojure.set :as set]
@@ -136,19 +137,19 @@
 (defn- normalize-defaults
   ([defaults] (normalize-defaults (cached-root-schema) defaults))
   ([root-schema defaults]
-   (let [result (cs/conform (runtime-schema (schema-for root-schema :defaults)) defaults)]
+   (let [result (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults)]
      (if (cs/error? result) {} result))))
 
 (defn- normalize-crew
   ([crew] (normalize-crew (cached-root-schema) crew))
   ([root-schema crew]
-   (let [result (cs/conform (runtime-schema (schema-for root-schema :crew)) crew)]
+   (let [result (lexicon/conform (runtime-schema (schema-for root-schema :crew)) crew)]
      (if (cs/error? result) {} result))))
 
 (defn- normalize-model
   ([model] (normalize-model (cached-root-schema) model))
   ([root-schema model]
-   (let [result (cs/conform (runtime-schema (schema-for root-schema :models)) model)]
+   (let [result (lexicon/conform (runtime-schema (schema-for root-schema :models)) model)]
      (if (cs/error? result) {} result))))
 
 (defn- collect-unknown-key-warnings [warnings kind id entity entity-schema]
@@ -346,9 +347,9 @@
   ([root-schema {:keys [data] :as result}]
    (if-not data
      result
-     (let [root-result     (cs/conform (runtime-schema root-schema) data)
+     (let [root-result     (lexicon/conform (runtime-schema root-schema) data)
            defaults-result (when-let [defaults (:defaults data)]
-                             (cs/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
+                             (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
        (-> result
            (update :errors into (concat
                                   (when (cs/error? root-result) (validation/schema-error-entries nil root-result))
@@ -368,9 +369,9 @@
                 data            (cond-> raw-data
                                         (:cron raw-data) (assoc :cron cron))
                 root-schema     (cached-root-schema)
-                root-result     (cs/conform (runtime-schema root-schema) data)
+                root-result     (lexicon/conform (runtime-schema root-schema) data)
                 defaults-result (when-let [defaults (:defaults data)]
-                                  (cs/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
+                                  (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
             {:data     data
              :errors   (vec (concat errors
                                     (when (cs/error? root-result) (validation/schema-error-entries nil root-result))
@@ -390,9 +391,9 @@
                 data            (cond-> raw-data
                                         (:cron raw-data) (assoc :cron cron))
                 root-schema     (cached-root-schema)
-                root-result     (cs/conform (runtime-schema root-schema) data)
+                root-result     (lexicon/conform (runtime-schema root-schema) data)
                 defaults-result (when-let [defaults (:defaults data)]
-                                  (cs/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
+                                  (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
             {:data     data
              :errors   (vec (concat errors
                                     (when (cs/error? root-result) (validation/schema-error-entries nil root-result))
@@ -409,7 +410,7 @@
   (reduce (fn [acc [id entity]]
             (let [id       (->id id)
                   warnings (collect-unknown-key-warnings [] (name kind) id entity entity-schema)
-                  entity   (cs/conform (runtime-schema entity-schema) entity)
+                  entity   (lexicon/conform (runtime-schema entity-schema) entity)
                   explicit (:id entity)]
               (-> acc
                   (update :warnings into warnings)
@@ -510,7 +511,7 @@
 
 (defn- finalize-entity-load-with-schema [entity-schema result kind id relative data extra-errors]
   (let [warnings    (collect-unknown-key-warnings [] (name kind) id data entity-schema)
-        entity      (cs/conform (runtime-schema entity-schema) data)
+        entity      (lexicon/conform (runtime-schema entity-schema) data)
         explicit-id (:id entity)
         result      (-> result
                         (update :warnings into warnings)

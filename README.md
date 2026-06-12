@@ -19,7 +19,7 @@ third-party modules do.
 
 ## What's here
 
-- `isaac.main` / `isaac.cli` — CLI dispatch; commands arrive as `:cli`
+- `isaac.main` / `isaac.cli.registry` — CLI dispatch; commands arrive as `:cli`
   berth contributions from module manifests.
 - `isaac.module.*` — module discovery (tools.deps coordinates in user
   config), manifest reading/validation, berth processing.
