@@ -28,4 +28,12 @@
                            io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}
              :main-opts   ["-m" "clj-mutate.core"]}
 
-  :features {:main-opts ["-m" "isaac.features-main"]}}}
+  :features {:extra-paths ["spec"
+                           "spec/marigold/bridge/src" "spec/marigold/bridge/resources"
+                           "spec/marigold/longwave/src" "spec/marigold/longwave/resources"]
+             :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
+                           io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+                           isaac.cli.greeter/isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}
+             :main-opts   ["-m" "gherclj.main"
+                           "-f" "features" "-s" "isaac.**-steps"
+                           "-t" "~slow" "-t" "~wip"]}}}

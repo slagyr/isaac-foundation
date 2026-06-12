@@ -17,7 +17,7 @@
    schema/check pre-work. Closed under isaac.* requires (asserted below)."
   '#{isaac.main isaac.cli isaac.core isaac.module isaac.system isaac.nexus
      isaac.fs isaac.logger isaac.root isaac.version isaac.naming isaac.scheduler
-     isaac.spec-helper isaac.features-main
+     isaac.spec-helper
      isaac.module.loader isaac.module.manifest
      isaac.scheduler.cron
      isaac.schema.dynamic isaac.schema.lexicon isaac.schema.meta
