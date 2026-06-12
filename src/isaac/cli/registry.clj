@@ -4,6 +4,7 @@
     [clojure.pprint :as pprint]
     [clojure.string :as str]
     [clojure.tools.cli :as tools-cli]
+    [isaac.cli.api :as api]
     [isaac.config.paths :as paths]
     [isaac.fs :as fs]))
 
@@ -16,7 +17,7 @@
    Options:
      :name    - command name (string)
      :usage   - usage line (e.g. \"isaac chat [options]\")
-     :desc    - short description for command listing
+     :summary - short description for command listing
      :option-spec - clojure.tools.cli option spec
      :run-fn  - (fn [parsed-opts]) to execute the command"
   [{:keys [name] :as cmd}]
@@ -30,28 +31,36 @@
 
 (defn- subcommand-summary [subcommands]
   (let [max-len (apply max (map #(count (:name %)) subcommands))]
-    (str/join "\n" (map (fn [{:keys [name desc]}]
+    (str/join "\n" (map (fn [{:keys [name summary]}]
                            (str "  " name
                                 (apply str (repeat (- (+ max-len 4) (count name)) " "))
-                                desc))
+                                summary))
                          subcommands))))
 
+(defn- ensure-impl!
+  "Load a berth command's implementing namespace so its isaac.cli.api
+   defmethods are installed. No-op for statically-registered commands."
+  [{:keys [namespace]}]
+  (when namespace (require namespace)))
+
 (defn command-help [cmd]
-  (if-let [help-text (:help-text cmd)]
+  (ensure-impl! cmd)
+  (if-let [help-text (or (some-> (:id cmd) api/help) (:help-text cmd))]
     (if (fn? help-text) (help-text) help-text)
-    (let [summary     (when-let [option-spec (:option-spec cmd)]
+    (let [option-spec (or (some-> (:id cmd) api/option-spec) (:option-spec cmd))
+          options     (when option-spec
                         (-> (tools-cli/parse-opts [] option-spec)
                             :summary
                             str/trim-newline))
-          subcommands (:subcommands cmd)]
+          subcommands (or (some-> (:id cmd) api/subcommands) (:subcommands cmd))]
       (str/join "\n"
                 (concat [(str "Usage: isaac " (:usage cmd))
                          ""
-                         (:desc cmd)]
-                        (when-not (str/blank? summary)
+                         (:summary cmd)]
+                        (when-not (str/blank? options)
                           [""
                            "Options:"
-                           summary])
+                           options])
                         (when (seq subcommands)
                           [""
                            "Subcommands:"
@@ -149,12 +158,11 @@
         (print-success! (or display-root root))
         0))))
 
-(defn init-run-fn [{:keys [display-root root _raw-args fs]}]
-  (if (some #(or (= "--help" %) (= "-h" %)) (or _raw-args []))
-    (do
-      (println (init-help))
-      0)
-    (init-run {:display-root display-root :root root :fs fs})))
+(defmethod api/run :init [_id {:keys [display-root root fs]}]
+  (init-run {:display-root display-root :root root :fs fs}))
+
+(defmethod api/help :init [_id]
+  (init-help))
 
 ;; endregion ^^^^^ Init Command ^^^^^
 
@@ -185,42 +193,34 @@
 
 (defn register-cli-command!
   "Per-entry factory for the :isaac/cli berth. The berth is a map of
-   command id -> command spec, so each entry arrives as [id spec]; the
-   command's name derives from the id, making uniqueness structural
-   (a duplicate id doesn't survive EDN parsing). Resolves the
-   symbol-valued slots (run-fn / help-text / option-spec /
-   subcommands) and registers the command, wrapping the run-fn in
-   --help handling so module-supplied commands get a per-command help
-   page for free."
-  [[id {:keys [desc usage option-spec run-fn help-text subcommands]}]]
-  (let [name              (clojure.core/name id)
-        resolved-run-fn   (maybe-resolve run-fn)
-        resolved-help-fn  (maybe-resolve help-text)
-        ;; option-spec may arrive as a symbol (pointing at a defed var
-        ;; — the EDN manifest can't inline tools.cli specs cleanly when
-        ;; they include fns) or as inline data.
-        resolved-options  (if (symbol? option-spec) (maybe-resolve option-spec) option-spec)
-        ;; :subcommands is symbol-valued in manifests (the vector
-        ;; carries per-subcommand :run fns the EDN can't inline);
-        ;; resolve it so command-help renders the subcommand list.
-        resolved-subcmds  (if (symbol? subcommands) (maybe-resolve subcommands) subcommands)
-        cmd               (cond-> {:name name}
-                            desc             (assoc :desc desc)
-                            usage            (assoc :usage usage)
-                            resolved-options (assoc :option-spec resolved-options)
-                            resolved-subcmds (assoc :subcommands resolved-subcmds)
-                            resolved-run-fn  (assoc :run-fn  resolved-run-fn)
-                            resolved-help-fn (assoc :help-text resolved-help-fn))
-        wrapped-run-fn    (when resolved-run-fn
-                            (let [help-cmd (dissoc cmd :run-fn)]
-                              (fn [{:keys [_raw-args] :as opts}]
-                                (if (#{"--help" "-h"} (first (or _raw-args [])))
-                                  (do (println (command-help help-cmd)) 0)
-                                  (resolved-run-fn opts)))))
-        final-cmd         (cond-> cmd
-                            wrapped-run-fn (assoc :run-fn wrapped-run-fn))]
-    (swap! berth-command-names* conj name)
-    (register! final-cmd)))
+   command id -> {:usage :summary :namespace}, so each entry arrives
+   as [id spec]; the command's name derives from the id. Behavior
+   lives in isaac.cli.api multimethods implemented by :namespace,
+   which loads lazily — the command listing renders from manifest
+   data alone. A duplicate id across modules throws, which the berth
+   pass surfaces as a validation error."
+  [[id {:keys [usage summary namespace]}]]
+  (let [name (clojure.core/name id)]
+    (when (contains? @berth-command-names* name)
+      (throw (ex-info (str "duplicate CLI command \"" name "\"")
+                      {:command id :namespace namespace})))
+    (let [cmd    {:name      name
+                  :id        id
+                  :usage     usage
+                  :summary   summary
+                  :namespace namespace}
+          run-fn (fn [{:keys [_raw-args] :as opts}]
+                   (if (#{"--help" "-h"} (first (or _raw-args [])))
+                     (do (println (command-help cmd)) 0)
+                     (do (ensure-impl! cmd)
+                         (if (get-method api/run id)
+                           (api/run id opts)
+                           (binding [*out* *err*]
+                             (println (str "command " id " (" namespace
+                                           ") implements no isaac.cli.api/run"))
+                             1)))))]
+      (swap! berth-command-names* conj name)
+      (register! (assoc cmd :run-fn run-fn)))))
 
 ;; endregion ^^^^^ Berth registration factory -----
 

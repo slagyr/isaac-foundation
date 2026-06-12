@@ -7,12 +7,9 @@
                                                         :key-spec   {:type :keyword}
                                                         :value-spec {:type    :map
                                                                      :factory isaac.cli.registry/register-cli-command!
-                                                                     :schema  {:desc        {:type :string}
-                                                                               :usage       {:type :string}
-                                                                               :option-spec {:type :any}
-                                                                               :run-fn      {:type :symbol}
-                                                                               :help-text   {:type :symbol}
-                                                                               :subcommands {:type :symbol}}}}}}
+                                                                     :schema  {:usage     {:type :string :validations [:present?]}
+                                                                               :summary   {:type :string :validations [:present?]}
+                                                                               :namespace {:type :symbol :validations [:present?]}}}}}}
            :isaac.config/schema {:description "Top-level config schema fragments contributed by modules."
                                  :manifest    {:schema {:type       :map
                                                         :key-spec   {:type :keyword}
@@ -31,6 +28,5 @@
                                                                      :schema {:fn {:type :symbol :validations [:present?]}}}}}}}
 
  :isaac/cli {:init {:usage     "init"
-                    :desc      "Scaffold a default Isaac config"
-                    :run-fn    isaac.cli.registry/init-run-fn
-                    :help-text isaac.cli.registry/init-help}}}
+                    :summary   "Scaffold a default Isaac config"
+                    :namespace isaac.cli.registry}}}

@@ -1,6 +1,7 @@
 (ns isaac.cli-spec
   (:require
     [clojure.edn :as edn]
+    [isaac.cli.api :as api]
     [isaac.cli.registry :as sut]
     [isaac.main :as main]
     [isaac.fs :as fs]
@@ -12,14 +13,14 @@
 (def ^:dynamic *fs* nil)
 
 (def sample-subcommands
-  [{:name "install" :desc "Install the thing"}
-   {:name "logs"    :desc "Tail the logs"}])
-
-(defn sample-run-fn [_opts] 0)
+  [{:name "install" :summary "Install the thing"}
+   {:name "logs"    :summary "Tail the logs"}])
 
 (def sample-received-args (atom nil))
 
-(defn sample-recording-run-fn [opts]
+;; this spec ns doubles as the :namespace implementing the :svc command
+(defmethod api/subcommands :svc [_id] sample-subcommands)
+(defmethod api/run :svc [_id opts]
   (reset! sample-received-args (:_raw-args opts))
   0)
 
@@ -29,34 +30,37 @@
 
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]
-    (let [saved @(deref #'sut/commands)]
+    (let [saved       @(deref #'sut/commands)
+          saved-berth @(deref #'sut/berth-command-names*)]
       (reset! @#'sut/commands {})
+      (reset! @#'sut/berth-command-names* #{})
       (example)
-      (reset! @#'sut/commands saved)))
+      (reset! @#'sut/commands saved)
+      (reset! @#'sut/berth-command-names* saved-berth)))
 
   (describe "register!"
 
     (it "registers a command by name"
-      (sut/register! {:name "test-cmd" :desc "A test" :run-fn identity})
+      (sut/register! {:name "test-cmd" :summary "A test" :run-fn identity})
       (should-not-be-nil (sut/get-command "test-cmd")))
 
     (it "stores all command fields"
       (let [cmd {:name    "greet"
                  :usage   "greet [name]"
-                 :desc    "Say hello"
+                 :summary    "Say hello"
                  :option-spec [["-l" "--loud" "Shout it"]]
                  :run-fn  identity}]
         (sut/register! cmd)
         (let [stored (sut/get-command "greet")]
           (should= "greet" (:name stored))
           (should= "greet [name]" (:usage stored))
-          (should= "Say hello" (:desc stored))
+          (should= "Say hello" (:summary stored))
           (should= [["-l" "--loud" "Shout it"]] (:option-spec stored)))))
 
     (it "overwrites a command with the same name"
-      (sut/register! {:name "dup" :desc "First" :run-fn identity})
-      (sut/register! {:name "dup" :desc "Second" :run-fn identity})
-      (should= "Second" (:desc (sut/get-command "dup")))))
+      (sut/register! {:name "dup" :summary "First" :run-fn identity})
+      (sut/register! {:name "dup" :summary "Second" :run-fn identity})
+      (should= "Second" (:summary (sut/get-command "dup")))))
 
   (describe "register-module-command!"
 
@@ -64,7 +68,7 @@
       (let [called? (atom false)]
         (sut/register-module-command! {:name   "greet"
                                        :usage  "greet"
-                                       :desc   "Print a greeting"
+                                       :summary   "Print a greeting"
                                        :run-fn (fn [_]
                                                  (reset! called? true)
                                                  0)})
@@ -77,7 +81,7 @@
       (let [called? (atom nil)]
         (sut/register-module-command! {:name   "greet"
                                        :usage  "greet"
-                                       :desc   "Print a greeting"
+                                       :summary   "Print a greeting"
                                        :run-fn (fn [opts]
                                                  (reset! called? opts)
                                                  7)})
@@ -86,23 +90,36 @@
 
   (describe "register-cli-command!"
 
-    (it "resolves a symbol-valued :subcommands so command-help renders them"
-      (sut/register-cli-command! [:svc {:usage       "svc <subcommand>"
-                                        :desc        "Manage a service"
-                                        :run-fn      'isaac.cli-spec/sample-run-fn
-                                        :subcommands 'isaac.cli-spec/sample-subcommands}])
+    (it "renders api/subcommands implementations in command-help"
+      (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"
+                                        :summary   "Manage a service"
+                                        :namespace 'isaac.cli-spec}])
       (let [help (sut/command-help (sut/get-command "svc"))]
         (should-contain "Subcommands:" help)
         (should-contain "install" help)
         (should-contain "Tail the logs" help)))
 
-    (it "lets command run-fn handle subcommand help"
+    (it "dispatches run through api/run, letting it handle subcommand args"
       (reset! sample-received-args nil)
-      (sut/register-cli-command! [:svc {:usage  "svc <subcommand>"
-                                        :desc   "Manage a service"
-                                        :run-fn 'isaac.cli-spec/sample-recording-run-fn}])
-      (should= 0 ((:run-fn (sut/get-command "svc")) {:_raw-args ["install" "--help"]}))
-      (should= ["install" "--help"] @sample-received-args)))
+      (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"
+                                        :summary   "Manage a service"
+                                        :namespace 'isaac.cli-spec}])
+      (should= 0 ((:run-fn (sut/get-command "svc")) {:_raw-args ["install" "--flag"]}))
+      (should= ["install" "--flag"] @sample-received-args))
+
+    (it "reports a structured failure when a command implements no api/run"
+      (sut/register-cli-command! [:ghost {:usage     "ghost"
+                                          :summary   "未implemented"
+                                          :namespace 'isaac.cli-spec}])
+      (let [err (StringWriter.)]
+        (binding [*err* err]
+          (should= 1 ((:run-fn (sut/get-command "ghost")) {:_raw-args []})))
+        (should-contain "implements no isaac.cli.api/run" (str err))))
+
+    (it "throws on a duplicate command id so the berth pass reports it"
+      (sut/register-cli-command! [:svc {:usage "svc" :summary "first" :namespace 'isaac.cli-spec}])
+      (should-throw clojure.lang.ExceptionInfo
+                    (sut/register-cli-command! [:svc {:usage "svc" :summary "again" :namespace 'isaac.cli-spec}]))))
 
   (describe "get-command"
 
@@ -110,8 +127,8 @@
       (should-be-nil (sut/get-command "nonexistent")))
 
     (it "returns the registered command"
-      (sut/register! {:name "found" :desc "Here" :run-fn identity})
-      (should= "Here" (:desc (sut/get-command "found")))))
+      (sut/register! {:name "found" :summary "Here" :run-fn identity})
+      (should= "Here" (:summary (sut/get-command "found")))))
 
   (describe "all-commands"
 
@@ -119,18 +136,18 @@
       (should= [] (sut/all-commands)))
 
     (it "returns all commands sorted by name"
-      (sut/register! {:name "beta" :desc "B" :run-fn identity})
-      (sut/register! {:name "alpha" :desc "A" :run-fn identity})
-      (sut/register! {:name "gamma" :desc "G" :run-fn identity})
+      (sut/register! {:name "beta" :summary "B" :run-fn identity})
+      (sut/register! {:name "alpha" :summary "A" :run-fn identity})
+      (sut/register! {:name "gamma" :summary "G" :run-fn identity})
       (let [names (map :name (sut/all-commands))]
         (should= ["alpha" "beta" "gamma"] names))))
 
   (describe "command-help"
 
-    (it "formats help text with usage, desc, and options"
+    (it "formats help text with usage, summary, and options"
       (let [cmd {:name    "chat"
                  :usage   "chat [options]"
-                 :desc    "Start a chat"
+                 :summary    "Start a chat"
                  :option-spec [["-m" "--model MODEL" "Model to use"]
                                ["-r" "--resume" "Resume session"]]}
             help (sut/command-help cmd)]
@@ -141,7 +158,7 @@
         (should-contain "--resume" help)))
 
     (it "renders help without options"
-      (let [cmd  {:name "info" :usage "info" :desc "Show info" :option-spec []}
+      (let [cmd  {:name "info" :usage "info" :summary "Show info" :option-spec []}
             help (sut/command-help cmd)]
         (should-contain "Usage: isaac info" help)
         (should-contain "Show info" help)
@@ -150,9 +167,9 @@
     (it "renders subcommands when present"
       (let [cmd  {:name "service"
                   :usage "service [options] <subcommand>"
-                  :desc "Manage Isaac as a background service"
-                  :subcommands [{:name "install" :desc "Install Isaac as a launchd service"}
-                                {:name "logs" :desc "Tail Isaac service logs"}]}
+                  :summary "Manage Isaac as a background service"
+                  :subcommands [{:name "install" :summary "Install Isaac as a launchd service"}
+                                {:name "logs" :summary "Tail Isaac service logs"}]}
             help (sut/command-help cmd)]
         (should-contain "Usage: isaac service [options] <subcommand>" help)
         (should-contain "Subcommands:" help)

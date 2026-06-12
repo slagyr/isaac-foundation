@@ -69,7 +69,7 @@
          (str/join "\n" (map (fn [cmd]
                                (str "  " (:name cmd)
                                     (apply str (repeat (- (+ max-len 4) (count (:name cmd))) " "))
-                                    (:desc cmd)))
+                                    (:summary cmd)))
                              cmds)))))
 
 (defn- resolve-alias

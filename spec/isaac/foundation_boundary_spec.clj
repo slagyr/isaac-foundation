@@ -25,7 +25,7 @@
      isaac.config.paths isaac.config.nav isaac.config.companion isaac.config.loader
      isaac.config.api isaac.config.berths isaac.config.schema-base
      isaac.config.check-compose isaac.config.schema-compose isaac.config.validation
-     isaac.cli.color isaac.cli.table isaac.shell})
+     isaac.cli.api isaac.cli.color isaac.cli.table isaac.shell})
 
 (def forbidden-prefixes
   ["isaac.server" "isaac.session" "isaac.llm" "isaac.comm" "isaac.bridge"

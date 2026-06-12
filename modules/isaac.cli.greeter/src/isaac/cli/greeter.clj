@@ -1,14 +1,19 @@
-(ns isaac.cli.greeter)
+(ns isaac.cli.greeter
+  (:require
+    [isaac.cli.api :as cli-api]))
 
 (def subcommands
-  [{:name "wave" :desc "Wave hello"}
-   {:name "bow"  :desc "Take a bow"}])
+  [{:name "wave" :summary "Wave hello"}
+   {:name "bow"  :summary "Take a bow"}])
 
-(defn run-fn [{:keys [_raw-args]}]
+(defmethod cli-api/run :greet [_id {:keys [_raw-args]}]
   (println "Hello from the greeter module!")
   0)
 
+(defmethod cli-api/subcommands :greet [_id]
+  subcommands)
+
 (defn make-command []
-  {:name    "greet"
-   :usage   "greet"
-   :run-fn  run-fn})
+  {:name   "greet"
+   :usage  "greet"
+   :run-fn (fn [opts] (cli-api/run :greet opts))})

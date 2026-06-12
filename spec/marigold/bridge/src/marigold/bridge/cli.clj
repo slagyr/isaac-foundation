@@ -15,5 +15,5 @@
 (defn register-cli-command!
   [{:keys [name desc run-fn]}]
   (registry/register! (cond-> {:name name}
-                        desc   (assoc :desc desc)
+                        desc   (assoc :summary desc)
                         run-fn (assoc :run-fn (maybe-resolve run-fn)))))
