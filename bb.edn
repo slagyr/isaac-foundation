@@ -26,13 +26,7 @@
          org.clojure/tools.reader            {:mvn/version "1.4.2"}}
 
  :tasks
- {:init         (defn feature-dirs []
-                  (cons "features"
-                        (->> (babashka.fs/glob "." "modules/*/features")
-                             (map str)
-                             sort)))
-
-  isaac         {:doc  "Isaac CLI"
+ {isaac         {:doc  "Isaac CLI"
                  :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
 
   spec          {:doc      "Run speclj specs (default target: spec/; pass file/dir to narrow)"
@@ -65,10 +59,9 @@
   features      {:doc      "Run gherclj feature specs (default: excludes @slow and @wip)"
                  :requires ([gherclj.main :as main])
                  :task     (do
-                             (when (babashka.fs/exists? "target/gherclj/generated")
-                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (run 'clean)
                              (apply main/-main
-                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                               (concat ["-f" "features"]
                                        ["-s" "isaac.**-steps"
                                         "-t" "~slow" "-t" "~wip"]
                                        *command-line-args*)))}
@@ -76,10 +69,9 @@
   features-slow {:doc      "Run only @slow gherclj feature specs (excludes @wip)"
                  :requires ([gherclj.main :as main])
                  :task     (do
-                             (when (babashka.fs/exists? "target/gherclj/generated")
-                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (run 'clean)
                              (apply main/-main
-                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                               (concat ["-f" "features"]
                                        ["-s" "isaac.**-steps"
                                         "-t" "slow" "-t" "~wip"]
                                        *command-line-args*
@@ -88,10 +80,9 @@
   features-all  {:doc      "Run all gherclj feature specs (including @slow)"
                  :requires ([gherclj.main :as main])
                  :task     (do
-                             (when (babashka.fs/exists? "target/gherclj/generated")
-                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (run 'clean)
                              (apply main/-main
-                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                               (concat ["-f" "features"]
                                        ["-s" "isaac.**-steps"]
                                        *command-line-args*)))}
 
@@ -102,10 +93,9 @@
   feature-docs  {:doc      "Run gherclj feature specs with documentation reporter"
                  :requires ([gherclj.main :as main])
                  :task     (do
-                             (when (babashka.fs/exists? "target/gherclj/generated")
-                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (run 'clean)
                              (apply main/-main
-                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                               (concat ["-f" "features"]
                                        ["-s" "isaac.**-steps"
                                         "-t" "~slow" "-t" "~wip"]
                                        *command-line-args*
@@ -114,7 +104,7 @@
   gherclj       {:doc      "Run gherclj with raw CLI args (subcommands: steps, match, ambiguity, unused)"
                  :requires ([gherclj.main :as main])
                  :task     (apply main/-main
-                             (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                             (concat ["-f" "features"]
                                      ["-s" "isaac.**-steps"]
                                      *command-line-args*))}
 
@@ -130,7 +120,7 @@
   unused        {:doc      "Report step definitions not referenced by any feature"
                  :requires ([gherclj.main :as main])
                  :task     (apply main/-main
-                             (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                             (concat ["-f" "features"]
                                      ["-s" "isaac.**-steps" "unused"]
                                      *command-line-args*))}
 
