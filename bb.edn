@@ -1,0 +1,154 @@
+{:paths ["src" "spec"
+         ;; Test fixtures masquerading as real modules — their factory
+         ;; symbols (marigold.bridge.signal/register-route!, etc.) need
+         ;; to be on the classpath because tests no-op add-module-deps!
+         ;; rather than letting tools.deps fetch + extend the path.
+         "spec/marigold/bridge/src"
+         "spec/marigold/longwave/src"
+         ;; resources/isaac-manifest.edn for each fixture — needed for
+         ;; classpath-based manifest discovery from main's CLI dispatch
+         ;; path (the test stubs the loader's resolve-manifest-resource
+         ;; only inside config_steps).
+         "spec/marigold/bridge/resources"
+         "spec/marigold/longwave/resources"]
+
+ :deps  {clj-mutate/clj-mutate               {:git/url "https://github.com/slagyr/clj-mutate"
+                                              :git/sha "edf0362dee919f75541ce173ca7144c1230cd4de"}
+         com.cleancoders.c3kit/apron         {:mvn/version "3.0.0"}
+         io.github.slagyr/dry4clj            {:git/url "https://github.com/slagyr/dry4clj"
+                                              :git/sha "8274f453e4220e5407ca3611cc4fd27eac7acf4c"}
+         io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+         io.github.slagyr/scrap              {:git/url "https://github.com/slagyr/scrap"
+                                              :git/sha "0c3366abc60ae9b59783210a1f6bab9f2c9af76f"}
+         isaac.cli.greeter/isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}
+         org.clojure/tools.cli               {:mvn/version "1.1.230"}
+         speclj/speclj                       {:mvn/version "3.13.0"}
+         org.clojure/tools.reader            {:mvn/version "1.4.2"}}
+
+ :tasks
+ {:init         (defn feature-dirs []
+                  (cons "features"
+                        (->> (babashka.fs/glob "." "modules/*/features")
+                             (map str)
+                             sort)))
+
+  isaac         {:doc  "Isaac CLI"
+                 :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
+
+  spec          {:doc      "Run speclj specs (default target: spec/; pass file/dir to narrow)"
+                 :requires ([speclj.main :as speclj])
+                 :task     (let [mod-spec-dirs (->> (seq (.listFiles (java.io.File. "modules")))
+                                                 (filter (fn [f] (.isDirectory f)))
+                                                 (map (fn [f] (java.io.File. f "spec")))
+                                                 (filter (fn [f] (.isDirectory f)))
+                                                 (mapcat (fn [d] ["-D" (.getAbsolutePath d)])))]
+                             (if (seq *command-line-args*)
+                               (apply speclj/-main "-c" "-D" "spec" *command-line-args*)
+                               (apply speclj/-main (concat ["-c" "-D" "spec"] mod-spec-dirs))))}
+
+  ci            {:doc  "Run all spec + non-wip features"
+                 :task (do (shell "bb" "spec")
+                           (shell "bb" "features"))}
+
+  mutate        {:doc      "Run mutation testing"
+                 :requires ([clj-mutate.core :as mutate])
+                 :task     (apply mutate/-main *command-line-args*)}
+
+  scrap         {:doc      "Run SCRAP structural quality analysis on Speclj specs (default target: spec/; pass file/dir to narrow)"
+                 :requires ([scrap.core :as scrap])
+                 :task     (apply scrap/-main *command-line-args*)}
+
+  dry           {:doc      "Find candidate duplicate Clojure code by structure (default target: src/; pass paths to narrow)"
+                 :requires ([dry4clj.core :as dry4clj])
+                 :task     (apply dry4clj/-main *command-line-args*)}
+
+  features      {:doc      "Run gherclj feature specs (default: excludes @slow and @wip)"
+                 :requires ([gherclj.main :as main])
+                 :task     (do
+                             (when (babashka.fs/exists? "target/gherclj/generated")
+                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (apply main/-main
+                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                       ["-s" "isaac.**-steps"
+                                        "-t" "~slow" "-t" "~wip"]
+                                       *command-line-args*)))}
+
+  features-slow {:doc      "Run only @slow gherclj feature specs (excludes @wip)"
+                 :requires ([gherclj.main :as main])
+                 :task     (do
+                             (when (babashka.fs/exists? "target/gherclj/generated")
+                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (apply main/-main
+                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                       ["-s" "isaac.**-steps"
+                                        "-t" "slow" "-t" "~wip"]
+                                       *command-line-args*
+                                       ["--" "-c" "target/gherclj/generated" "-f" "documentation" "-P"])))}
+
+  features-all  {:doc      "Run all gherclj feature specs (including @slow)"
+                 :requires ([gherclj.main :as main])
+                 :task     (do
+                             (when (babashka.fs/exists? "target/gherclj/generated")
+                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (apply main/-main
+                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                       ["-s" "isaac.**-steps"]
+                                       *command-line-args*)))}
+
+  clean         {:doc  "Remove generated and test artifacts"
+                 :task (do (babashka.fs/delete-tree "target")
+                           (println "Cleaned target/"))}
+
+  feature-docs  {:doc      "Run gherclj feature specs with documentation reporter"
+                 :requires ([gherclj.main :as main])
+                 :task     (do
+                             (when (babashka.fs/exists? "target/gherclj/generated")
+                               (babashka.fs/delete-tree "target/gherclj/generated"))
+                             (apply main/-main
+                               (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                       ["-s" "isaac.**-steps"
+                                        "-t" "~slow" "-t" "~wip"]
+                                       *command-line-args*
+                                       ["--" "-c" "target/gherclj/generated" "-f" "documentation" "-P"])))}
+
+  gherclj       {:doc      "Run gherclj with raw CLI args (subcommands: steps, match, ambiguity, unused)"
+                 :requires ([gherclj.main :as main])
+                 :task     (apply main/-main
+                             (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                     ["-s" "isaac.**-steps"]
+                                     *command-line-args*))}
+
+  steps         {:doc      "Print registered step catalog (phrase, docstring, location)"
+                 :requires ([gherclj.main :as main])
+                 :task     (main/-main "-s" "isaac.**-steps" "steps")}
+
+  match-step    {:doc      "Resolve a step phrase to its definition (or report unmatched)"
+                 :requires ([gherclj.main :as main])
+                 :task     (apply main/-main "-s" "isaac.**-steps" "match"
+                             *command-line-args*)}
+
+  unused        {:doc      "Report step definitions not referenced by any feature"
+                 :requires ([gherclj.main :as main])
+                 :task     (apply main/-main
+                             (concat (mapcat (fn [d] ["-f" d]) (feature-dirs))
+                                     ["-s" "isaac.**-steps" "unused"]
+                                     *command-line-args*))}
+
+  lint          {:doc      "Run clj-kondo lint (default: src spec; pass file/dir to narrow)"
+                 :requires ([babashka.pods :as pods])
+                 :task     (do
+                             (pods/load-pod 'clj-kondo/clj-kondo "2024.03.13")
+                             (let [run! (requiring-resolve 'pod.borkdude.clj-kondo/run!)
+                                   targets (if (seq *command-line-args*)
+                                             (vec *command-line-args*)
+                                             ["src" "spec"])
+                                   result (run! {:lint targets})
+                                   {:keys [error warning]} (:summary result)]
+                               (doseq [{:keys [filename row col level message]} (:findings result)]
+                                 (println (str filename ":" row ":" col ": " (name level) ": " message)))
+                               (println (str "clj-kondo: " error " error(s), " warning " warning(s)"))
+                               (when (pos? error)
+                                 (System/exit 1))))}
+
+  hooks:install {:doc  "Configure git to use repo-tracked hooks"
+                 :task (shell "git" "config" "core.hooksPath" ".githooks")}}}

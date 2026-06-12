@@ -1,0 +1,22 @@
+;; Subproject deps.edn — lets consumers pull the foundation spec tree
+;; (step definitions, marigold fixtures, helpers) as a separate
+;; coordinate from production isaac-foundation via :deps/root "spec":
+;;
+;;   io.github.slagyr/isaac-foundation-spec
+;;     {:git/url "git@github.com:slagyr/isaac-foundation.git"
+;;      :git/sha "..."
+;;      :deps/root "spec"}
+;;
+;; Production isaac-foundation (root deps.edn) keeps :paths ["src"] and
+;; has no speclj/gherclj on its classpath. Consumers that want steps add
+;; this subcoord; production users never see it.
+;;
+;; isaac-foundation itself is NOT declared here — the consumer is
+;; expected to already depend on it directly, and this subproject's
+;; namespaces resolve against the consumer's coord.
+{:paths ["."
+         "marigold/bridge/src" "marigold/bridge/resources"
+         "marigold/longwave/src" "marigold/longwave/resources"]
+ :deps  {speclj/speclj            {:mvn/version "3.13.0"}
+         babashka/process         {:mvn/version "0.5.22"}
+         io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}}

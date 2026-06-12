@@ -1,0 +1,37 @@
+{:id      :isaac.core
+ :version "0.1.0"
+ :factory isaac.core/create-module
+
+ :berths  {:cli                   {:description "CLI commands installed into the top-level isaac command registry."
+                                    :manifest    {:schema {:type :seq
+                                                           :spec {:type    :map
+                                                                  :factory isaac.cli/register-cli-command!
+                                                                  :schema  {:name        {:type :string :validations [:present?]}
+                                                                            :desc        {:type :string}
+                                                                            :usage       {:type :string}
+                                                                            :option-spec {:type :any}
+                                                                            :run-fn      {:type :symbol}
+                                                                            :help-text   {:type :symbol}
+                                                                            :subcommands {:type :symbol}}}}}}
+           :isaac.config/schema   {:description "Top-level config schema fragments contributed by modules."
+                                  :manifest    {:schema {:type       :map
+                                                         :key-spec   {:type :keyword}
+                                                         :value-spec {:type   :map
+                                                                      :schema {:fragment           {:type :symbol :validations [:present?]}
+                                                                               :entity-dir         {:type :string}
+                                                                               :frontmatter?       {:type :boolean}
+                                                                               :merge-root-entity? {:type :boolean}
+                                                                               :companion          {:type   :map
+                                                                                                    :schema {:field {:type :keyword}
+                                                                                                             :mode  {:type :keyword}}}}}}}}
+           :isaac.config/check    {:description "Post-load config validation checks contributed by modules."
+                                  :manifest    {:schema {:type       :map
+                                                         :key-spec   {:type :keyword}
+                                                         :value-spec {:type :map
+                                                                      :schema {:fn {:type :symbol :validations [:present?]}}}}}}}
+
+ :cli     [{:name      "init"
+            :usage     "init"
+            :desc      "Scaffold a default Isaac config"
+            :run-fn    isaac.cli/init-run-fn
+            :help-text isaac.cli/init-help}]}

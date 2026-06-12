@@ -1,0 +1,37 @@
+{:id      :marigold.bridge
+ :version "1.0.0"
+ :factory marigold.bridge/create-module
+ :berths  {:marigold.bridge/comm
+           {:description "Comm channels (longwave, skybeam, logbook, ...)."
+            :manifest    {:schema {:type       :map
+                                   :key-spec   {:type :keyword}
+                                   :value-spec {:type   :map
+                                                :schema {:extra-schema {:type :map}}}}}
+            :config      {:path   [:comms]
+                          :schema {:type       :map
+                                   :key-spec   {:type :keyword}
+                                   :value-spec {:type           :map
+                                                :schema         {:type {:type        :keyword
+                                                                        :message     "not a registered impl of :marigold.bridge/comm"
+                                                                        :validations [:present?
+                                                                                      [:registered-in? :marigold.bridge/comm]]}
+                                                                 :crew {:type :string}}
+                                                :dynamic-schema [:extra-schema]
+                                                :factory        marigold.bridge.comm/create-comm-node!}}}}
+           :marigold.bridge/signal-route
+           {:description "Routes a signal to a handler — registered per entry."
+            :manifest    {:schema {:type :seq
+                                   :spec {:type    :map
+                                          :factory marigold.bridge.signal/register-route!
+                                          :schema  {:method  {:type :keyword}
+                                                    :path    {:type :string}
+                                                    :handler {:type :symbol}}}}}}
+
+           :marigold.bridge/cli
+           {:description "CLI commands contributed via marigold.bridge's berth."
+            :manifest    {:schema {:type :seq
+                                   :spec {:type    :map
+                                          :factory marigold.bridge.cli/register-cli-command!
+                                          :schema  {:name    {:type :string :validations [:present?]}
+                                                    :desc    {:type :string}
+                                                    :run-fn  {:type :symbol}}}}}}}}

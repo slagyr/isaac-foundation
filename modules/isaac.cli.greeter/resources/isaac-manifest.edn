@@ -1,0 +1,13 @@
+{:id          :isaac.cli.greeter
+ :version     "0.1.0"
+ :factory     isaac.module/module
+ :description "A sample module that contributes a CLI subcommand"
+
+ ;; Contributes to isaac.core's :cli berth (phase 4 of berth epic).
+ ;; The berth's per-entry factory (isaac.cli/register-cli-command!)
+ ;; resolves :run-fn and installs each entry as a CLI command.
+ :cli         [{:name        "greet"
+                :desc        "Print a greeting"
+                :usage       "greet"
+                :run-fn      isaac.cli.greeter/run-fn
+                :subcommands isaac.cli.greeter/subcommands}]}
