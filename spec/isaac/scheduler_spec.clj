@@ -2,7 +2,7 @@
   (:require
     [isaac.logger :as log]
     [isaac.spec-helper :as helper]
-    [isaac.scheduler :as sut]
+    [isaac.scheduler.runtime :as sut]
     [speclj.core :refer :all])
   (:import
     (java.time Instant)))

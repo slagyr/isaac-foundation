@@ -1,6 +1,6 @@
 (ns isaac.module-spec
   (:require
-    [isaac.module :as sut]
+    [isaac.module.protocol :as sut]
     [speclj.core :refer :all]))
 
 (defrecord StartupOnlyModule [calls]
@@ -21,7 +21,7 @@
   (on-shutdown [{:keys [calls]}]
     (swap! calls conj :stopped)))
 
-(describe "isaac.module"
+(describe "isaac.module.protocol"
 
   (it "supports modules defined with defrecord"
     (let [calls  (atom [])

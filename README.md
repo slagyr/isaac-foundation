@@ -29,7 +29,7 @@ third-party modules do.
 - `isaac.schema.*` — schema runtime: lexicon extensions, dynamic schema,
   `[:registered-in? ...]` validation.
 - Shared utilities: `isaac.fs`, `isaac.logger`, `isaac.system`,
-  `isaac.nexus`, `isaac.scheduler`, `isaac.shell`, `isaac.root`.
+  `isaac.nexus`, `isaac.scheduler.runtime`, `isaac.shell`, `isaac.root`.
 
 ## Development
 

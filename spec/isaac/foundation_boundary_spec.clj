@@ -15,8 +15,8 @@
    config namespaces transitively required by isaac.config.loader
    (check-compose / schema-compose / validation), created by the config
    schema/check pre-work. Closed under isaac.* requires (asserted below)."
-  '#{isaac.main isaac.cli.registry isaac.core isaac.module isaac.system isaac.nexus
-     isaac.fs isaac.logger isaac.root isaac.version isaac.naming isaac.scheduler
+  '#{isaac.main isaac.cli.registry isaac.core isaac.module.protocol isaac.system isaac.nexus
+     isaac.fs isaac.logger isaac.root isaac.version isaac.naming isaac.scheduler.runtime
      isaac.spec-helper
      isaac.module.loader isaac.module.manifest
      isaac.scheduler.cron

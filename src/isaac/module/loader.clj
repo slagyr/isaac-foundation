@@ -5,7 +5,7 @@
     [clojure.string :as str]
     [isaac.fs :as fs]
     [isaac.logger :as log]
-    [isaac.module :as module]
+    [isaac.module.protocol :as module]
     [isaac.module.manifest :as manifest]
     [isaac.schema.lexicon :as lexicon]
     [isaac.schema.registered-in :as registered-in]))

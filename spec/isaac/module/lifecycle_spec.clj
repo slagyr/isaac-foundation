@@ -1,6 +1,6 @@
 (ns isaac.module.lifecycle-spec
   (:require
-    [isaac.module :as module]
+    [isaac.module.protocol :as module]
     [isaac.module.loader :as sut]
     [speclj.core :refer :all]))
 

@@ -1,4 +1,4 @@
-(ns isaac.scheduler
+(ns isaac.scheduler.runtime
   (:require
     [c3kit.apron.schema :as schema]
     [isaac.scheduler.cron :as cron]

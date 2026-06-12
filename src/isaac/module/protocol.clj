@@ -1,4 +1,4 @@
-(ns isaac.module)
+(ns isaac.module.protocol)
 
 (defprotocol Module
   (on-startup [this])
@@ -7,7 +7,7 @@
 (defn- missing-hook-implementation? [hook error]
   (and (instance? IllegalArgumentException error)
        (re-matches (re-pattern (str "No implementation of method: :" (name hook)
-                                    " of protocol: #'isaac\\.module/Module found for: .*"))
+                                    " of protocol: #'isaac\\.module\\.protocol/Module found for: .*"))
                    (.getMessage error))))
 
 (defn run-startup! [this]

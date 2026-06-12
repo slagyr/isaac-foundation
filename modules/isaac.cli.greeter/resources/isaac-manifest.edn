@@ -1,6 +1,6 @@
 {:id          :isaac.cli.greeter
  :version     "0.1.0"
- :factory     isaac.module/module
+ :factory     isaac.module.protocol/module
  :description "A sample module that contributes a CLI subcommand"
 
  ;; Contributes to isaac.core's :cli berth (phase 4 of berth epic).

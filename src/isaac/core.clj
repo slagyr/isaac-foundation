@@ -1,6 +1,6 @@
 (ns isaac.core
   (:require
-    [isaac.module :as module]))
+    [isaac.module.protocol :as module]))
 
 (defn create-module []
   (module/module))
