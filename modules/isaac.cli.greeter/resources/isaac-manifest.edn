@@ -6,8 +6,7 @@
  ;; Contributes to isaac.core's :isaac/cli berth.
  ;; The berth's per-entry factory (isaac.cli.registry/register-cli-command!)
  ;; resolves :run-fn and installs each entry as a CLI command.
- :isaac/cli   [{:name        "greet"
-                :desc        "Print a greeting"
-                :usage       "greet"
-                :run-fn      isaac.cli.greeter/run-fn
-                :subcommands isaac.cli.greeter/subcommands}]}
+ :isaac/cli   {:greet {:desc        "Print a greeting"
+                       :usage       "greet"
+                       :run-fn      isaac.cli.greeter/run-fn
+                       :subcommands isaac.cli.greeter/subcommands}}}

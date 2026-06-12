@@ -87,11 +87,10 @@
   (describe "register-cli-command!"
 
     (it "resolves a symbol-valued :subcommands so command-help renders them"
-      (sut/register-cli-command! {:name        "svc"
-                                  :usage       "svc <subcommand>"
-                                  :desc        "Manage a service"
-                                  :run-fn      'isaac.cli-spec/sample-run-fn
-                                  :subcommands 'isaac.cli-spec/sample-subcommands})
+      (sut/register-cli-command! [:svc {:usage       "svc <subcommand>"
+                                        :desc        "Manage a service"
+                                        :run-fn      'isaac.cli-spec/sample-run-fn
+                                        :subcommands 'isaac.cli-spec/sample-subcommands}])
       (let [help (sut/command-help (sut/get-command "svc"))]
         (should-contain "Subcommands:" help)
         (should-contain "install" help)
@@ -99,10 +98,9 @@
 
     (it "lets command run-fn handle subcommand help"
       (reset! sample-received-args nil)
-      (sut/register-cli-command! {:name   "svc"
-                                  :usage  "svc <subcommand>"
-                                  :desc   "Manage a service"
-                                  :run-fn 'isaac.cli-spec/sample-recording-run-fn})
+      (sut/register-cli-command! [:svc {:usage  "svc <subcommand>"
+                                        :desc   "Manage a service"
+                                        :run-fn 'isaac.cli-spec/sample-recording-run-fn}])
       (should= 0 ((:run-fn (sut/get-command "svc")) {:_raw-args ["install" "--help"]}))
       (should= ["install" "--help"] @sample-received-args)))
 

@@ -168,10 +168,11 @@
    :version "0.1.0"
    :factory 'isaac.core/create-module
    :berths  {:isaac/cli {:description "CLI commands."
-                   :manifest    {:schema {:type :seq
-                                          :spec {:type    :map
-                                                 :factory 'isaac.cli.registry/register-cli-command!
-                                                 :schema  {:name {:type :string}}}}}}
+                   :manifest    {:schema {:type       :map
+                                          :key-spec   {:type :keyword}
+                                          :value-spec {:type    :map
+                                                       :factory 'isaac.cli.registry/register-cli-command!
+                                                       :schema  {:desc {:type :string}}}}}}
              :isaac.config/schema {:description "Top-level config schema fragments."
                                    :manifest    {:schema {:type :map
                                                           :key-spec {:type :keyword}

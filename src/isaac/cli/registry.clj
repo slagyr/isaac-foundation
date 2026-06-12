@@ -184,15 +184,17 @@
     (reset! berth-command-names* #{})))
 
 (defn register-cli-command!
-  "Per-entry factory for the :isaac/cli berth. Each contribution entry is a
-   map describing a CLI command — name + desc + option-spec +
-   (symbol-valued) run-fn / help-text. Resolves the symbols and
-   registers the command, leaving the existing register! semantics
-   intact. Wraps the run-fn in --help handling so module-supplied
-   commands get a per-command help page for free (matches the old
-   register-module-command! shape)."
-  [{:keys [name desc usage option-spec run-fn help-text subcommands]}]
-  (let [resolved-run-fn   (maybe-resolve run-fn)
+  "Per-entry factory for the :isaac/cli berth. The berth is a map of
+   command id -> command spec, so each entry arrives as [id spec]; the
+   command's name derives from the id, making uniqueness structural
+   (a duplicate id doesn't survive EDN parsing). Resolves the
+   symbol-valued slots (run-fn / help-text / option-spec /
+   subcommands) and registers the command, wrapping the run-fn in
+   --help handling so module-supplied commands get a per-command help
+   page for free."
+  [[id {:keys [desc usage option-spec run-fn help-text subcommands]}]]
+  (let [name              (clojure.core/name id)
+        resolved-run-fn   (maybe-resolve run-fn)
         resolved-help-fn  (maybe-resolve help-text)
         ;; option-spec may arrive as a symbol (pointing at a defed var
         ;; — the EDN manifest can't inline tools.cli specs cleanly when
