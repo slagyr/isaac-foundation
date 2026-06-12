@@ -25,15 +25,9 @@
             ;; message-map. :factory uses the lexicon's :symbol type.
             :factory       {:type :symbol}
             :berths        {:type :ignore}
-            :deps          {:type :ignore}
-            ;; :cli is no longer a hardcoded extension kind — it's a berth
-            ;; (declared by isaac.core's manifest under :berths) and
-            ;; contributions flow through process-manifest-berths!. Stays
-            ;; ignored at the schema layer so existing manifests that put
-            ;; :cli at the top level still parse.
-            :cli           {:type :ignore}}})
+            :deps          {:type :ignore}}})
 
-(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :cli :deps :description :factory :id :version})
+(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :deps :description :factory :id :version})
 (def ^:private known-extend-kinds #{})
 (def ^:private known-keys (into known-meta-keys known-extend-kinds))
 
@@ -80,14 +74,10 @@
       :value "must be a map"}]
 
     :else
-    ;; Foundational berths declared by isaac.core (e.g., :cli — the
-    ;; well-known un-namespaced names that ship with the platform) are
-    ;; permitted as un-namespaced keywords. Third-party modules must
-    ;; namespace their berth ids so two modules can't accidentally
-    ;; collide on a generic name.
-    (let [core?     (= :isaac.core id)
-          allowed?  (fn [k] (or (qualified-keyword? k)
-                                 (and core? (keyword? k))))]
+    ;; Every berth id is a namespaced keyword — no exceptions, the
+    ;; foundation included (:isaac/cli). Namespacing prevents two
+    ;; modules colliding on a generic name and signals ownership.
+    (let [allowed?  qualified-keyword?]
       (vec
         (mapcat
           (fn [[k v]]

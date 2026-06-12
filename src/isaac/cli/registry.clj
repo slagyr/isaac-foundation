@@ -160,7 +160,7 @@
 
 ;; region ----- Berth registration factory -----
 ;;
-;; Phase 4 of the berth epic: `:cli` is now a berth declared by
+;; `:isaac/cli` is a berth declared by
 ;; isaac.core's manifest. The berth's per-entry factory (called by
 ;; isaac.module.loader/process-manifest-berths!) is this fn. It
 ;; resolves the entry's symbol-valued :run-fn / :help-text and
@@ -184,7 +184,7 @@
     (reset! berth-command-names* #{})))
 
 (defn register-cli-command!
-  "Per-entry factory for the :cli berth. Each contribution entry is a
+  "Per-entry factory for the :isaac/cli berth. Each contribution entry is a
    map describing a CLI command — name + desc + option-spec +
    (symbol-valued) run-fn / help-text. Resolves the symbols and
    registers the command, leaving the existing register! semantics

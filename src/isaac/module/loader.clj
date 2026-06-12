@@ -35,7 +35,7 @@
 
    Every other extension kind has migrated to a :isaac.server/* berth
    processed by `process-manifest-berths!` (phases 4–8 of brth):
-   :cli (phase 4), :route (phase 5), :tools (phase 6),
+   :isaac/cli (phase 4), :route (phase 5), :tools (phase 6),
    :slash-commands / :llm/api / :hook / :provider (phase 7), :comm
    (phase 8)."
   [kind handler-fn]

@@ -167,7 +167,7 @@
   {:id      :isaac.core
    :version "0.1.0"
    :factory 'isaac.core/create-module
-   :berths  {:cli {:description "CLI commands."
+   :berths  {:isaac/cli {:description "CLI commands."
                    :manifest    {:schema {:type :seq
                                           :spec {:type    :map
                                                  :factory 'isaac.cli.registry/register-cli-command!

@@ -1,15 +1,15 @@
-Feature: :cli declared as a berth (phase 4 of the berth epic)
-  Phase 4 of isaac-brth: re-declare `:cli` as a normal berth so the
+Feature: :isaac/cli declared as a berth
+  `:isaac/cli` is a normal berth so the
   same mechanism third-party modules use can host isaac's own
   built-in commands. Proves the loop end-to-end — the foundation
   isn't privileged; it uses the public extension API.
 
   CLI dispatch precedes server boot, so the foundation processes the
-  `:cli` berth BEFORE running Module/on-startup hooks. CLI handlers
+  `:isaac/cli` berth BEFORE running Module/on-startup hooks. CLI handlers
   are stateless registrations; lifecycle isn't required to invoke
   them.
 
-  Scenario: A module-declared CLI command dispatches through the :cli berth
+  Scenario: A module-declared CLI command dispatches through the :isaac/cli berth
     Given an empty Isaac state directory "/tmp/marigold"
     And the isaac file "isaac.edn" exists with:
       """
@@ -20,7 +20,7 @@ Feature: :cli declared as a berth (phase 4 of the berth epic)
     Then the stdout contains "pong"
     And the exit code is 0
 
-  Scenario: A :cli berth command resolves symbol-valued :subcommands into its help
+  Scenario: An :isaac/cli berth command resolves symbol-valued :subcommands into its help
     Given an empty Isaac state directory "/tmp/greeter"
     And the isaac file "isaac.edn" exists with:
       """

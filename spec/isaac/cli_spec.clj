@@ -181,7 +181,7 @@
                   *fs*  mem]
           ;; Phase 4 of the berth epic: init no longer side-effect-
           ;; registers at isaac.cli.registry load time — it's a foundation
-          ;; manifest :cli contribution. Process core's berths so
+          ;; manifest :isaac/cli contribution. Process core's berths so
           ;; tests see init in the registry without going through
           ;; main/run first.
           (module-loader/process-manifest-berths! (module-loader/builtin-index))

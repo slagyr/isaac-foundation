@@ -5,7 +5,7 @@
    the top-level isaac.cli.registry — same intent as
    isaac.cli.registry/register-cli-command! but scoped to bridge's own berth so
    the test can exercise berth machinery without coupling to
-   isaac.core's :cli berth."
+   isaac.core's :isaac/cli berth."
   (:require
     [isaac.cli.registry :as registry]))
 

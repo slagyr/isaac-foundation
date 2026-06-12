@@ -1,5 +1,5 @@
 Feature: Module-contributed CLI subcommands
-  A module that declares a `:cli` extension in its manifest can register
+  A module that declares an `:isaac/cli` extension in its manifest can register
   new `isaac <name>` subcommands.  The early discovery pass in main.clj
   runs before command dispatch so the command is visible at invocation time.
 

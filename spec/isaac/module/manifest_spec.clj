@@ -61,7 +61,7 @@
 (def cli-manifest
   {:id      :isaac.cli.greeter
    :version "0.1.0"
-   :cli     {:greet {:factory     'isaac.cli.greeter/make-command
+   :isaac/cli {:greet {:factory     'isaac.cli.greeter/make-command
                      :description "Print a greeting"}}})
 
 (def berth-manifest
@@ -109,7 +109,7 @@
       (spit (.getPath @tmp-file) (pr-str route-manifest))
       (should= route-manifest (sut/read-manifest (.getPath @tmp-file) (fs/real-fs))))
 
-    (it "parses a manifest with :cli extensions"
+    (it "parses a manifest with :isaac/cli extensions"
       (spit (.getPath @tmp-file) (pr-str cli-manifest))
       (should= cli-manifest (sut/read-manifest (.getPath @tmp-file) (fs/real-fs))))
 
@@ -127,7 +127,7 @@
         (fs/spit mem path (pr-str pigeon-manifest))
         (should= pigeon-manifest (sut/read-manifest path mem))))
 
-    ;; Phase 4 of the berth epic: :cli is now a berth, not a hardcoded
+    ;; :isaac/cli is a berth, not a hardcoded
     ;; extension kind. Per-entry :factory presence is enforced by the
     ;; berth's :manifest :schema rather than by read-manifest itself,
     ;; so the manifest reader no longer rejects this shape outright.
