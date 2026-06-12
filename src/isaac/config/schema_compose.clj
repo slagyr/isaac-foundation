@@ -125,10 +125,6 @@
   [kind]
   (get (descriptors) kind))
 
-(defn comm-base-fields
-  [root-schema]
-  (set (keys (:schema (get-in root-schema [:schema :comms :value-spec])))))
-
 (defn provider-entity-schema
   [root-schema]
   (schema-for-kind root-schema :providers))

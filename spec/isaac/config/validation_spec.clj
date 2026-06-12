@@ -67,6 +67,14 @@
                                           {:validations [[:requires-any? :crew :crew-tags]]}
                                           nil {:crew ["atticus"]} :addressing))))
 
+  (describe "present-when? under conformed values"
+
+    (it "fires when the discriminator was coerced to a string id"
+      (should= "is required when type is telly"
+               (:value (first (sut/annotation-errors* nil [:loft]
+                                                      {:validations [[:present-when? :type :telly]]}
+                                                      nil {:type "telly"} :loft))))))
+
   (describe "compaction-flavored refs"
 
     (it "[:percentage? hint] rejects 1.0, folding the hint into the message"

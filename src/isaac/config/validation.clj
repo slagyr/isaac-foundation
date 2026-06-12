@@ -83,9 +83,11 @@
    :message  (str (name smaller-key) " must be smaller than " (name larger-key))})
 
 (defn- present-when-ref [other-key expected]
+  ;; the discriminator compares by id — conformed configs carry
+  ;; string-coerced values where manifests write keywords.
   {:scope    :entity
    :validate (fn [entity field-key]
-               (or (not= expected (get entity other-key))
+               (or (not= (->id expected) (->id (get entity other-key)))
                    (cs/present? (get entity field-key))))
    :message  (str "is required when " (name other-key) " is " (->id expected))})
 

@@ -50,9 +50,17 @@
                 (reduce-kv
                   (fn [{:keys [fields owners]} field spec]
                     (if-let [existing (get owners field)]
-                      (throw (collision-error berth-key field [existing {:entry-id  entry-id
-                                                                         :module-id module-id}]))
-                      {:fields (assoc fields field spec)
+                      (if (= :base-schema (:module-id existing))
+                        ;; base fields always win — redeclaring a reserved
+                        ;; key is reported by the berth's reserved-key
+                        ;; check, not a load-killing collision.
+                        {:fields fields :owners owners}
+                        (throw (collision-error berth-key field [existing {:entry-id  entry-id
+                                                                           :module-id module-id}])))
+                      ;; :isaac/variant names the contributing entry so
+                      ;; aggregate views (config schema CLI) can label
+                      ;; which impl owns each gathered field.
+                      {:fields (assoc fields field (assoc spec :isaac/variant (name entry-id)))
                        :owners (assoc owners field {:entry-id  entry-id
                                                     :module-id module-id})}))
                   {:fields fields :owners owners}

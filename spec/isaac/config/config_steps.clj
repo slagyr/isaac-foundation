@@ -195,11 +195,11 @@
 
 (defn- edn-shaped?
   "Cheap heuristic: leading char hints the value is meant as EDN
-   (map / vector / keyword) rather than a plain string."
+   (map / vector / keyword / quoted string) rather than a plain string."
   [s]
   (and (string? s)
        (let [c (when (seq s) (first s))]
-         (contains? #{\{ \[ \:} c))))
+         (contains? #{\{ \[ \: \"} c))))
 
 (defn loaded-config-has [table]
   (let [config (or (config/snapshot "feature: loaded-config-has prefers the committed snapshot (hot-reload-aware)")

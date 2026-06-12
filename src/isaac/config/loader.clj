@@ -697,6 +697,43 @@
 
 ;; region ----- Loading -----
 
+(defn- slice-unknown-key-warnings
+  "Unknown-key warnings for an open-map berth slice — conform strips
+   unknown keys silently, so they are collected first. Shallow: one
+   warning per unknown field in each slot map."
+  [path spec slice]
+  (let [known (set (keys (get-in spec [:value-spec :schema])))]
+    (when (and (= :map (:type spec)) (seq known) (map? slice))
+      (for [[slot-id slot] slice
+            :when (map? slot)
+            [field _] slot
+            :when (not (contains? known field))]
+        {:key   (str/join "." (concat (map name path) [(->id slot-id) (name field)]))
+         :value "unknown key"}))))
+
+(defn- conform-berth-slices
+  "Conform each config-berth-claimed slice of `config` against its
+   composed schema from the effective root (validations stripped — the
+   annotation layer owns those), storing the coerced values back.
+   Uncoercible values become error rows, unknown fields warning rows;
+   berths/normalize-errors rewrites their keys downstream."
+  [module-index root-schema config]
+  (reduce
+    (fn [acc path]
+      (let [slice (get-in (:config acc) path)]
+        (if (nil? slice)
+          acc
+          (let [spec      (get-in root-schema (vec (mapcat (fn [segment] [:schema segment]) path)))
+                warnings  (slice-unknown-key-warnings path spec slice)
+                conformed (lexicon/conform (runtime-schema spec) slice)
+                acc       (update acc :warnings into warnings)]
+            (if (cs/error? conformed)
+              (update acc :errors into (validation/schema-error-entries
+                                         (str/join "." (map name path)) conformed))
+              (assoc-in acc (into [:config] path) conformed))))))
+    {:config config :errors [] :warnings []}
+    (berths/config-paths module-index)))
+
 (defn load-config-result
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
@@ -757,7 +794,8 @@
                                         config           (if data-path-overlay
                                                            (assoc-in config (:path data-path-overlay) (:value data-path-overlay))
                                                            config)
-                                        config           (assoc config
+                                        slices           (conform-berth-slices (:index discovery) effective-schema config)
+                                        config           (assoc (:config slices)
                                                            :module-index (:index discovery)
                                                            :root root)
                                         raw-providers    (merge (get-in result [:root :providers])
@@ -771,12 +809,16 @@
                                         contributed      (check-compose/run-checks (:index discovery) check-ctx)
                                         errors           (->> (concat (validation/semantic-errors config config-root effective-schema)
                                                                       (:errors discovery)
-                                                                      (:errors contributed))
+                                                                      (:errors contributed)
+                                                                      (:errors slices))
                                                             (into (:errors result))
                                                             (berths/normalize-errors (:index discovery)))]
                                     {:config   config
                                      :errors   (vec (sort-by :key errors))
-                                     :warnings (vec (sort-by :key (concat (:warnings result) (:warnings contributed))))
+                                     :warnings (->> (concat (:warnings result) (:warnings contributed) (:warnings slices))
+                                                    (berths/normalize-errors (:index discovery))
+                                                    (sort-by :key)
+                                                    vec)
                                      :sources  (vec (sort (:sources result)))}))))))
 
 ;; endregion ^^^^^ Loading ^^^^^

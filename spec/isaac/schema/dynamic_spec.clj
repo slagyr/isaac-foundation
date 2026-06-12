@@ -15,6 +15,19 @@
 
 (describe "dynamic schema composition"
 
+  (it "ignores a contribution that redeclares a base field — base wins, checks report it"
+    (let [decl  {:type :map :dynamic-schema [:extra-schema] :schema {:type {:type :id}}}
+          index {:mod.x {:manifest {:probe/berth {:badmod {:extra-schema {:type {:type :string}}}}}}}
+          composed (sut/compose decl :probe/berth index)]
+      (should= :id (get-in composed [:schema :type :type]))))
+
+  (it "annotates gathered fields with the contributing entry id as :isaac/variant"
+    (let [decl  {:type :map :dynamic-schema [:extra-schema] :schema {:crew {:type :string}}}
+          index {:mod.x {:manifest {:probe/berth {:longwave {:extra-schema {:helm/freq {:type :string}}}}}}}
+          composed (sut/compose decl :probe/berth index)]
+      (should= "longwave" (get-in composed [:schema :helm/freq :isaac/variant]))
+      (should-be-nil (get-in composed [:schema :crew :isaac/variant]))))
+
   (it "validates against the base schema only when no contributions exist"
     (let [spec     {:type           :map
                     :schema         {:base {:type :int}}
