@@ -530,7 +530,11 @@
 (defn- cycle-path [stack module-id]
   (conj (vec (drop-while #(not= % module-id) stack)) module-id))
 
-(defn- topological-order [module-index]
+(defn topological-order
+  "Module ids in dependency order — deps before dependents, alphabetical
+   tie-break. The order activation processes berths in; the config gather
+   orders contributions by it too so both agree on last-wins ownership."
+  [module-index]
   (let [visiting (atom #{})
         visited  (atom #{})
         order    (atom [])]
@@ -694,27 +698,44 @@
       ;; deferred — see bean's "Out of scope".
       []
       (if-let [factory (try (resolve-symbol! factory-sym) (catch Throwable _ nil))]
-        (vec
-          (mapcat
-            (fn [[consumer-id contribution]]
-              (keep
-                (fn [entry]
-                  (try
-                    (factory entry)
-                    nil
-                    (catch Throwable t
-                      ;; Don't let one consumer's broken factory abort
-                      ;; the whole berth pass. Log the activation
-                      ;; failure (mirrors activate!'s legacy error
-                      ;; channel) and collect a structured error row.
-                      (log/error :module/activation-failed
-                                 :module (when consumer-id (id-str consumer-id))
-                                 :berth  (str berth-id)
-                                 :error  (.getMessage t))
-                      {:key   (str "module-index[\"" (id-str consumer-id) "\"].berths[" berth-id "]")
-                       :value (.getMessage t)})))
-                (berth-contribution-entries berth-schema contribution)))
-            (contributions-to-berth module-index berth-id)))
+        ;; Process consumers in topological (load) order so the gather
+        ;; (schema-compose) and the activation agree on last-wins
+        ;; ownership. For keyed (:map) berths, a later module's entry
+        ;; overriding an earlier one's by id is audible — :<kind>/override
+        ;; at :warn — matching the gather's override event (isaac-un18).
+        (let [order  (try (zipmap (topological-order module-index) (range)) (catch Throwable _ nil))
+              ranked (sort-by (fn [[cid _]] (if order (get order cid) (id-str cid)))
+                              (contributions-to-berth module-index berth-id))
+              keyed? (= :map (:type berth-schema))
+              evt    (keyword (name berth-id) "override")
+              seen   (atom #{})]
+          (vec
+            (mapcat
+              (fn [[consumer-id contribution]]
+                (keep
+                  (fn [entry]
+                    (when keyed?
+                      (let [id (key entry)]
+                        (when (contains? @seen id)
+                          (log/warn evt :berth (str berth-id) :entry (id-str id)
+                                    :module (when consumer-id (id-str consumer-id))))
+                        (swap! seen conj id)))
+                    (try
+                      (factory entry)
+                      nil
+                      (catch Throwable t
+                        ;; Don't let one consumer's broken factory abort
+                        ;; the whole berth pass. Log the activation
+                        ;; failure (mirrors activate!'s legacy error
+                        ;; channel) and collect a structured error row.
+                        (log/error :module/activation-failed
+                                   :module (when consumer-id (id-str consumer-id))
+                                   :berth  (str berth-id)
+                                   :error  (.getMessage t))
+                        {:key   (str "module-index[\"" (id-str consumer-id) "\"].berths[" berth-id "]")
+                         :value (.getMessage t)})))
+                  (berth-contribution-entries berth-schema contribution)))
+              ranked)))
         [{:key   (str "module-index.berths[" berth-id "].factory")
           :value (str "could not resolve factory symbol: " factory-sym)}]))))
 

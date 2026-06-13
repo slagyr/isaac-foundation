@@ -2,6 +2,7 @@
   (:require
     [isaac.config.berths :as berths]
     [isaac.config.schema-base :as schema-base]
+    [isaac.logger :as log]
     [isaac.module.loader :as module-loader]))
 
 (def ^:private berth-key :isaac.config/schema)
@@ -33,14 +34,23 @@
             :type       :config-schema/invalid-schema
             :value      value}))
 
-(defn contribution-entries [module-index]
-  (->> module-index
-       (mapcat (fn [[module-id entry]]
-                 (for [[config-key descriptor] (sort-by key (get-in entry [:manifest berth-key] {}))]
-                   {:config-key config-key
-                    :descriptor descriptor
-                    :module-id  module-id})))
-       (sort-by (juxt #(id-str (:module-id %)) #(id-str (:config-key %))))))
+(defn contribution-entries
+  "All :isaac.config/schema contributions, ordered so a later (more
+   dependent) module's contribution is processed last — last-wins
+   ownership then matches the activation berths. Ordering is module
+   topological order (deps before dependents); on a dependency cycle it
+   falls back to alphabetical id order so compose never throws here."
+  [module-index]
+  (let [order (try (zipmap (module-loader/topological-order module-index) (range))
+                   (catch Throwable _ nil))
+        rank  (fn [module-id] (if order (get order module-id) (id-str module-id)))]
+    (->> module-index
+         (mapcat (fn [[module-id entry]]
+                   (for [[config-key descriptor] (sort-by key (get-in entry [:manifest berth-key] {}))]
+                     {:config-key config-key
+                      :descriptor descriptor
+                      :module-id  module-id})))
+         (sort-by (juxt #(rank (:module-id %)) #(id-str (:config-key %)))))))
 
 (defn- inline-schema [{:keys [schema] :as descriptor} module-index]
   (if (map? schema)
@@ -50,15 +60,33 @@
     (throw (ex-info (str "config-schema contribution :schema must be an inline map, got: " (pr-str schema))
                     {:schema schema :type :config-schema/invalid-schema :value schema}))))
 
+(defn- override-event [config-key]
+  (keyword (name config-key) "override"))
+
 (defn- merge-descriptors
-  "Recursively deep-merge two :isaac.config/schema descriptors for the
-   same config key. Maps merge key-wise; a non-map leaf present in both
-   must be equal — otherwise two modules disagree on the same field,
-   which is a collision. Distinct keys (e.g. one module adding its tool
-   to another's :tools table) just accrete."
+  "Deep-merge two :isaac.config/schema descriptors for the same config
+   key. Two levels (isaac-un18, the unified collision policy):
+
+   - **Table shell** — everything outside the table's entry map —
+     deep-merges; a non-map leaf present in both must be equal, else the
+     modules disagree on the table's *structure*, a collision (error).
+   - **Entity level** — the per-id entry map at `[:schema :schema]` — is
+     owned per id: a later module's entry replaces an earlier one's
+     wholesale (override is a feature), logged `:<config-key>/override`.
+     Distinct ids just accrete.
+
+   This matches the activation berths, where a later module's factory
+   replaces an earlier one's by name; the schema half now agrees."
   ([config-key a b] (merge-descriptors config-key [] a b))
   ([config-key path a b]
    (cond
+     (and (= path [:schema :schema]) (map? a) (map? b))
+     (reduce-kv (fn [acc entity-id b-entry]
+                  (when (contains? acc entity-id)
+                    (log/warn (override-event config-key) :config config-key :entity entity-id))
+                  (assoc acc entity-id b-entry))
+                a b)
+
      (and (map? a) (map? b))
      (reduce-kv (fn [acc k bv]
                   (if (contains? acc k)
