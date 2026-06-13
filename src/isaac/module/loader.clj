@@ -813,6 +813,26 @@
             {:index index :errors (into errors new-errors)}
             (recur (merge index new-entries) (into errors new-errors))))))))
 
+(defn duplicate-berth-declaration-errors
+  "A berth-id may be declared by only one module. Two modules declaring
+   the same berth would silently first-win (find-berth-decl takes the
+   first), validating contributions against whichever won the walk — so
+   flag it as a located error at discovery."
+  [module-index]
+  (->> module-index
+       (mapcat (fn [[module-id entry]]
+                 (for [berth-id (keys (get-in entry [:manifest :berths] {}))]
+                   [berth-id module-id])))
+       (group-by first)
+       (sort-by key)
+       (keep (fn [[berth-id pairs]]
+               (let [modules (distinct (map second pairs))]
+                 (when (> (count modules) 1)
+                   {:key   (str "berths[" berth-id "]")
+                    :value (str "berth declared by multiple modules: "
+                                (str/join ", " (map id-str (sort-by id-str modules))))}))))
+       vec))
+
 (defn discover!
   "Resolves module coordinates from config :modules and returns
    {:index {...} :errors [...]}."
@@ -844,4 +864,5 @@
         {:index  index
          :errors (into (into init-errors errors)
                        (concat (cycle-errors index)
+                               (duplicate-berth-declaration-errors index)
                                (validate-contributions! index)))}))))

@@ -765,6 +765,33 @@
     {:config config :errors [] :warnings []}
     (berths/config-paths module-index)))
 
+;; Config-berth compose/check collisions across modules (two modules
+;; disagreeing on a table's shell, a duplicate check id, an unresolvable
+;; check :fn) throw deep in schema-compose/check-compose. Catch them at
+;; the load boundary so `config validate` reports a located error row
+;; instead of a stack trace. (isaac-un18 already turned the common
+;; per-entry config-schema collision into a warning; these are the
+;; residual structural/check throws.)
+(def ^:private compose-error-types #{:config-schema/collision :config-schema/invalid-schema})
+(def ^:private check-error-types   #{:config-check/collision :config-check/missing-fn :config-check/invalid-fn})
+
+(defn- collision-error-row [prefix id-key e]
+  {:key   (if-let [id (id-key (ex-data e))] (str prefix "." (name id)) prefix)
+   :value (ex-message e)})
+
+(defn- compose-or-fallback
+  "Compose the effective root schema; on a config-schema collision /
+   invalid-schema, fall back to the builtin composition (which cannot
+   collide — only user modules do) and return the error so the load
+   reports it located and keeps going."
+  [module-index]
+  (try [(schema-compose/cache-composed! module-index) nil]
+       (catch clojure.lang.ExceptionInfo e
+         (if (compose-error-types (:type (ex-data e)))
+           [(schema-compose/cache-composed! (module-loader/builtin-index))
+            (collision-error-row "config-schema" :config-key e)]
+           (throw e)))))
+
 (defn load-config-result
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
@@ -786,7 +813,7 @@
                                                           (contains? root-data :modules) (assoc :modules (:modules root-data)))
                                         discovery       (module-loader/discover! discovery-input {:root root
                                                                                                   :cwd  (System/getProperty "user.dir")})
-                                        effective-schema (schema-compose/cache-composed! (:index discovery))
+                                        [effective-schema compose-error] (compose-or-fallback (:index discovery))
                                         {root-errors :errors root-warnings :warnings root-sources :sources}
                                         (validate-root-config effective-schema root-read)
                                         entity-kinds     (->> (schema-compose/descriptors)
@@ -841,11 +868,16 @@
                                                             :root             config-root
                                                             :result           result
                                                             :effective-schema effective-schema}
-                                        contributed      (check-compose/run-checks (:index discovery) check-ctx)
+                                        contributed      (try (check-compose/run-checks (:index discovery) check-ctx)
+                                                              (catch clojure.lang.ExceptionInfo e
+                                                                (if (check-error-types (:type (ex-data e)))
+                                                                  {:errors [(collision-error-row "config-check" :check-id e)] :warnings []}
+                                                                  (throw e))))
                                         errors           (->> (concat (validation/semantic-errors config config-root effective-schema)
                                                                       (:errors discovery)
                                                                       (:errors contributed)
-                                                                      (:errors slices))
+                                                                      (:errors slices)
+                                                                      (when compose-error [compose-error]))
                                                             (into (:errors result))
                                                             (berths/normalize-errors (:index discovery)))]
                                     {:config   config
