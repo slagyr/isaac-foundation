@@ -15,11 +15,15 @@
     (symbol? value)  (str value)
     :else            (pr-str value)))
 
-(defn- collision-error [config-key contributors]
-  (ex-info (str "config-schema collision at " config-key)
-           {:config-key   config-key
-            :contributors contributors
-            :type         :config-schema/collision}))
+(defn- collision-error [config-key path a b]
+  (ex-info (str "config-schema collision at " config-key
+                (when (seq path) (str " " (vec path)))
+                ": " (pr-str a) " vs " (pr-str b))
+           {:config-key config-key
+            :path       (vec path)
+            :a          a
+            :b          b
+            :type       :config-schema/collision}))
 
 (defn- invalid-schema-error [config-key module-id descriptor value]
   (ex-info (str "config-schema contribution for " config-key " must carry a valid inline :schema map: " value)
@@ -46,21 +50,48 @@
     (throw (ex-info (str "config-schema contribution :schema must be an inline map, got: " (pr-str schema))
                     {:schema schema :type :config-schema/invalid-schema :value schema}))))
 
+(defn- merge-descriptors
+  "Recursively deep-merge two :isaac.config/schema descriptors for the
+   same config key. Maps merge key-wise; a non-map leaf present in both
+   must be equal — otherwise two modules disagree on the same field,
+   which is a collision. Distinct keys (e.g. one module adding its tool
+   to another's :tools table) just accrete."
+  ([config-key a b] (merge-descriptors config-key [] a b))
+  ([config-key path a b]
+   (cond
+     (and (map? a) (map? b))
+     (reduce-kv (fn [acc k bv]
+                  (if (contains? acc k)
+                    (assoc acc k (merge-descriptors config-key (conj path k) (get acc k) bv))
+                    (assoc acc k bv)))
+                a b)
+     (= a b) a
+     :else   (throw (collision-error config-key path a b)))))
+
 (defn- merge-contributions [module-index]
-  (reduce
-    (fn [{:keys [fields descriptors owners]} {:keys [config-key descriptor module-id]}]
-      (let [fragment (try
-                       (inline-schema descriptor module-index)
-                       (catch Throwable t
-                         (throw (invalid-schema-error config-key module-id descriptor
-                                                      (ex-message t)))))]
-        (if-let [existing (get owners config-key)]
-          (throw (collision-error config-key [existing {:module-id module-id}]))
-          {:fields       (assoc fields config-key fragment)
-           :descriptors  (assoc descriptors config-key descriptor)
-           :owners       (assoc owners config-key {:module-id module-id})})))
-    {:fields {} :descriptors {} :owners {}}
-    (contribution-entries module-index)))
+  ;; Group every contribution by config key (deep-merging descriptors so
+  ;; several modules can extend one table), THEN compose each merged
+  ;; descriptor once — a module's partial fragment (no :type) only has to
+  ;; meta-conform after it is folded into the owning table's shell.
+  (let [grouped (reduce (fn [acc {:keys [config-key descriptor]}]
+                          (update acc config-key
+                                  (fn [existing]
+                                    (if existing
+                                      (merge-descriptors config-key existing descriptor)
+                                      descriptor))))
+                        {}
+                        (contribution-entries module-index))]
+    (reduce-kv
+      (fn [acc config-key descriptor]
+        (let [fragment (try
+                         (inline-schema descriptor module-index)
+                         (catch Throwable t
+                           (throw (invalid-schema-error config-key nil descriptor (ex-message t)))))]
+          (-> acc
+              (assoc-in [:fields config-key] fragment)
+              (assoc-in [:descriptors config-key] descriptor))))
+      {:fields {} :descriptors {}}
+      grouped)))
 
 (defn compose-root-schema
   [module-index]

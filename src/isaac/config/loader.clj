@@ -711,6 +711,37 @@
         {:key   (str/join "." (concat (map name path) [(->id slot-id) (name field)]))
          :value "unknown key"}))))
 
+(defn- nested-unknown-key-warnings
+  "Recursively collect unknown-key warnings for a config value against
+   its schema. A closed map (a :schema, no :value-spec) rejects keys
+   absent from the schema and descends into the known ones; an open map
+   (:value-spec) accepts any key and descends into each value against the
+   shared value-spec. The root conform pass strips these silently, so a
+   statically-declared config table (e.g. :tools) needs them gathered."
+  [path spec data]
+  (when (and (= :map (:type spec)) (map? data))
+    (if-let [value-spec (:value-spec spec)]
+      (mapcat (fn [[k v]] (nested-unknown-key-warnings (conj path k) value-spec v)) data)
+      (when-let [known (:schema spec)]
+        (concat
+          (for [[k _] data :when (not (contains? known k))]
+            {:key (str/join "." (map ->id (conj path k))) :value "unknown key"})
+          (mapcat (fn [[k v]]
+                    (when-let [child (get known k)]
+                      (nested-unknown-key-warnings (conj path k) child v)))
+                  data))))))
+
+(defn- config-table-warnings
+  "Unknown-key warnings for the statically-declared top-level config
+   tables — every table except those whose warnings are produced by the
+   berth-slice pass (berth-claimed paths) or the entity-collection pass
+   (entity-dir kinds), which would otherwise double-report."
+  [root-schema raw-data handled]
+  (mapcat (fn [[key spec]]
+            (when-not (contains? handled key)
+              (nested-unknown-key-warnings [key] spec (get raw-data key))))
+          (:schema root-schema)))
+
 (defn- conform-berth-slices
   "Conform each config-berth-claimed slice of `config` against its
    composed schema from the effective root (validations stripped — the
@@ -772,6 +803,10 @@
                                                           :errors          root-errors
                                                           :missing-config? false
                                                           :warnings        (vec (concat root-warnings
+                                                                                        (config-table-warnings
+                                                                                          effective-schema root-data
+                                                                                          (into (set (map first entity-kinds))
+                                                                                                (map first (berths/config-paths (:index discovery)))))
                                                                                         (mapcat :warnings (vals entity-files-by-kind))
                                                                                         md-warnings))
                                                           :sources         root-sources
@@ -814,7 +849,7 @@
                                                             (into (:errors result))
                                                             (berths/normalize-errors (:index discovery)))]
                                     {:config   config
-                                     :errors   (vec (sort-by :key errors))
+                                     :errors   (vec (distinct (sort-by :key errors)))
                                      :warnings (->> (concat (:warnings result) (:warnings contributed) (:warnings slices))
                                                     (berths/normalize-errors (:index discovery))
                                                     (sort-by :key)
