@@ -1,12 +1,13 @@
 {:id                          :marigold.longwave
  :version                     "0.1.0"
  :factory                     marigold.longwave/create-module
- :deps                        {:marigold.bridge {:local/root "spec/marigold/bridge"}}
+ :deps                        {:marigold.bridge {:local/root "modules/marigold.bridge"}}
  :marigold.bridge/comm
  {:longwave
   {:extra-schema {:helm/freq {:type        :string
                               :message     "must be present"
-                              :validations [:present?]}}}}
+                              :validations [:present?]}}}
+  :relay-station {}}
  :marigold.bridge/signal-route [{:method  :get
                                   :path    "/longwave/ping"
                                   :handler marigold.longwave/ping-handler}]

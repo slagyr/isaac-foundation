@@ -21,8 +21,8 @@ Feature: Manifest-only berth processing
     Given an empty Isaac state directory "/tmp/marigold"
     And the isaac file "isaac.edn" exists with:
       """
-      {:modules {:marigold.bridge   {:local/root "spec/marigold/bridge"}
-                 :marigold.longwave {:local/root "spec/marigold/longwave"}}}
+      {:modules {:marigold.bridge   {:local/root "modules/marigold.bridge"}
+                 :marigold.longwave {:local/root "modules/marigold.longwave"}}}
       """
     When the config is loaded
     Then the nexus has a route [:get "/longwave/ping"] with handler marigold.longwave/ping-handler

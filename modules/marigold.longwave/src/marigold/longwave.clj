@@ -1,6 +1,7 @@
 (ns marigold.longwave
   "Fixture consumer module shared by manifest-only and config-berth tests."
   (:require
+    [isaac.config.berths :as berths]
     [isaac.module.protocol :as module]
     [marigold.bridge.comm :as bridge.comm]))
 
@@ -12,6 +13,19 @@
    :path      path
    :crew      (:crew slice)
    :helm/freq (:helm/freq slice)})
+
+;; A Reconfigurable node: demonstrates that the berth engine delivers
+;; lifecycle calls to nodes that opt in (and recreates the ones that
+;; don't — see the plain :longwave map above).
+(defrecord RelayStation [state*]
+  berths/Reconfigurable
+  (on-startup! [_ slice]
+    (reset! state* {:slice slice :last-event :started}))
+  (on-config-change! [_ _old new]
+    (reset! state* {:slice new :last-event (if new :changed :stopped)})))
+
+(defmethod bridge.comm/create-comm-node! :relay-station [_path _slice]
+  (->RelayStation (atom {})))
 
 (defn ping-handler [_request]
   {:status 200

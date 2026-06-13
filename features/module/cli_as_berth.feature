@@ -13,8 +13,8 @@ Feature: :isaac/cli declared as a berth
     Given an empty Isaac state directory "/tmp/marigold"
     And the isaac file "isaac.edn" exists with:
       """
-      {:modules {:marigold.bridge   {:local/root "spec/marigold/bridge"}
-                 :marigold.longwave {:local/root "spec/marigold/longwave"}}}
+      {:modules {:marigold.bridge   {:local/root "modules/marigold.bridge"}
+                 :marigold.longwave {:local/root "modules/marigold.longwave"}}}
       """
     When isaac is run with "longwave-ping"
     Then the stdout contains "pong"

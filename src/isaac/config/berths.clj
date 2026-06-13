@@ -1,10 +1,16 @@
 (ns isaac.config.berths
   (:require
     [clojure.string :as str]
+    [isaac.config.schema-base :as schema-base]
+    [isaac.logger :as log]
     [isaac.nexus :as nexus]
     [isaac.schema.dynamic :as dynamic]
     [isaac.schema.lexicon :as lexicon]
     [isaac.schema.registered-in :as registered-in]))
+
+(defprotocol Reconfigurable
+  (on-startup!       [this slice])
+  (on-config-change! [this old-slice new-slice]))
 
 (defn- ordered-berth-decls [module-index]
   (reduce
@@ -144,23 +150,103 @@
     []))
 
 (defn- validate-node! [module-index spec value]
+  ;; annotation refs (:crew-exists?, [:registered-in? ...]) already ran
+  ;; in the load-time semantic pass with full validation context; node
+  ;; conform here is shape + coercion only.
   (binding [registered-in/*module-index* module-index]
-    (lexicon/conform! (dissoc spec :factory) value)))
+    (lexicon/conform! (schema-base/strip-validation-annotations (dissoc spec :factory)) value)))
+
+(defn- dotted [path]
+  (str/join "." (map #(schema-base/->id %) path)))
+
+(defn- node-impl
+  "The impl/variant label for lifecycle logs: a slot's :type when it
+   has one, else the slot's own name."
+  [node-path slice]
+  (schema-base/->id (or (when (map? slice) (or (get slice :type) (get slice "type")))
+                        (last node-path))))
+
+(defn- normalize-slot-key
+  "Open-map slot keys arrive keyword-keyed from injected configs and
+   string-keyed from conformed loads; node paths key slots by keyword."
+  [k]
+  (keyword (schema-base/->id k)))
+
+(defn- nodes-by-path
+  "All factory nodes under `path` for `slice`, keyed by node path."
+  [path schema slice]
+  (let [slice (if (and (= :map (:type schema)) (:value-spec schema) (map? slice))
+                (update-keys slice normalize-slot-key)
+                slice)]
+    (into {}
+          (map (fn [[node-path spec value]] [node-path [spec value]]))
+          (walk-factory-nodes path schema slice))))
+
+(defn- create-node! [module-index node-path node-spec slice]
+  (let [factory   (resolve-factory! (:factory node-spec))
+        conformed (validate-node! module-index node-spec slice)
+        node      (binding [registered-in/*module-index* module-index]
+                    (factory node-path conformed))]
+    (when (some? node)
+      (when (satisfies? Reconfigurable node)
+        (on-startup! node conformed))
+      (nexus/register! node-path node)
+      (log/info :lifecycle/started :path (dotted node-path) :impl (node-impl node-path conformed)))
+    node))
+
+(defn- remove-node! [node-path old-slice]
+  (when-let [existing (nexus/get-in node-path)]
+    (when (satisfies? Reconfigurable existing)
+      (on-config-change! existing old-slice nil))
+    (nexus/deregister! node-path)
+    (log/info :lifecycle/stopped :path (dotted node-path) :impl (node-impl node-path old-slice))))
+
+(defn- change-node! [module-index node-path node-spec old-slice new-slice]
+  (let [existing (nexus/get-in node-path)]
+    (cond
+      (nil? existing)
+      (create-node! module-index node-path node-spec new-slice)
+
+      (not= (node-impl node-path old-slice) (node-impl node-path new-slice))
+      (do (remove-node! node-path old-slice)
+          (create-node! module-index node-path node-spec new-slice))
+
+      (satisfies? Reconfigurable existing)
+      (do (on-config-change! existing old-slice new-slice)
+          (log/info :lifecycle/changed :path (dotted node-path) :impl (node-impl node-path new-slice)))
+
+      :else
+      (do (nexus/deregister! node-path)
+          (create-node! module-index node-path node-spec new-slice)))))
+
+(defn reconcile!
+  "Reconcile config-berth-claimed paths against the nexus: factory on
+   appearance, on-config-change! when the live node satisfies
+   Reconfigurable (recreate when it doesn't), deregister on removal.
+   Boot is old-config nil; shutdown is config nil — one engine for all
+   three."
+  [{:keys [config old-config module-index]}]
+  (doseq [[berth-id config-decl] (config-berths module-index)
+          :let [path      (:path config-decl)
+                schema    (composed-schema berth-id config-decl module-index)
+                old-nodes (nodes-by-path path schema (get-in old-config path))
+                new-nodes (nodes-by-path path schema (get-in config path))]
+          node-path (sort-by pr-str (into #{} (concat (keys old-nodes) (keys new-nodes))))]
+    (let [[_ old-slice]         (get old-nodes node-path)
+          [node-spec new-slice] (get new-nodes node-path)]
+      (cond
+        (and (nil? old-slice) (some? new-slice))
+        (when (nil? (nexus/get-in node-path))
+          (create-node! module-index node-path node-spec new-slice))
+
+        (and (some? old-slice) (nil? new-slice))
+        (remove-node! node-path old-slice)
+
+        (and (some? new-slice) (not= old-slice new-slice))
+        (change-node! module-index node-path node-spec old-slice new-slice))))
+  :installed)
 
 (defn install!
-  "Fire-once node construction for config-berth-claimed paths. Berths in
-   :exclude-berths are skipped — reconciler-owned slot trees install
-   through the diff engine, not here."
-  [{:keys [config module-index exclude-berths]}]
-  (doseq [[berth-id config-decl] (config-berths module-index)
-          :let [path  (:path config-decl)
-                slice (get-in config path)]
-          :when (and (some? slice)
-                     (not (contains? (or exclude-berths #{}) berth-id)))
-          :let [schema (composed-schema berth-id config-decl module-index)]
-          [node-path node-spec node-slice] (walk-factory-nodes path schema slice)]
-    (let [factory   (resolve-factory! (:factory node-spec))
-          conformed (validate-node! module-index node-spec node-slice)
-          node      (factory node-path conformed)]
-      (nexus/register! node-path node)))
-  :installed)
+  "Boot-shaped reconcile (no previous config)."
+  [opts]
+  (reconcile! (assoc opts :old-config nil)))
