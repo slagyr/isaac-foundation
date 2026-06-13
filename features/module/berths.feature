@@ -20,12 +20,12 @@ Feature: Module berth declarations (phase 1 — shape only)
        :factory marigold.bridge/create-module
        :berths  {:marigold.bridge/comm
                  {:description "Comm channels (longwave, skybeam, logbook, ...)."
-                  :manifest    {:type :map}
+                  :schema      {:type :map}
                   :config      {:path   [:comms]
                                 :schema {:type :map}}}
                  :marigold.bridge/signal-route
                  {:description "Signal route handlers."
-                  :manifest    {:type :seq}}}}
+                  :schema      {:type :seq}}}}
       """
     And the isaac file "isaac.edn" exists with:
       """
@@ -35,9 +35,9 @@ Feature: Module berth declarations (phase 1 — shape only)
     Then the loaded config has:
       | key                                                                                          | value                                            |
       | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1comm/description              | Comm channels (longwave, skybeam, logbook, ...). |
-      | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1comm/manifest          | {:type :map}                                     |
+      | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1comm/schema          | {:type :map}                                     |
       | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1comm/config/path              | [:comms]                                         |
-      | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1signal-route/manifest  | {:type :seq}                                     |
+      | /module-index/marigold.bridge/manifest/berths/marigold.bridge~1signal-route/schema  | {:type :seq}                                     |
     And the config has no validation errors
 
   Scenario: A berth declaration missing :description is a config-load error
@@ -51,7 +51,7 @@ Feature: Module berth declarations (phase 1 — shape only)
       {:id      :marigold.bridge
        :version "1.0.0"
        :factory marigold.bridge/create-module
-       :berths  {:marigold.bridge/comm {:manifest {:type :map}}}}
+       :berths  {:marigold.bridge/comm {:schema   {:type :map}}}}
       """
     And the isaac file "isaac.edn" exists with:
       """
@@ -74,7 +74,7 @@ Feature: Module berth declarations (phase 1 — shape only)
        :version "1.0.0"
        :factory marigold.bridge/create-module
        :berths  {:comm {:description "Comm channels."
-                        :manifest    {:type :map}}}}
+                        :schema      {:type :map}}}}
       """
     And the isaac file "isaac.edn" exists with:
       """

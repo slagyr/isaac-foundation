@@ -219,7 +219,7 @@
                         {:index {:isaac.core {:manifest {:id      :isaac.core
                                                          :version "1"
                                                          :berths  {:isaac/cli {:description "CLI commands"
-                                                                         :manifest     {:type       :map
+                                                                         :schema       {:type       :map
                                                                                         :key-spec   {:type :keyword}
                                                                                         :value-spec {:type    :map
                                                                                                      :factory 'isaac.cli.registry/register-cli-command!}}}}}}

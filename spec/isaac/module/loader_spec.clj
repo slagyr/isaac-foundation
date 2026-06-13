@@ -89,7 +89,7 @@
 
 (defn- berth-decl-with-factory [factory-sym]
   {:description "test berth"
-   :manifest    {:type :seq
+   :schema      {:type :seq
                   :spec {:type    :map
                          :factory factory-sym
                          :schema  {:method  {:type :keyword}
@@ -113,7 +113,7 @@
   {:id           :isaac.comm.pigeon
    :version      "0.1.0"
    :berths       {:pigeon/comm {:description "test comm berth"
-                                :manifest    {:type       :map
+                                :schema      {:type       :map
                                               :key-spec   {:type :keyword}
                                               :value-spec {:type   :map
                                                            :schema {:factory {:type :symbol}}}}}}
@@ -291,7 +291,7 @@
     (it "skips berths whose schema declares no entry-level :factory"
       (let [module-index {:provider {:manifest {:berths {:provider/silent
                                                           {:description "no factory"
-                                                           :manifest    {:type :seq
+                                                           :schema      {:type :seq
                                                                           :spec {:type :map}}}}}}
                           :consumer {:manifest {:provider/silent [{:k :v}]}}}]
         (should= [] (sut/process-manifest-berths! module-index))

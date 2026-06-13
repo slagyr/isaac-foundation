@@ -350,7 +350,7 @@
 
 (defn- berth-entry-factory-sym [module-index berth-id]
   (some (fn [[_ entry]]
-          (get-in entry [:manifest :berths berth-id :manifest :value-spec :factory]))
+          (get-in entry [:manifest :berths berth-id :schema :value-spec :factory]))
         module-index))
 
 (defn register-builtin-berth-entry!
@@ -513,7 +513,7 @@
             (fn [[berth-key value]]
               (if-let [berth-decl (find-berth-decl module-index berth-key)]
                 (contribution-validation-errors consumer-id berth-key value
-                                                (:manifest berth-decl))
+                                                (:schema berth-decl))
                 [(unknown-berth-error consumer-id berth-key)]))
             (collect-contributions (:manifest entry))))
         module-index))))
@@ -649,7 +649,7 @@
    `:config` shape — i.e., contributions come from manifests only, not
    user config slots."
   [berth-decl]
-  (and (contains? berth-decl :manifest)
+  (and (contains? berth-decl :schema)
        (not (contains? berth-decl :config))))
 
 (defn- entry-factory-symbol
@@ -686,7 +686,7 @@
    once per contribution entry across all consumers. Returns a vec of
    error rows (empty on success)."
   [module-index berth-id berth-decl]
-  (let [berth-schema (:manifest berth-decl)
+  (let [berth-schema (:schema berth-decl)
         factory-sym  (entry-factory-symbol berth-schema)]
     (if-not factory-sym
       ;; Foundation default for berths without an entry-level factory

@@ -3,7 +3,7 @@
  :factory marigold.bridge/create-module
  :berths  {:marigold.bridge/comm
            {:description "Relay channels (longwave, skybeam, logbook, ...) — a fixture config berth at [:relays]."
-            :manifest    {:type       :map
+            :schema      {:type       :map
                           :key-spec   {:type :keyword}
                           :value-spec {:type   :map
                                        :schema {:extra-schema {:type :map}}}}
@@ -20,7 +20,7 @@
                                                 :factory        marigold.bridge.comm/create-comm-node!}}}}
            :marigold.bridge/signal-route
            {:description "Routes a signal to a handler — registered per entry."
-            :manifest    {:type :seq
+            :schema      {:type :seq
                           :spec {:type    :map
                                  :factory marigold.bridge.signal/register-route!
                                  :schema  {:method  {:type :keyword}
@@ -29,7 +29,7 @@
 
            :marigold.bridge/cli
            {:description "CLI commands contributed via marigold.bridge's berth."
-            :manifest    {:type :seq
+            :schema      {:type :seq
                           :spec {:type    :map
                                  :factory marigold.bridge.cli/register-cli-command!
                                  :schema  {:name    {:type :string :validations [:present?]}
