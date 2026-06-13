@@ -151,6 +151,22 @@
   [value]
   (validate-spec! value []))
 
+(defn conform-schema!
+  "Validate `value` as an apron schema: a map of field keyword → spec.
+   Returns it, or throws naming the offending field."
+  [value]
+  (validate-schema-children! value [])
+  value)
+
+(defn valid-schema?
+  "True when `value` is a well-formed schema (field → spec map)."
+  [value]
+  (try (conform-schema! value) true (catch Throwable _ false)))
+
+;; wire the :schema-map lexicon type's validator (lexicon can't require
+;; meta, so meta populates the atom lexicon holds).
+(reset! lexicon/schema-map-validator valid-schema?)
+
 (def spec-schema
   {:type   :ignore
    :coerce conform-spec!})

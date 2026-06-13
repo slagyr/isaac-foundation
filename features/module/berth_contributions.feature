@@ -24,10 +24,10 @@ Feature: Contribution validation against a berth's :manifest :schema
        :factory marigold.bridge/create-module
        :berths  {:marigold.bridge/comm
                  {:description "Comm channels."
-                  :manifest {:schema {:type       :map
-                                      :key-spec   {:type :keyword}
-                                      :value-spec {:type :map
-                                                   :schema {:label {:type :string :validations [:present?]}}}}}}}}
+                  :manifest {:type       :map
+                             :key-spec   {:type :keyword}
+                             :value-spec {:type :map
+                                          :schema {:label {:type :string :validations [:present?]}}}}}}}
       """
     And the isaac file "/tmp/modules/marigold.longwave/deps.edn" exists with:
       """
@@ -64,10 +64,10 @@ Feature: Contribution validation against a berth's :manifest :schema
        :factory marigold.bridge/create-module
        :berths  {:marigold.bridge/comm
                  {:description "Comm channels."
-                  :manifest {:schema {:type       :map
-                                      :key-spec   {:type :keyword}
-                                      :value-spec {:type :map
-                                                   :schema {:label {:type :string :validations [:present?]}}}}}}}}
+                  :manifest {:type       :map
+                             :key-spec   {:type :keyword}
+                             :value-spec {:type :map
+                                          :schema {:label {:type :string :validations [:present?]}}}}}}}
       """
     And the isaac file "/tmp/modules/marigold.longwave/deps.edn" exists with:
       """

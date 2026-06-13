@@ -1,7 +1,6 @@
 (ns isaac.config.schema-compose
   (:require
     [isaac.config.berths :as berths]
-    [isaac.schema.meta :as meta-schema]
     [isaac.config.schema-base :as schema-base]
     [isaac.module.loader :as module-loader]))
 
@@ -39,9 +38,11 @@
                     :module-id  module-id})))
        (sort-by (juxt #(id-str (:module-id %)) #(id-str (:config-key %))))))
 
-(defn- inline-schema [{:keys [schema]}]
+(defn- inline-schema [{:keys [schema] :as descriptor} module-index]
   (if (map? schema)
-    (meta-schema/conform-spec! schema)
+    ;; meta-conform + :dynamic-schema gather (map-form), shared with the
+    ;; reconcile engine so the effective root and the node schema agree.
+    (berths/compose-config-table-schema descriptor module-index)
     (throw (ex-info (str "config-schema contribution :schema must be an inline map, got: " (pr-str schema))
                     {:schema schema :type :config-schema/invalid-schema :value schema}))))
 
@@ -49,7 +50,7 @@
   (reduce
     (fn [{:keys [fields descriptors owners]} {:keys [config-key descriptor module-id]}]
       (let [fragment (try
-                       (inline-schema descriptor)
+                       (inline-schema descriptor module-index)
                        (catch Throwable t
                          (throw (invalid-schema-error config-key module-id descriptor
                                                       (ex-message t)))))]

@@ -78,6 +78,53 @@
                 {:module-id :marigold.skybeam  :entry-id :skybeam}]
                (:contributors (ex-data error)))))
 
+  (it "map form gathers from the named berth, ignoring the compose berth-key"
+    (let [spec       {:type           :map
+                      :schema         {}
+                      :dynamic-schema {:berth :other/berth :path [:value :foo]}}
+          module-idx {:marigold.longwave {:manifest {:other/berth {:longwave {:value {:foo {:bar {:type :int}}}}}
+                                                      ;; same path under the compose berth-key must be ignored
+                                                      berth-key    {:decoy {:value {:foo {:ignored {:type :string}}}}}}}}
+          composed   (compose spec module-idx)]
+      (should= {:bar 9} (lexicon/conform! composed {:bar 9}))
+      (should-be-nil (get-in composed [:schema :ignored]))
+      (let [result (lexicon/conform composed {:bar "hi"})]
+        (should (schema/error? result))
+        (should= "can't coerce \"hi\" to int" (get-in (schema/message-map result) [:bar])))))
+
+  (it "map form annotates gathered fields with the contributing entry id"
+    (let [spec       {:type           :map
+                      :schema         {:crew {:type :string}}
+                      :dynamic-schema {:berth :other/berth :path [:extra-schema]}}
+          module-idx {:mod.x {:manifest {:other/berth {:longwave {:extra-schema {:helm/freq {:type :string}}}}}}}
+          composed   (compose spec module-idx)]
+      (should= "longwave" (get-in composed [:schema :helm/freq :isaac/variant]))
+      (should-be-nil (get-in composed [:schema :crew :isaac/variant]))))
+
+  (it "map form lets base fields win over a redeclaring contribution"
+    (let [decl  {:type :map :dynamic-schema {:berth :other/berth :path [:extra-schema]}
+                 :schema {:type {:type :id}}}
+          index {:mod.x {:manifest {:other/berth {:badmod {:extra-schema {:type {:type :string}}}}}}}
+          composed (sut/compose decl :probe/berth index)]
+      (should= :id (get-in composed [:schema :type :type]))))
+
+  (it "map form errors and reports the named berth when two contributions collide"
+    (let [spec       {:type           :map
+                      :schema         {}
+                      :dynamic-schema {:berth :other/berth :path [:value :foo]}}
+          module-idx {:marigold.longwave {:manifest {:other/berth {:longwave {:value {:foo {:bar {:type :string}}}}}}}
+                      :marigold.skybeam  {:manifest {:other/berth {:skybeam  {:value {:foo {:bar {:type :int}}}}}}}}
+          error      (try
+                       (compose spec module-idx)
+                       (catch clojure.lang.ExceptionInfo e
+                         e))]
+      (should= :dynamic-schema/collision (:type (ex-data error)))
+      (should= :other/berth (:berth-key (ex-data error)))
+      (should= :bar (:field (ex-data error)))
+      (should= [{:module-id :marigold.longwave :entry-id :longwave}
+                {:module-id :marigold.skybeam  :entry-id :skybeam}]
+               (:contributors (ex-data error)))))
+
   (it "fires nested dynamic-schema markers recursively"
     (let [spec       {:type           :map
                       :schema         {:base   {:type :string}

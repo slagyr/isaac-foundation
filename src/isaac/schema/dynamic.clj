@@ -76,24 +76,31 @@
 (defn- compose-map [spec berth-key module-index]
   (let [schema-fields  (:schema spec)
         dynamic-path   (:dynamic-schema spec)
-        composed-fields (cond-> {}
-                          schema-fields
-                          (into (map (fn [[field child]]
-                                       (if (= :* field)
-                                         [field child]
-                                         [field (compose child berth-key module-index)]))
-                                     schema-fields)))
+        composed-fields (when schema-fields
+                          (into {} (map (fn [[field child]]
+                                          (if (= :* field)
+                                            [field child]
+                                            [field (compose child berth-key module-index)]))
+                                        schema-fields)))
         spec          (cond-> spec
                         (:key-spec spec)   (update :key-spec compose berth-key module-index)
                         (:value-spec spec) (update :value-spec compose berth-key module-index))
-        spec          (assoc spec :schema composed-fields)
+        ;; :dynamic-schema is additive across two shapes:
+        ;;   [:path]              gather from the compose berth-key
+        ;;   {:berth X :path [..]} gather from the explicitly named berth X
+        ;; The map form lets schemas with no enclosing berth (e.g.
+        ;; :isaac.config/schema) name the berth to gather from.
+        [gather-berth gather-path] (if (map? dynamic-path)
+                                     [(:berth dynamic-path) (:path dynamic-path)]
+                                     [berth-key dynamic-path])
         merged-fields (if dynamic-path
-                        (:fields (merge-dynamic-fields composed-fields berth-key dynamic-path
-                                                       (contribution-entries module-index berth-key)))
+                        (:fields (merge-dynamic-fields (or composed-fields {}) gather-berth gather-path
+                                                       (contribution-entries module-index gather-berth)))
                         composed-fields)]
-    (-> spec
-        (assoc :schema merged-fields)
-        (dissoc :dynamic-schema))))
+    ;; only (re)assoc :schema when there are fields — an open map
+    ;; (:value-spec only, no :schema) must stay open, not gain an empty :schema.
+    (cond-> (dissoc spec :dynamic-schema)
+      merged-fields (assoc :schema merged-fields))))
 
 (defn compose
   [spec berth-key module-index]

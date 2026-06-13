@@ -3,29 +3,29 @@
  :factory isaac.core/create-module
 
  :berths  {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
-                                 :manifest    {:schema {:type       :map
-                                                        :key-spec   {:type :keyword}
-                                                        :value-spec {:type    :map
-                                                                     :factory isaac.cli.registry/register-cli-command!
-                                                                     :schema  {:usage     {:type :string :validations [:present?]}
-                                                                               :summary   {:type :string :validations [:present?]}
-                                                                               :namespace {:type :symbol :validations [:present?]}}}}}}
+                                 :manifest    {:type       :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type    :map
+                                                            :factory isaac.cli.registry/register-cli-command!
+                                                            :schema  {:usage     {:type :string :validations [:present?]}
+                                                                      :summary   {:type :string :validations [:present?]}
+                                                                      :namespace {:type :symbol :validations [:present?]}}}}}
            :isaac.config/schema {:description "Top-level config schema fragments contributed by modules."
-                                 :manifest    {:schema {:type       :map
-                                                        :key-spec   {:type :keyword}
-                                                        :value-spec {:type   :map
-                                                                     :schema {:schema             {:type :map :validations [:present?]}
-                                                                              :entity-dir         {:type :string}
-                                                                              :frontmatter?       {:type :boolean}
-                                                                              :merge-root-entity? {:type :boolean}
-                                                                              :companion          {:type   :map
-                                                                                                   :schema {:field {:type :keyword}
-                                                                                                            :mode  {:type :keyword}}}}}}}}
+                                 :manifest    {:type       :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type   :map
+                                                            :schema {:schema             {:type :map :validations [:present?]}
+                                                                     :entity-dir         {:type :string}
+                                                                     :frontmatter?       {:type :boolean}
+                                                                     :merge-root-entity? {:type :boolean}
+                                                                     :companion          {:type   :map
+                                                                                          :schema {:field {:type :keyword}
+                                                                                                   :mode  {:type :keyword}}}}}}}
            :isaac.config/check  {:description "Post-load config validation checks contributed by modules."
-                                 :manifest    {:schema {:type       :map
-                                                        :key-spec   {:type :keyword}
-                                                        :value-spec {:type   :map
-                                                                     :schema {:fn {:type :symbol :validations [:present?]}}}}}}}
+                                 :manifest    {:type       :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type   :map
+                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}
 
  :isaac/cli {:init {:usage     "init"
                     :summary   "Scaffold a default Isaac config"

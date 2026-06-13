@@ -20,12 +20,12 @@ Feature: Config berth processing
       """
       {:modules {:marigold.bridge   {:local/root "modules/marigold.bridge"}
                  :marigold.longwave {:local/root "modules/marigold.longwave"}}
-       :comms   {:helm-relay {:type :skybeam :crew "captain"}}}
+       :relays  {:helm-relay {:type :skybeam :crew "captain"}}}
       """
     When the config is loaded
     Then the config has validation errors matching:
       | key                       | value                                          |
-      | comms[:helm-relay].type   | not a registered impl of :marigold.bridge/comm |
+      | relays[:helm-relay].type   | not a registered impl of :marigold.bridge/comm |
 
   Scenario: A user slot missing a field required by the gathered :extra-schema is a config-load error
     Given an empty Isaac state directory "/tmp/marigold"
@@ -33,9 +33,9 @@ Feature: Config berth processing
       """
       {:modules {:marigold.bridge   {:local/root "modules/marigold.bridge"}
                  :marigold.longwave {:local/root "modules/marigold.longwave"}}
-       :comms   {:helm-relay {:type :longwave :crew "captain"}}}
+       :relays  {:helm-relay {:type :longwave :crew "captain"}}}
       """
     When the config is loaded
     Then the config has validation errors matching:
       | key                              | value           |
-      | comms[:helm-relay][:helm/freq]   | must be present |
+      | relays[:helm-relay][:helm/freq]   | must be present |

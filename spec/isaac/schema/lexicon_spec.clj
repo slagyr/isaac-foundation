@@ -53,6 +53,18 @@
   (it "conforms a non-keyword non-string id via str"
     (should= "42" (sut/conform! {:type :id} 42)))
 
+  (it "conforms a :schema-map of valid field specs"
+    (should= {:loft {:type :string} :freq {:type :int}}
+             (sut/conform! {:type :schema-map} {:loft {:type :string} :freq {:type :int}})))
+
+  (it "rejects a :schema-map whose child spec has an unknown :type"
+    (let [result (sut/conform {:type :schema-map} {:loft {:type :mystery}})]
+      (should (schema/error? result))))
+
+  (it "rejects a :schema-map that is not a map"
+    (let [result (sut/conform {:type :schema-map} 42)]
+      (should (schema/error? result))))
+
   (it "reports whether a type is known"
     (should (sut/known-type? :string))
     (should (sut/known-type? :symbol))

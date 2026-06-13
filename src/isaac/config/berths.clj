@@ -6,7 +6,10 @@
     [isaac.nexus :as nexus]
     [isaac.schema.dynamic :as dynamic]
     [isaac.schema.lexicon :as lexicon]
+    [isaac.schema.meta :as meta-schema]
     [isaac.schema.registered-in :as registered-in]))
+
+(def ^:private config-schema-key :isaac.config/schema)
 
 (defprotocol Reconfigurable
   (on-startup!       [this slice])
@@ -32,22 +35,86 @@
                  [berth-id config-decl])))
        vec))
 
+(declare composed-schema)
+
+(defn- spec-declares-factory?
+  "Structural check (no value): would `walk-factory-nodes` ever produce a
+   factory node for `spec`? True when the spec, its open-map :value-spec,
+   any closed-map :schema field, or a :seq :spec declares a :factory key."
+  [spec]
+  (boolean
+    (when (map? spec)
+      (or (:factory spec)
+          (and (= :map (:type spec)) (:value-spec spec)
+               (spec-declares-factory? (:value-spec spec)))
+          (and (= :map (:type spec)) (:schema spec)
+               (some spec-declares-factory? (vals (:schema spec))))
+          (and (= :seq (:type spec)) (:spec spec)
+               (spec-declares-factory? (:spec spec)))))))
+
+(defn compose-config-table-schema
+  "The composed inline schema of a :isaac.config/schema contribution:
+   meta-conformed, then `:dynamic-schema` gathered (map-form directives
+   name their own berth, so the placeholder berth-key is ignored). The
+   single composition both schema-compose (effective root) and the
+   reconcile engine (node schema) use, so they agree. Computed here —
+   not in schema-compose — to keep the reconcile engine a leaf
+   dependency."
+  [descriptor module-index]
+  (let [schema (:schema descriptor)]
+    (when (map? schema)
+      (dynamic/compose (meta-schema/conform-spec! schema)
+                       config-schema-key module-index))))
+
+(defn config-schema-factory-sources
+  "[[config-key composed-schema] ...] for every :isaac.config/schema
+   table whose composed value-spec carries a :factory. These reconcile
+   into the nexus exactly like a berth :config-claimed path; pure-data
+   tables (no factory) are skipped. Berth :config is the other source —
+   see config-berths — and both are active simultaneously."
+  [module-index]
+  (->> module-index
+       (mapcat (fn [[_module-id entry]]
+                 (get-in entry [:manifest config-schema-key])))
+       (sort-by (comp str key))
+       (keep (fn [[config-key descriptor]]
+               (let [schema (compose-config-table-schema descriptor module-index)]
+                 (when (spec-declares-factory? schema)
+                   [config-key schema]))))
+       vec))
+
+(defn reconcile-sources
+  "The union of factory'd reconcilable paths: berth :config declarations
+   and :isaac.config/schema tables whose value-spec carries a :factory.
+   Each source is [path schema] where schema is the composed map/seq spec
+   the engine walks for factory nodes. The engine, config-paths, and
+   claims-path? all draw from this union."
+  [module-index]
+  (-> (mapv (fn [[berth-id config-decl]]
+              [(:path config-decl) (composed-schema berth-id config-decl module-index)])
+            (config-berths module-index))
+      (into (mapv (fn [[config-key schema]] [[config-key] schema])
+                  (config-schema-factory-sources module-index)))))
+
 (defn config-paths [module-index]
-  (->> (config-berths module-index)
-       (mapv (comp :path second))))
+  (mapv first (reconcile-sources module-index)))
 
 (defn claims-path? [module-index path]
   (some #(= path %) (config-paths module-index)))
 
-(declare composed-schema)
+(defn- open-map-sources
+  "[[path schema] ...] from reconcile-sources (berth :config AND
+   :isaac.config/schema factory tables) whose composed schema is an
+   open map (key-spec + value-spec) — the ones whose error keys want
+   slot-bracketing (path[:slot].field)."
+  [module-index]
+  (->> (reconcile-sources module-index)
+       (filter (fn [[_ schema]]
+                 (and (= :map (:type schema)) (:value-spec schema))))
+       vec))
 
 (defn- open-map-paths [module-index]
-  (->> (config-berths module-index)
-       (keep (fn [[_ config-decl]]
-               (when (and (= :map (get-in config-decl [:schema :type]))
-                          (get-in config-decl [:schema :value-spec]))
-                 (:path config-decl))))
-       vec))
+  (mapv first (open-map-sources module-index)))
 
 (defn- rewrite-open-map-key [path key]
   (let [segments        (str/split key #"\.")
@@ -79,19 +146,17 @@
           errors)))
 
 (defn- open-map-field-message [module-index path key]
-  (let [prefix (str/join "." (map name path))
-        field  (some (fn [[berth-id config-decl]]
-                       (when (= path (:path config-decl))
-                         (let [schema    (composed-schema berth-id config-decl module-index)
-                               pattern   (re-pattern (str "^"
-                                                         (java.util.regex.Pattern/quote prefix)
-                                                         "\\[:[^\\]]+\\](?:\\.([^\\.\\[]+)|\\[:([^\\]]+)\\])$"))
-                               [_ plain bracketed] (re-matches pattern key)
-                               field-key (or plain bracketed)]
-                           (when field-key
-                             (get-in schema [:value-spec :schema (keyword field-key) :message])))))
-                     (config-berths module-index))]
-    field))
+  (let [prefix (str/join "." (map name path))]
+    (some (fn [[src-path schema]]
+            (when (= path src-path)
+              (let [pattern   (re-pattern (str "^"
+                                               (java.util.regex.Pattern/quote prefix)
+                                               "\\[:[^\\]]+\\](?:\\.([^\\.\\[]+)|\\[:([^\\]]+)\\])$"))
+                    [_ plain bracketed] (re-matches pattern key)
+                    field-key (or plain bracketed)]
+                (when field-key
+                  (get-in schema [:value-spec :schema (keyword field-key) :message])))))
+          (open-map-sources module-index))))
 
 (defn normalize-errors [module-index errors]
   (let [rewritten (normalize-error-keys module-index errors)
@@ -220,16 +285,15 @@
           (create-node! module-index node-path node-spec new-slice)))))
 
 (defn reconcile!
-  "Reconcile config-berth-claimed paths against the nexus: factory on
-   appearance, on-config-change! when the live node satisfies
-   Reconfigurable (recreate when it doesn't), deregister on removal.
-   Boot is old-config nil; shutdown is config nil — one engine for all
-   three."
+  "Reconcile factory'd paths against the nexus: factory on appearance,
+   on-config-change! when the live node satisfies Reconfigurable
+   (recreate when it doesn't), deregister on removal. Paths come from the
+   union of berth :config declarations and :isaac.config/schema tables
+   whose value-spec carries a :factory (see reconcile-sources). Boot is
+   old-config nil; shutdown is config nil — one engine for all three."
   [{:keys [config old-config module-index]}]
-  (doseq [[berth-id config-decl] (config-berths module-index)
-          :let [path      (:path config-decl)
-                schema    (composed-schema berth-id config-decl module-index)
-                old-nodes (nodes-by-path path schema (get-in old-config path))
+  (doseq [[path schema] (reconcile-sources module-index)
+          :let [old-nodes (nodes-by-path path schema (get-in old-config path))
                 new-nodes (nodes-by-path path schema (get-in config path))]
           node-path (sort-by pr-str (into #{} (concat (keys old-nodes) (keys new-nodes))))]
     (let [[_ old-slice]         (get old-nodes node-path)

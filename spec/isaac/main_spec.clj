@@ -219,10 +219,10 @@
                         {:index {:isaac.core {:manifest {:id      :isaac.core
                                                          :version "1"
                                                          :berths  {:isaac/cli {:description "CLI commands"
-                                                                         :manifest     {:schema {:type       :map
-                                                                                                 :key-spec   {:type :keyword}
-                                                                                                 :value-spec {:type    :map
-                                                                                                              :factory 'isaac.cli.registry/register-cli-command!}}}}}}}
+                                                                         :manifest     {:type       :map
+                                                                                        :key-spec   {:type :keyword}
+                                                                                        :value-spec {:type    :map
+                                                                                                     :factory 'isaac.cli.registry/register-cli-command!}}}}}}
                                  :hello      {:manifest {:id      :hello
                                                          :version "1"
                                                          :isaac/cli {:greet {:summary "Greets"

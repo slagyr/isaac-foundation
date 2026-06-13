@@ -13,12 +13,28 @@
     (nil? value) nil
     :else (str value)))
 
+;; Set by isaac.schema.meta at load to the meta-schema validator for a
+;; fields-map (field keyword → spec). nil = pass-through until meta is
+;; loaded; meta is loaded wherever schema validation actually matters.
+;; Lives here (not meta) because meta requires lexicon, not vice versa.
+(defonce schema-map-validator (atom nil))
+
 (def ^:private builtin-types
-  {:symbol {:validations [{:validate (schema/nil?-or symbol?)
-                           :message  "must be a symbol"}]}
-   :id     {:coercions   [->id]
-            :validations [{:validate (schema/nil?-or string?)
-                           :message  "must be an id (string or keyword)"}]}})
+  {:symbol     {:validations [{:validate (schema/nil?-or symbol?)
+                               :message  "must be a symbol"}]}
+   :id         {:coercions   [->id]
+                :validations [{:validate (schema/nil?-or string?)
+                               :message  "must be an id (string or keyword)"}]}
+   ;; an apron schema literal — a map of field keyword → spec, validated
+   ;; against the meta-schema (e.g. comm/tool berth :extra-schema fields).
+   ;; meta populates schema-map-validator at load; if it hasn't loaded
+   ;; yet, requiring it here is a no-cycle lazy trigger (meta → lexicon).
+   :schema-map {:validations [{:validate (schema/nil?-or
+                                           (fn [v]
+                                             (when (nil? @schema-map-validator)
+                                               (requiring-resolve 'isaac.schema.meta/valid-schema?))
+                                             (boolean ((or @schema-map-validator (constantly true)) v))))
+                               :message  "must be a schema map of field → spec"}]}})
 
 (defonce registry* (atom {}))
 

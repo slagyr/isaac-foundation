@@ -168,27 +168,27 @@
    :version "0.1.0"
    :factory 'isaac.core/create-module
    :berths  {:isaac/cli {:description "CLI commands."
-                   :manifest    {:schema {:type       :map
-                                          :key-spec   {:type :keyword}
-                                          :value-spec {:type    :map
-                                                       :factory 'isaac.cli.registry/register-cli-command!
-                                                       :schema  {:summary {:type :string}}}}}}
+                   :manifest    {:type       :map
+                                 :key-spec   {:type :keyword}
+                                 :value-spec {:type    :map
+                                              :factory 'isaac.cli.registry/register-cli-command!
+                                              :schema  {:summary {:type :string}}}}}
              :isaac.config/schema {:description "Top-level config schema fragments."
-                                   :manifest    {:schema {:type :map
-                                                          :key-spec {:type :keyword}
-                                                          :value-spec {:type :map
-                                                                       :schema {:schema   {:type :map :validations [:present?]}
-                                                                                :entity-dir {:type :string}
-                                                                                :frontmatter? {:type :boolean}
-                                                                                :merge-root-entity? {:type :boolean}
-                                                                                :companion {:type :map
-                                                                                            :schema {:field {:type :keyword}
-                                                                                                     :mode {:type :keyword}}}}}}}}
+                                   :manifest    {:type :map
+                                                 :key-spec {:type :keyword}
+                                                 :value-spec {:type :map
+                                                              :schema {:schema   {:type :map :validations [:present?]}
+                                                                       :entity-dir {:type :string}
+                                                                       :frontmatter? {:type :boolean}
+                                                                       :merge-root-entity? {:type :boolean}
+                                                                       :companion {:type :map
+                                                                                   :schema {:field {:type :keyword}
+                                                                                            :mode {:type :keyword}}}}}}}
              :isaac.config/check {:description "Post-load config validation checks."
-                                 :manifest    {:schema {:type       :map
-                                                        :key-spec   {:type :keyword}
-                                                        :value-spec {:type :map
-                                                                     :schema {:fn {:type :symbol :validations [:present?]}}}}}}}})
+                                 :manifest    {:type       :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type :map
+                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}})
 
 (def ^:private baseline-core-index
   {:isaac.core {:coord {} :manifest baseline-core-manifest :path nil}})
