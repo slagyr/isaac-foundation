@@ -148,11 +148,15 @@
     (lexicon/conform! (dissoc spec :factory) value)))
 
 (defn install!
-  [{:keys [config module-index]}]
+  "Fire-once node construction for config-berth-claimed paths. Berths in
+   :exclude-berths are skipped — reconciler-owned slot trees install
+   through the diff engine, not here."
+  [{:keys [config module-index exclude-berths]}]
   (doseq [[berth-id config-decl] (config-berths module-index)
           :let [path  (:path config-decl)
                 slice (get-in config path)]
-          :when (some? slice)
+          :when (and (some? slice)
+                     (not (contains? (or exclude-berths #{}) berth-id)))
           :let [schema (composed-schema berth-id config-decl module-index)]
           [node-path node-spec node-slice] (walk-factory-nodes path schema slice)]
     (let [factory   (resolve-factory! (:factory node-spec))
