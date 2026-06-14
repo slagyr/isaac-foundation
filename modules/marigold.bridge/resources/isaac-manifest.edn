@@ -25,13 +25,4 @@
                                  :factory marigold.bridge.signal/register-route!
                                  :schema  {:method  {:type :keyword}
                                            :path    {:type :string}
-                                           :handler {:type :symbol}}}}}
-
-           :marigold.bridge/cli
-           {:description "CLI commands contributed via marigold.bridge's berth."
-            :schema      {:type :seq
-                          :spec {:type    :map
-                                 :factory marigold.bridge.cli/register-cli-command!
-                                 :schema  {:name    {:type :string :validations [:present?]}
-                                           :desc    {:type :string}
-                                           :run-fn  {:type :symbol}}}}}}}
+                                           :handler {:type :symbol}}}}}}}

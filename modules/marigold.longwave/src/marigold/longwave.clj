@@ -1,6 +1,7 @@
 (ns marigold.longwave
   "Fixture consumer module shared by manifest-only and config-berth tests."
   (:require
+    [isaac.cli.api :as cli-api]
     [isaac.reconfigurable :as reconfigurable]
     [isaac.module.protocol :as module]
     [marigold.bridge.comm :as bridge.comm]))
@@ -31,9 +32,7 @@
   {:status 200
    :body   "pong"})
 
-(defn longwave-ping-run-fn
-  "Run-fn for the longwave-ping CLI command (contributed via the
-   :marigold.bridge/cli berth). Prints \"pong\" and returns exit 0."
-  [_opts]
+(defmethod cli-api/run :longwave-ping
+  [_id _opts]
   (println "pong")
   0)

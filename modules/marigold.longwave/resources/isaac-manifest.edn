@@ -11,6 +11,6 @@
  :marigold.bridge/signal-route [{:method  :get
                                   :path    "/longwave/ping"
                                   :handler marigold.longwave/ping-handler}]
- :marigold.bridge/cli         [{:name   "longwave-ping"
-                                  :desc   "Print pong."
-                                  :run-fn marigold.longwave/longwave-ping-run-fn}]}
+ :isaac/cli                   {:longwave-ping {:usage     "longwave-ping"
+                                               :summary   "Print pong."
+                                               :namespace marigold.longwave}}}
