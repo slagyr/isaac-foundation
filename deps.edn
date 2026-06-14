@@ -10,14 +10,6 @@
  :aliases
  {:isaac    {:main-opts ["-m" "isaac.main"]}
 
-  :spec     {:extra-paths ["spec"]
-             :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
-                           io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
-                           marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
-                           marigold.bridge/marigold.bridge     {:local/root "modules/marigold.bridge"}
-                           marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}}
-             :main-opts   ["-m" "dev.spec-main"]}
-
   :test     {:extra-paths ["spec"]
              :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
                            io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
@@ -25,20 +17,14 @@
                            marigold.bridge/marigold.bridge     {:local/root "modules/marigold.bridge"}
                            marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}}}
 
-  :mutate   {:extra-paths ["spec"]
-             :extra-deps  {clj-mutate/clj-mutate    {:git/url "https://github.com/slagyr/clj-mutate"
+  :spec     {:main-opts ["-m" "dev.spec-main"]}
+
+  :mutate   {:extra-deps {clj-mutate/clj-mutate    {:git/url "https://github.com/slagyr/clj-mutate"
                                                      :git/sha "edf0362dee919f75541ce173ca7144c1230cd4de"}
-                           org.clojure/tools.reader {:mvn/version "1.4.2"}
-                           speclj/speclj            {:mvn/version "3.13.0"}
-                           io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}
+                           org.clojure/tools.reader {:mvn/version "1.4.2"}}
              :main-opts   ["-m" "clj-mutate.core"]}
 
-  :features {:extra-paths ["spec" "spec/marigold/bridge/resources" "spec/marigold/longwave/resources"]
-             :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
-                           io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
-                           marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
-                           marigold.bridge/marigold.bridge     {:local/root "modules/marigold.bridge"}
-                           marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}}
+  :features {:extra-paths ["spec/marigold/bridge/resources" "spec/marigold/longwave/resources"]
              :main-opts   ["-m" "gherclj.main"
                            "-f" "features" "-s" "isaac.**-steps"
                            "-t" "~slow" "-t" "~wip"]}}}

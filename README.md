@@ -44,6 +44,15 @@ bb features        # gherclj acceptance tests
 bb ci              # both
 ```
 
+From the JVM, compose `:test` with a runner alias (shared test deps live in
+`:test` only):
+
+```sh
+clj -M:test:spec       # speclj specs
+clj -M:test:features   # gherclj acceptance tests
+clj -M:test:mutate     # mutation testing
+```
+
 The spec tree is exported for consumers as
 `io.github.slagyr/isaac-foundation-spec` (`:deps/root "spec"`): step
 definitions, the marigold fixture world, and the marigold fixture modules.
