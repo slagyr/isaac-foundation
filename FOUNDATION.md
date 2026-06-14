@@ -82,8 +82,6 @@ Re-exported fn / protocol / var surfaces only. Defined in `src/isaac/foundation.
 | | `root-dir` | fn | Runtime root from snapshot |
 | | `env-get` | fn | `${VAR}` substitution |
 | `isaac.reconfigurable` | `Reconfigurable` | protocol | Config-driven component lifecycle |
-| | `on-startup!` | fn | Protocol dispatch |
-| | `on-config-change!` | fn | Protocol dispatch |
 | `isaac.nexus` | `nexus-get` | fn | Read registered runtime state |
 | | `nexus-get-in` | fn | Nested read |
 | | `nexus-register!` | fn | Publish factory output |

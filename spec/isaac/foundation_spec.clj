@@ -84,14 +84,9 @@
                 (on-config-change! [_ _ _] :changed))]
         (should (satisfies? sut/Reconfigurable r))))
 
-    (it "delegates lifecycle fns to reconfigurable"
-      (let [calls (atom [])
-            r     (reify reconfigurable/Reconfigurable
-                    (on-startup! [_ slice] (swap! calls conj [:startup slice]))
-                    (on-config-change! [_ old new] (swap! calls conj [:change old new])))]
-        (sut/on-startup! r {:a 1})
-        (sut/on-config-change! r {:a 1} {:a 2})
-        (should= [[:startup {:a 1}] [:change {:a 1} {:a 2}]] @calls))))
+    (it "does not expose lifecycle dispatch fns — hosts use isaac.config.runtime"
+      (should= nil (resolve 'isaac.foundation/on-startup!))
+      (should= nil (resolve 'isaac.foundation/on-config-change!))))
 
   (describe "config.loader delegation"
 
@@ -149,6 +144,4 @@
       (should (sut/module? (smoke/create-module)))
       (nexus/-with-nexus {:fs (fs/mem-fs)}
         (should (smoke/smoke-ready?)))
-      (let [relay (smoke/relay)]
-        (sut/on-startup! relay {:crew "main"})
-        (should (satisfies? sut/Reconfigurable relay))))))
+      (should (satisfies? sut/Reconfigurable (smoke/relay))))))

@@ -77,16 +77,6 @@
    `on-config-change!` when that slice changes on reload."
   reconfigurable/Reconfigurable)
 
-(defn on-startup!
-  "Invokes `on-startup!` on a `Reconfigurable` instance with its config slice."
-  [instance slice]
-  (reconfigurable/on-startup! instance slice))
-
-(defn on-config-change!
-  "Invokes `on-config-change!` on a `Reconfigurable` instance with old and new slices."
-  [instance old-slice new-slice]
-  (reconfigurable/on-config-change! instance old-slice new-slice))
-
 ;; nexus (factory publish/read)
 
 (defn nexus-get
