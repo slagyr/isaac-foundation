@@ -71,20 +71,10 @@
         (with-redefs [module-protocol/module (fn [& _] ::stub)]
           (should= ::stub (sut/module))))))
 
-  (describe "reconfigurable re-exports"
+  (describe "reconfigurable"
 
-    (it "re-exports the public protocol"
-      (should= (:name reconfigurable/Reconfigurable) (:name sut/Reconfigurable))
-      (should= (set (keys (:sigs reconfigurable/Reconfigurable)))
-               (set (keys (:sigs sut/Reconfigurable)))))
-
-    (it "a type implementing foundation/Reconfigurable satisfies foundation/Reconfigurable"
-      (let [r (reify sut/Reconfigurable
-                (on-startup! [_ _] :started)
-                (on-config-change! [_ _ _] :changed))]
-        (should (satisfies? sut/Reconfigurable r))))
-
-    (it "does not expose lifecycle dispatch fns — hosts use isaac.config.runtime"
+    (it "does not re-export Reconfigurable — modules require isaac.reconfigurable"
+      (should= nil (resolve 'isaac.foundation/Reconfigurable))
       (should= nil (resolve 'isaac.foundation/on-startup!))
       (should= nil (resolve 'isaac.foundation/on-config-change!))))
 
@@ -140,8 +130,8 @@
             allowed  (conj tier-1-direct-imports 'isaac.foundation)]
         (should= #{} (set/difference requires allowed))))
 
-    (it "smoke module uses facade exports for module, nexus, and Reconfigurable"
+    (it "smoke module uses facade exports for module and nexus"
       (should (sut/module? (smoke/create-module)))
       (nexus/-with-nexus {:fs (fs/mem-fs)}
         (should (smoke/smoke-ready?)))
-      (should (satisfies? sut/Reconfigurable (smoke/relay))))))
+      (should (satisfies? reconfigurable/Reconfigurable (smoke/relay))))))

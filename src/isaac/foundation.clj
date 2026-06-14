@@ -4,7 +4,6 @@
   (:require
     [isaac.module.protocol :as module-protocol]
     [isaac.config.loader :as loader]
-    [isaac.reconfigurable :as reconfigurable]
     [isaac.nexus :as nexus]))
 
 ;; module.protocol
@@ -69,13 +68,6 @@
    first, then the process environment, then the loaded .env snapshot."
   [name]
   (loader/env name))
-
-;; reconfigurable (protocol home — not config.runtime)
-
-(def Reconfigurable
-  "Protocol for config-driven components: `on-startup!` with a config slice and
-   `on-config-change!` when that slice changes on reload."
-  reconfigurable/Reconfigurable)
 
 ;; nexus (factory publish/read)
 

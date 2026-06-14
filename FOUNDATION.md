@@ -81,7 +81,6 @@ Re-exported fn / protocol / var surfaces only. Defined in `src/isaac/foundation.
 | | `config-snapshot` | fn | Ambient read — entry points only |
 | | `root-dir` | fn | Runtime root from snapshot |
 | | `env-get` | fn | `${VAR}` substitution |
-| `isaac.reconfigurable` | `Reconfigurable` | protocol | Config-driven component lifecycle |
 | `isaac.nexus` | `nexus-get` | fn | Read registered runtime state |
 | | `nexus-get-in` | fn | Nested read |
 | | `nexus-register!` | fn | Publish factory output |
@@ -113,9 +112,7 @@ namespace — a `defmethod` attaches to the original var.
 | `isaac.config.root` | Bootstrap root resolution (`default-root`) |
 | `isaac.schema.lexicon` | Register custom apron types in code (advanced) |
 | `isaac.schema.meta` | `conform-spec!` for manifest schema authors (advanced) |
-
-Modules may also require `isaac.reconfigurable` directly when they only need the
-protocol (the facade re-exports the same surface).
+| `isaac.reconfigurable` | `Reconfigurable` protocol | Config-driven component lifecycle |
 
 ### Forbidden for modules
 
@@ -192,14 +189,14 @@ facade; hosts load it via `foundation/load-config!` at entry points.
 ## Reconfigurable
 
 Config-driven components that need startup and reload lifecycle implement
-`isaac.reconfigurable/Reconfigurable` (re-exported as `foundation/Reconfigurable`):
+`isaac.reconfigurable/Reconfigurable`:
 
 ```clojure
 (ns my.module.node
-  (:require [isaac.foundation :as foundation]))
+  (:require [isaac.reconfigurable :as reconfigurable]))
 
 (defrecord RelayStation [state*]
-  foundation/Reconfigurable
+  reconfigurable/Reconfigurable
   (on-startup! [_ slice]
     (reset! state* {:slice slice :event :started}))
   (on-config-change! [_ _old new-slice]

@@ -5,13 +5,14 @@
     [isaac.foundation :as foundation]
     [isaac.cli.api :as cli-api]
     [isaac.fs :as fs]
-    [isaac.logger :as logger]))
+    [isaac.logger :as logger]
+    [isaac.reconfigurable :as reconfigurable]))
 
 (defn create-module []
   (foundation/create-module))
 
 (defrecord SmokeRelay [state*]
-  foundation/Reconfigurable
+  reconfigurable/Reconfigurable
   (on-startup! [_ slice]
     (swap! state* assoc :startup slice)
     (logger/info :smoke/startup slice))
