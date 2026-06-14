@@ -4,7 +4,7 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.cli.registry :as registry]
-    [isaac.config.api :as config]
+    [isaac.config.loader :as loader]
     [isaac.config.paths :as paths]
     [isaac.fs :as fs]
     [isaac.logger :as log]
@@ -22,7 +22,7 @@
 (defn- substitute-env [x]
   (cond
     (string? x) (str/replace x #"\$\{([^}]+)\}"
-                   (fn [[_ var]] (or (config/env var) (str "${" var "}"))))
+                   (fn [[_ var]] (or (loader/env var) (str "${" var "}"))))
     (map? x)    (into {} (map (fn [[k v]] [k (substitute-env v)]) x))
     (coll? x)   (mapv substitute-env x)
     :else        x))

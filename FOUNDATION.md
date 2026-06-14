@@ -76,7 +76,7 @@ Re-exported fn / protocol / var surfaces only. Defined in `src/isaac/foundation.
 | | `module` | fn | Build a module instance |
 | | `module?` | fn | `satisfies?` check |
 | | `create-module` | fn | Manifest `:factory` entry point (same ns) |
-| `isaac.config.api` | `load-config!` | fn | Load, validate, commit snapshot (entry points) |
+| `isaac.config.loader` | `load-config!` | fn | Load, validate, commit snapshot (entry points) |
 | | `load-config-result` | fn | Inspect without committing |
 | | `snapshot` | fn | Ambient read — entry points only |
 | | `root` | fn | Runtime root from snapshot |

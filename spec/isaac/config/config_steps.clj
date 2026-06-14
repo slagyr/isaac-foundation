@@ -4,7 +4,6 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
-    [isaac.config.api :as config]
     [isaac.config.loader :as loader]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
@@ -209,7 +208,7 @@
          (contains? #{\{ \[ \: \"} c))))
 
 (defn loaded-config-has [table]
-  (let [config (or (config/snapshot "feature: loaded-config-has prefers the committed snapshot (hot-reload-aware)")
+  (let [config (or (loader/snapshot "feature: loaded-config-has prefers the committed snapshot (hot-reload-aware)")
                    (:config (load-result)))]
     (doseq [row (:rows table)]
       (let [m        (zipmap (:headers table) row)
@@ -303,7 +302,7 @@
 
 (defthen "the loaded config has:" isaac.config.config-steps/loaded-config-has
   "Prefers the committed config snapshot (hot-reload-aware) via
-   config/snapshot; falls back to a fresh load-config against the
+   loader/snapshot; falls back to a fresh load-config against the
    root when no snapshot is committed. Rows use dot-path keys, e.g.
    'crew.atticus.soul'.")
 

@@ -3,7 +3,7 @@
     [clojure.edn :as edn]
     [isaac.cli.api :as cli-api]
     [isaac.cli.registry :as registry]
-    [isaac.config.api :as config]
+    [isaac.config.loader :as loader]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
     [isaac.module.loader :as module-loader]
@@ -182,17 +182,17 @@
 
   (describe "substitute-env"
 
-    (it "expands ${VAR} strings using config/env"
-      (with-redefs [config/env (fn [v] (when (= v "MY_ROOT") "/resolved/path"))]
+    (it "expands ${VAR} strings using loader/env"
+      (with-redefs [loader/env (fn [v] (when (= v "MY_ROOT") "/resolved/path"))]
         (should= {:local/root "/resolved/path"}
                  (@#'sut/substitute-env {:local/root "${MY_ROOT}"}))))
 
     (it "leaves unknown variables unexpanded"
-      (with-redefs [config/env (constantly nil)]
+      (with-redefs [loader/env (constantly nil)]
         (should= "${UNKNOWN}" (@#'sut/substitute-env "${UNKNOWN}"))))
 
     (it "recurses into nested maps and vectors"
-      (with-redefs [config/env (fn [v] (when (= v "X") "y"))]
+      (with-redefs [loader/env (fn [v] (when (= v "X") "y"))]
         (should= {:a {:b "y"} :c ["y" 1]}
                  (@#'sut/substitute-env {:a {:b "${X}"} :c ["${X}" 1]})))))
 
