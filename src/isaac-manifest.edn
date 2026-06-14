@@ -49,9 +49,12 @@
    {:type        :string
     :description "IANA timezone name for this Isaac install; cron and other schedulers default here when no per-trigger zone is set."}}}
 
- :isaac/cli {:init {:usage     "init"
-                    :summary   "Scaffold a default Isaac config"
-                    :namespace isaac.cli.registry}
-             :logs {:usage     "logs [options]"
-                    :summary   "Print Isaac logs in readable colorized format"
-                    :namespace isaac.logs.cli}}}
+ :isaac/cli {:init   {:usage     "init"
+                      :summary   "Scaffold a default Isaac config"
+                      :namespace isaac.cli.registry}
+             :logs   {:usage     "logs [options]"
+                      :summary   "Print Isaac logs in readable colorized format"
+                      :namespace isaac.logs.cli}
+             :config {:usage     "config <subcommand> [options]"
+                      :summary   "Inspect and validate Isaac configuration"
+                      :namespace isaac.config.cli.command}}}
