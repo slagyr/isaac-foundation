@@ -45,4 +45,7 @@
 
  :isaac/cli {:init {:usage     "init"
                     :summary   "Scaffold a default Isaac config"
-                    :namespace isaac.cli.registry}}}
+                    :namespace isaac.cli.registry}
+             :logs {:usage     "logs [options]"
+                    :summary   "Tail and colorize the Isaac log file"
+                    :namespace isaac.logs.cli}}}

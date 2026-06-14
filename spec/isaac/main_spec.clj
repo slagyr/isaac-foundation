@@ -233,7 +233,7 @@
         (should= "Greets" (:summary (registry/get-command "greet")))))
 
     (it "declares foundation command cli contributions in the manifest"
-      (should= #{"init"} (foundation-manifest-cli-command-names)))
+      (should= #{"init" "logs"} (foundation-manifest-cli-command-names)))
 
     (it "installs the active fs into runtime init"
       (let [mem       (fs/mem-fs)

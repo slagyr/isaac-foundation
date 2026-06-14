@@ -10,7 +10,7 @@
     [clojure.edn :as edn]
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [gherclj.core :as g :refer [defgiven defthen helper!]]
+    [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
     [isaac.nexus :as nexus]
@@ -161,6 +161,25 @@
       #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
          (fs/mkdirs fs* (fs/parent path))
          (fs/spit   fs* path actual)))))
+
+(defn file-appended-with [name content]
+  (let [path   (resolve-path name)
+        actual (unescape-content content)]
+    (with-ensured-fs
+      #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
+         (fs/spit fs* path (str actual "\n") :append true)))))
+
+(defn file-with-log-entries [name n]
+  (let [path  (resolve-path name)
+        n     (parse-long n)
+        lines (->> (range 1 (inc n))
+                   (map #(format "{:ts \"2026-05-12T00:%02d:%02dZ\" :level :info :event :e%02d}"
+                                 (quot % 60) (mod % 60) %))
+                   (str/join "\n"))]
+    (with-ensured-fs
+      #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
+         (fs/mkdirs fs* (fs/parent path))
+         (fs/spit   fs* path lines)))))
 
 (defn- parse-state-value [value]
   (cond
@@ -364,5 +383,9 @@
 (defgiven "a file {name:string} exists with content {content:string}" isaac.foundation.fs-steps/file-at-with-content)
 
 (defgiven "a file {name:string} exists with content:" isaac.foundation.fs-steps/file-at-with-docstring-content)
+
+(defwhen "the file {name:string} is appended with {content:string}" isaac.foundation.fs-steps/file-appended-with)
+
+(defgiven #"a file \"([^\"]+)\" exists with (\d+) log entries" isaac.foundation.fs-steps/file-with-log-entries)
 
 ;; endregion ^^^^^ Routing ^^^^^

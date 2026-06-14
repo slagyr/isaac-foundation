@@ -285,6 +285,34 @@
     (g/assoc! :stderr (str error-writer))
     (doseq [postflight @isaac-run-postflights*] (postflight))))
 
+(defn isaac-run-background [args]
+  (doseq [preflight @isaac-run-preflights*] (preflight))
+  (let [argv          (parse-argv args)
+        root-dir      (g/get :root)
+        extra-opts    (cond-> {}
+                        root-dir (assoc :root root-dir))
+        mem-fs        (g/get :mem-fs)
+        output-writer (java.io.StringWriter.)
+        error-writer  (java.io.StringWriter.)]
+    (g/assoc! :live-output-writer output-writer)
+    (g/assoc! :live-error-writer error-writer)
+    (future
+      (let [run! (fn [run-opts]
+                   (binding [*out* output-writer
+                             *err* error-writer
+                             root/*user-home* (or (g/get :user-home) root/*user-home*)]
+                     (let [code ((apply-run-wrappers
+                                   #(if (seq run-opts)
+                                      (binding [main/*extra-opts* run-opts]
+                                        (main/run argv))
+                                      (main/run argv))))]
+                       (g/assoc! :exit-code code))))]
+        (if mem-fs
+          (nexus/-with-nested-nexus {:fs mem-fs}
+            (run! (assoc extra-opts :fs mem-fs)))
+          (run! extra-opts))))
+    (doseq [postflight @isaac-run-postflights*] (postflight))))
+
 (defn user-home-directory [path]
   (let [home (if (str/starts-with? path "/")
                path
@@ -433,6 +461,11 @@
 ;; endregion ^^^^^ Step bodies ^^^^^
 
 ;; region ----- Routing -----
+
+(defwhen "isaac is run in the background with {args:string}" isaac.foundation.cli-steps/isaac-run-background
+  "Runs 'isaac <args>' in a background thread. Binds a live StringWriter to
+   *out* and stores it as :live-output-writer so 'the stdout eventually contains'
+   can poll while the command is still running.")
 
 (defwhen "isaac is run with {args:string}" isaac.foundation.cli-steps/isaac-run
    "Runs 'isaac <args>' in-process (not a subprocess). Parses argv with
