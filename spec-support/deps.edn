@@ -1,0 +1,9 @@
+;; Exposes foundation spec/ on the classpath for downstream test consumers.
+;; spec/ is symlinked into this subproject so :paths stay in-project.
+;;
+;;   io.github.slagyr/isaac-foundation-test-support
+;;     {:local/root "../isaac-foundation" :deps/root "spec-support"}
+{:paths ["src"]
+ :deps  {speclj/speclj                       {:mvn/version "3.13.0"}
+         babashka/process                    {:mvn/version "0.5.22"}
+         io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}}

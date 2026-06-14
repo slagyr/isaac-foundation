@@ -2,6 +2,12 @@
   (:require
     [isaac.config.berths :as berths]
     [isaac.config.schema-base :as schema-base]
+    ;; load-for-side-effect: registers the config validation lexicon
+    ;; (:one-of?, :crew-exists?, …) that inline-schema checks contributions
+    ;; against. A leaf ns, so no cycle with isaac.config.validation (which
+    ;; requires this ns). Guarantees the lexicon is populated before the first
+    ;; compose, so a pre-lexicon result can never be frozen in last-composed*.
+    [isaac.config.validation-lexicon]
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]))
 

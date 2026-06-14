@@ -15,6 +15,7 @@
 ;; expected to already depend on it directly, and this subproject's
 ;; namespaces resolve against the consumer's coord.
 {:paths ["."]
- :deps  {speclj/speclj            {:mvn/version "3.13.0"}
+ :deps  {io.github.slagyr/isaac-foundation {:local/root ".."}
+         speclj/speclj            {:mvn/version "3.13.0"}
          babashka/process         {:mvn/version "0.5.22"}
          io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}}

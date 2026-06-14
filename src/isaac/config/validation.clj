@@ -4,11 +4,16 @@
     [clojure.string :as str]
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema-compose :as schema-compose]
+    [isaac.config.validation-lexicon :as vlex]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
     [isaac.schema.registered-in :as registered-in]))
 
-(def ^:dynamic *config* nil)
+;; The config validation refs (:one-of?, :crew-exists?, …) are registered into
+;; apron's lexicon by isaac.config.validation-lexicon — a leaf ns so that
+;; schema-compose can require it too (this ns requires schema-compose, so the
+;; registration cannot live here). Loading vlex above guarantees the lexicon is
+;; populated wherever validation runs.
 
 (defn- ->id [value]
   (schema-base/->id value))
@@ -16,96 +21,9 @@
 (defn- runtime-schema [spec]
   (schema-base/strip-validation-annotations spec))
 
-(defn- known-crew-ids [config]
-  (->> (keys (:crew config)) (map ->id) distinct sort vec))
-
-(defn- known-model-ids [config]
-  (->> (keys (:models config)) (map ->id) distinct sort vec))
-
-(defn- exists-ref [ref-key known-fn message]
-  {:validate (fn [value]
-               (contains? (or (get-in *config* [:known-sets ref-key])
-                              (set (known-fn (or (:raw *config*) *config*))))
-                          (->id value)))
-   :message  message
-   :known    (fn []
-               (or (get-in *config* [:known-values ref-key])
-                   (known-fn (or (:raw *config*) *config*))))})
-
-(def ^:private existence-refs
-  {:model-exists? (exists-ref :model-exists? known-model-ids "references undefined model")
-   :crew-exists?  (exists-ref :crew-exists? known-crew-ids "references undefined crew")})
-
-(def ^:private value-refs
-  ;; nil-tolerant: apron's conform also resolves these refs and (unlike the
-  ;; annotation layer) runs them on absent values.
-  {:positive?          {:validate #(or (nil? %) (pos-int? %))
-                        :message  "must be a positive integer"}
-   :non-negative?      {:validate #(or (nil? %) (and (int? %) (<= 0 %)))
-                        :message  "must be a non-negative integer"}
-   :absolute-path?     {:validate #(or (nil? %) (and (string? %) (str/starts-with? % "/")))
-                        :message  "must be an absolute path"}
-   :keyword-set?       {:validate #(or (nil? %) (and (set? %) (every? keyword? %)))
-                        :message  "must be a set of keywords"}
-   :keyword-or-string? {:validate #(or (nil? %) (keyword? %) (string? %))
-                        :message  "must be a keyword or string"}
-   :cwd-or-path?       {:validate #(or (nil? %) (= :cwd %) (string? %))
-                        :message  "must be :cwd or an absolute path string"}})
-
-(defn- one-of-ref [& allowed]
-  {:validate #(or (nil? %) (contains? (set allowed) %))
-   :message  (str "must be one of " (str/join ", " allowed))})
-
-(defn- retired-ref [hint]
-  {:validate nil?
-   :message  (str "retired; " hint)})
-
-(defn- requires-any-ref [& field-keys]
-  ;; entity-scope; benign when apron's conform hands it a bare (nil)
-  ;; pseudo-field value instead of the entity.
-  {:scope    :entity
-   :validate (fn [entity & _]
-               (or (nil? entity)
-                   (boolean (some #(seq (get entity %)) field-keys))))
-   :message  (str "must include at least one of "
-                  (str/join ", " (map str field-keys)))})
-
-(defn- percentage-ref [hint]
-  {:validate #(or (nil? %) (and (number? %) (<= 0.0 %) (< % 1.0)))
-   :message  (str "must be a percentage in [0.0, 1.0); " hint)})
-
-(defn- less-than-ref [smaller-key larger-key]
-  {:scope    :entity
-   :validate (fn [entity & _]
-               (let [a (get entity smaller-key)
-                     b (get entity larger-key)]
-                 (or (nil? a) (nil? b) (< a b))))
-   :message  (str (name smaller-key) " must be smaller than " (name larger-key))})
-
-(defn- present-when-ref [other-key expected]
-  ;; the discriminator compares by id — conformed configs carry
-  ;; string-coerced values where manifests write keywords.
-  {:scope    :entity
-   :validate (fn [entity field-key]
-               (or (not= (->id expected) (->id (get entity other-key)))
-                   (cs/present? (get entity field-key))))
-   :message  (str "is required when " (name other-key) " is " (->id expected))})
-
-(defonce ^:private _refs-registered
-         (do
-           (cs/update-lexicon! :validations assoc :one-of? one-of-ref)
-           (doseq [[k v] (merge existence-refs value-refs)]
-             (cs/update-lexicon! :validations assoc k v))
-           (cs/update-lexicon! :validations assoc :present-when? present-when-ref)
-           (cs/update-lexicon! :validations assoc :retired? retired-ref)
-           (cs/update-lexicon! :validations assoc :requires-any? requires-any-ref)
-           (cs/update-lexicon! :validations assoc :percentage? percentage-ref)
-           (cs/update-lexicon! :validations assoc :less-than? less-than-ref)
-           true))
-
 (defn validation-context [config]
-  (let [known-values {:model-exists? (known-model-ids config)
-                      :crew-exists?  (known-crew-ids config)}]
+  (let [known-values {:model-exists? (vlex/known-model-ids config)
+                      :crew-exists?  (vlex/known-crew-ids config)}]
     {:raw          config
      :known-values known-values
      :known-sets   (into {} (map (fn [[predicate values]] [predicate (set values)])) known-values)}))
@@ -204,7 +122,7 @@
   ([config] (semantic-errors config nil (schema-compose/cached-root-schema)))
   ([config root] (semantic-errors config root (schema-compose/cached-root-schema)))
   ([config root schema-spec]
-   (binding [*config*                    (validation-context config)
+   (binding [vlex/*config*               (validation-context config)
              registered-in/*module-index* (merge (module-loader/builtin-index)
                                                  (:module-index config))
              registered-in/*config*       (or (:raw config) config)]
