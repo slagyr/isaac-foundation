@@ -39,18 +39,19 @@ Babashka-first. Run things with:
 
 ```sh
 bb isaac --help    # the CLI
-bb spec            # speclj specs
-bb features        # gherclj acceptance tests
-bb ci              # both
+bb spec            # speclj specs (60s timeout)
+bb features        # gherclj acceptance tests (60s timeout)
+bb ci              # both (60s timeout)
 ```
 
 From the JVM, compose `:test` with a runner alias (shared test deps live in
-`:test` only):
+`:test` only). Prefer the `bb jvm-*` tasks — they enforce the same 60s
+timeout as `bb spec` / `bb features`:
 
 ```sh
-clj -M:test:spec       # speclj specs
-clj -M:test:features   # gherclj acceptance tests
-clj -M:test:mutate     # mutation testing
+bb jvm-spec            # clj -M:test:spec
+bb jvm-features        # clj -M:test:features
+clj -M:test:mutate     # mutation testing (no timeout; not part of ci)
 ```
 
 The spec tree is exported for consumers as

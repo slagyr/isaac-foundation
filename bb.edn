@@ -1,4 +1,4 @@
-{:paths ["src" "spec"]
+{:paths ["src" "spec" "."]
 
  :deps  {clj-mutate/clj-mutate               {:git/url "https://github.com/slagyr/clj-mutate"
                                               :git/sha "edf0362dee919f75541ce173ca7144c1230cd4de"}
@@ -21,20 +21,21 @@
  {isaac         {:doc  "Isaac CLI"
                  :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
 
-  spec          {:doc      "Run speclj specs (default target: spec/; pass file/dir to narrow)"
-                 :requires ([speclj.main :as speclj])
-                 :task     (let [mod-spec-dirs (->> (seq (.listFiles (java.io.File. "modules")))
-                                                 (filter (fn [f] (.isDirectory f)))
-                                                 (map (fn [f] (java.io.File. f "spec")))
-                                                 (filter (fn [f] (.isDirectory f)))
-                                                 (mapcat (fn [d] ["-D" (.getAbsolutePath d)])))]
-                             (if (seq *command-line-args*)
-                               (apply speclj/-main "-c" "-D" "spec" *command-line-args*)
-                               (apply speclj/-main (concat ["-c" "-D" "spec"] mod-spec-dirs))))}
+  spec          {:doc  "Run speclj specs (60s timeout; default target: spec/; pass file/dir to narrow)"
+                 :requires ([bb.test-tasks :as tests])
+                 :task     (apply tests/run-spec! *command-line-args*)}
 
-  ci            {:doc  "Run all spec + non-wip features"
-                 :task (do (shell "bb" "spec")
-                           (shell "bb" "features"))}
+  ci            {:doc  "Run all spec + non-wip features (60s timeout)"
+                 :requires ([bb.test-tasks :as tests])
+                 :task     (tests/run-ci!)}
+
+  jvm-spec      {:doc  "Run speclj via clj -M:test:spec (60s timeout)"
+                 :requires ([bb.test-tasks :as tests])
+                 :task     (apply tests/run-jvm-spec! *command-line-args*)}
+
+  jvm-features  {:doc  "Run gherclj via clj -M:test:features (60s timeout)"
+                 :requires ([bb.test-tasks :as tests])
+                 :task     (apply tests/run-jvm-features! *command-line-args*)}
 
   mutate        {:doc      "Run mutation testing"
                  :requires ([clj-mutate.core :as mutate])
@@ -48,15 +49,9 @@
                  :requires ([dry4clj.core :as dry4clj])
                  :task     (apply dry4clj/-main *command-line-args*)}
 
-  features      {:doc      "Run gherclj feature specs (default: excludes @slow and @wip)"
-                 :requires ([gherclj.main :as main])
-                 :task     (do
-                             (run 'clean)
-                             (apply main/-main
-                               (concat ["-f" "features"]
-                                       ["-s" "isaac.**-steps"
-                                        "-t" "~slow" "-t" "~wip"]
-                                       *command-line-args*)))}
+  features      {:doc  "Run gherclj feature specs (60s timeout; default: excludes @slow and @wip)"
+                 :requires ([bb.test-tasks :as tests])
+                 :task     (apply tests/run-features! *command-line-args*)}
 
   features-slow {:doc      "Run only @slow gherclj feature specs (excludes @wip)"
                  :requires ([gherclj.main :as main])
