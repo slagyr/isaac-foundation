@@ -184,6 +184,19 @@
             (should (str/includes? result ":e05")))
           (finally (.delete f)))))
 
+    (it "reads only the tail of large files when :limit is set"
+      (let [f (java.io.File/createTempFile "test-log" ".log")]
+        (try
+          (with-open [w (java.io.BufferedWriter. (java.io.FileWriter. f))]
+            (dotimes [i 5000]
+              (.write w (format "{:event :e%04d}\n" i))))
+          (let [result (with-out-str
+                         (sut/tail! (.getAbsolutePath f) {:color? false :follow? false :limit 2}))]
+            (should-not (str/includes? result ":e4997"))
+            (should (str/includes? result ":e4998"))
+            (should (str/includes? result ":e4999")))
+          (finally (.delete f)))))
+
     (it ":limit 0 shows every entry"
       (let [f (java.io.File/createTempFile "test-log" ".log")]
         (try

@@ -47,5 +47,5 @@
                     :summary   "Scaffold a default Isaac config"
                     :namespace isaac.cli.registry}
              :logs {:usage     "logs [options]"
-                    :summary   "Tail and colorize the Isaac log file"
+                    :summary   "Print Isaac logs in readable colorized format"
                     :namespace isaac.logs.cli}}}

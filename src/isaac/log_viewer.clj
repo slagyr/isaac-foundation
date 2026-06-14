@@ -133,20 +133,42 @@
                    out))
         true))))
 
-(defn- read-initial-lines [raf limit]
-  (if (and limit (pos? limit))
-    (loop [lines clojure.lang.PersistentQueue/EMPTY]
-      (if-let [line (.readLine raf)]
-        (let [next-lines (conj lines line)
-              next-lines (if (> (count next-lines) limit)
-                           (pop next-lines)
-                           next-lines)]
-          (recur next-lines))
-        lines))
-    (loop [lines []]
-      (if-let [line (.readLine raf)]
-        (recur (conj lines line))
-        lines))))
+(defn- read-last-n-lines
+  "Read the last n newline-delimited lines by scanning backward from EOF.
+   Stops after n lines — does not read the whole file forward."
+  [^java.io.RandomAccessFile raf n]
+  (loop [pointer (dec (.length raf))
+         line    (StringBuilder.)
+         lines   []]
+    (cond
+      (>= (count lines) n)
+      (vec (take-last n (reverse lines)))
+
+      (neg? pointer)
+      (let [last-line (.toString line)]
+        (vec (take-last n (reverse (if (seq last-line)
+                                    (conj lines last-line)
+                                    lines)))))
+
+      :else
+      (do
+        (.seek raf pointer)
+        (let [ch (.read raf)]
+          (if (= ch (int \newline))
+            (if (seq line)
+              (recur (dec pointer) (StringBuilder.) (conj lines (.toString line)))
+              (recur (dec pointer) line lines))
+            (recur (dec pointer) (.insert line 0 (char ch)) lines)))))))
+
+(defn- read-initial-lines [^java.io.RandomAccessFile raf limit]
+  (let [lines (if (and limit (pos? limit))
+                (read-last-n-lines raf limit)
+                (loop [acc []]
+                  (if-let [line (.readLine raf)]
+                    (recur (conj acc line))
+                    acc)))]
+    (.seek raf (.length raf))
+    lines))
 
 (defn tail!
   "Print formatted log entries from `path`.
