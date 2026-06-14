@@ -59,9 +59,9 @@
                         {:method :*   :path "/hooks/*" :handler 'isaac.hooks/handler}]})
 
 (def cli-manifest
-  {:id      :isaac.cli.greeter
+  {:id      :marigold.cli.greeter
    :version "0.1.0"
-   :isaac/cli {:greet {:factory     'isaac.cli.greeter/make-command
+   :isaac/cli {:greet {:factory     'marigold.cli.greeter/make-command
                      :description "Print a greeting"}}})
 
 (def berth-manifest

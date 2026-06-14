@@ -173,18 +173,18 @@
 
     (it "discovers local/root manifests via classpath loading"
       (let [cwd         (System/getProperty "user.dir")
-            module-root "modules/isaac.cli.greeter"
-            result      (sut/discover! {:modules {:isaac.cli.greeter {:local/root module-root}}}
+            module-root "modules/marigold.cli.greeter"
+            result      (sut/discover! {:modules {:marigold.cli.greeter {:local/root module-root}}}
                                       (assoc ctx :cwd cwd))]
         (should= [] (:errors result))
-        (should= :isaac.cli.greeter (get-in result [:index :isaac.cli.greeter :manifest :id]))
-        (should= module-root (get-in result [:index :isaac.cli.greeter :path]))))
+        (should= :marigold.cli.greeter (get-in result [:index :marigold.cli.greeter :manifest :id]))
+        (should= module-root (get-in result [:index :marigold.cli.greeter :path]))))
 
     (it "invalidates builtin-index cache when a module dep is dynamically loaded"
       (let [invalidated? (atom false)
             cwd          (System/getProperty "user.dir")]
         (with-redefs [sut/invalidate-builtin-index! (fn [] (reset! invalidated? true))]
-          (sut/discover! {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+          (sut/discover! {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
                          (assoc ctx :cwd cwd))
           (should @invalidated?))))
 

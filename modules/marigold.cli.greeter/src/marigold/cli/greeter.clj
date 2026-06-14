@@ -1,4 +1,4 @@
-(ns isaac.cli.greeter
+(ns marigold.cli.greeter
   (:require
     [isaac.cli.api :as cli-api]))
 

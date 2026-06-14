@@ -24,7 +24,7 @@ Feature: :isaac/cli declared as a berth
     Given an empty Isaac state directory "/tmp/greeter"
     And the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When isaac is run with "greet --help"
     Then the stdout contains "Subcommands:"

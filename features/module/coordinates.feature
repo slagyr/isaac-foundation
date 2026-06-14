@@ -14,12 +14,12 @@ Feature: Module coordinates
     Given an empty Isaac root at "/tmp/isaac"
     And the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When the config is loaded
     Then the loaded config has:
       | key                                         | value             |
-      | /module-index/isaac.cli.greeter/manifest/id | isaac.cli.greeter |
+      | /module-index/marigold.cli.greeter/manifest/id | marigold.cli.greeter |
 
   Scenario: Hard error when a :local/root coordinate path is missing
     Given an empty Isaac root at "/tmp/isaac"
@@ -34,15 +34,15 @@ Feature: Module coordinates
 
   Scenario: Module with manifest at src/ (not resources/) is discoverable via :local/root dot
     Given an empty Isaac root at "/tmp/isaac"
-    And the effective working directory is "modules/isaac.comm.noop"
+    And the effective working directory is "modules/marigold.comm.noop"
     And the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.comm.noop {:local/root "."}}}
+      {:modules {:marigold.comm.noop {:local/root "."}}}
       """
     When the config is loaded
     Then the loaded config has:
-      | key                                       | value           |
-      | /module-index/isaac.comm.noop/manifest/id | isaac.comm.noop |
+      | key                                           | value               |
+      | /module-index/marigold.comm.noop/manifest/id | marigold.comm.noop |
 
   Scenario: Legacy vector :modules shape produces a migration error
     Given an empty Isaac root at "/tmp/isaac"

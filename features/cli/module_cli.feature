@@ -9,7 +9,7 @@ Feature: Module-contributed CLI subcommands
   Scenario: module-contributed command is dispatched
     Given the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When isaac is run with "greet"
     Then the stdout contains "Hello from the greeter module!"
@@ -18,7 +18,7 @@ Feature: Module-contributed CLI subcommands
   Scenario: module-contributed command appears in help output
     Given the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When isaac is run with ""
     Then the stdout contains "greet"
@@ -32,7 +32,7 @@ Feature: Module-contributed CLI subcommands
   Scenario: module-contributed command has its own --help page
     Given the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When isaac is run with "greet --help"
     Then the stdout matches:
@@ -44,7 +44,7 @@ Feature: Module-contributed CLI subcommands
   Scenario: isaac help <module-cmd> reaches the same page
     Given the isaac file "isaac.edn" exists with:
       """
-      {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+      {:modules {:marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
     When isaac is run with "help greet"
     Then the stdout matches:

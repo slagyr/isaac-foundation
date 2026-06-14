@@ -1,11 +1,11 @@
-{:id          :isaac.cli.greeter
+{:id          :marigold.cli.greeter
  :version     "0.1.0"
  :factory     isaac.module.protocol/module
- :description "A sample module that contributes a CLI subcommand"
+ :description "Marigold fixture: sample module that contributes a CLI subcommand"
 
  ;; Contributes to isaac.foundation's :isaac/cli berth.
  ;; The berth's per-entry factory (isaac.cli.registry/register-cli-command!)
  ;; resolves :run-fn and installs each entry as a CLI command.
  :isaac/cli   {:greet {:usage     "greet"
                        :summary   "Print a greeting"
-                       :namespace isaac.cli.greeter}}}
+                       :namespace marigold.cli.greeter}}}

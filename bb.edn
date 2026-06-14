@@ -8,9 +8,9 @@
          io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
          io.github.slagyr/scrap              {:git/url "https://github.com/slagyr/scrap"
                                               :git/sha "0c3366abc60ae9b59783210a1f6bab9f2c9af76f"}
-         isaac.cli.greeter/isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}
          ;; marigold fixture modules — on the classpath because tests
          ;; no-op add-module-deps! rather than resolving coordinates.
+         marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
          marigold.bridge/marigold.bridge       {:local/root "modules/marigold.bridge"}
          marigold.longwave/marigold.longwave   {:local/root "modules/marigold.longwave"}
          org.clojure/tools.cli               {:mvn/version "1.1.230"}

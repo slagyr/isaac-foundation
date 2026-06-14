@@ -55,8 +55,9 @@ To contribute a CLI command, add a berth entry in the manifest and implement
   0)
 ```
 
-See `modules/isaac.cli.greeter` for a working example. Builtin berth declarations
-live in `src/isaac-manifest.edn`.
+See `modules/marigold.cli.greeter` for a Marigold fixture shaped like a real
+module (production modules use your own prefix, not `marigold.*`). Builtin berth
+declarations live in `src/isaac-manifest.edn`.
 
 ## Module-facing components
 
