@@ -188,7 +188,11 @@
                                  :schema      {:type       :map
                                                :key-spec   {:type :keyword}
                                                :value-spec {:type :map
-                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}})
+                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}
+
+   :isaac.config/schema
+   {:tz {:schema {:type        :string
+                  :description "IANA timezone name for this Isaac install; cron and other schedulers default here when no per-trigger zone is set."}}}})
 
 (def ^:private baseline-foundation-index
   {:isaac.foundation {:coord {} :manifest baseline-foundation-manifest :path nil}})

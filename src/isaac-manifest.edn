@@ -43,6 +43,12 @@
                                                                             :validations [:present?]
                                                                             :description "Symbol resolving to (fn [ctx] {:errors [] :warnings []})."}}}}}}
 
+ :isaac.config/schema
+ {:tz
+  {:schema
+   {:type        :string
+    :description "IANA timezone name for this Isaac install; cron and other schedulers default here when no per-trigger zone is set."}}}
+
  :isaac/cli {:init {:usage     "init"
                     :summary   "Scaffold a default Isaac config"
                     :namespace isaac.cli.registry}
