@@ -197,19 +197,11 @@
    as [id spec]; the command's name derives from the id. Behavior
    lives in isaac.cli.api multimethods implemented by :namespace,
    which loads lazily — the command listing renders from manifest
-   data alone. A duplicate id across modules throws, which the berth
-   pass surfaces as a validation error."
+   data alone. A later module reusing an id overrides the earlier
+   command (last-wins, per the module-contribution collision policy);
+   the berth pass surfaces the swap as a :cli/override warning."
   [[id {:keys [usage summary namespace]}]]
   (let [name (clojure.core/name id)]
-    (when (contains? @berth-command-names* name)
-      ;; berth passes re-run (every dispatch, server boot, reload) — the
-      ;; same entry re-registering is idempotent; a DIFFERENT entry
-      ;; claiming the id is a genuine collision.
-      (let [existing (get-command name)]
-        (when-not (= (select-keys existing [:usage :summary :namespace])
-                     {:usage usage :summary summary :namespace namespace})
-          (throw (ex-info (str "duplicate CLI command \"" name "\"")
-                          {:command id :namespace namespace})))))
     (let [cmd    {:name      name
                   :id        id
                   :usage     usage

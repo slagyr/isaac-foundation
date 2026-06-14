@@ -116,10 +116,10 @@
           (should= 1 ((:run-fn (sut/get-command "ghost")) {:_raw-args []})))
         (should-contain "implements no isaac.cli.api/run" (str err))))
 
-    (it "throws on a duplicate command id so the berth pass reports it"
-      (sut/register-cli-command! [:svc {:usage "svc" :summary "first" :namespace 'isaac.cli-spec}])
-      (should-throw clojure.lang.ExceptionInfo
-                    (sut/register-cli-command! [:svc {:usage "svc" :summary "again" :namespace 'isaac.cli-spec}]))))
+    (it "a later registration of the same id overrides the earlier one (last-wins)"
+      (sut/register-cli-command! [:svc {:usage "svc" :summary "first"  :namespace 'isaac.cli-spec}])
+      (sut/register-cli-command! [:svc {:usage "svc" :summary "second" :namespace 'isaac.cli-spec}])
+      (should= "second" (:summary (sut/get-command "svc")))))
 
   (describe "get-command"
 
