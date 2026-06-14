@@ -12,6 +12,8 @@
       (should-not (.exists plugin-source))))
 
   (it "stores module manifests under resources and ships deps.edn"
-    (doseq [module-dir ["modules/isaac.cli.greeter"]]
+    (doseq [module-dir ["modules/isaac.cli.greeter"
+                        "modules/marigold.bridge"
+                        "modules/marigold.longwave"]]
       (should (.exists (io/file module-dir "deps.edn")))
       (should (.exists (io/file module-dir "resources/isaac-manifest.edn"))))))

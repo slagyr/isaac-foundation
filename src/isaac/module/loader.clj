@@ -54,14 +54,14 @@
 (defn- handlers-for [kind]
   (get @handlers* kind []))
 
-(def ^:private core-module-id :isaac.core)
+(def ^:private foundation-module-id :isaac.foundation)
 
 (defn- runtime-fs []
   (or (fs/instance) (throw (ex-info "module.loader requires :fs in system" {}))))
 
 (declare activate!)
 (declare builtin-index)
-(declare core-index)
+(declare foundation-index)
 (declare resolve-symbol!)
 
 (defn- ->module-id [raw]
@@ -242,12 +242,12 @@
 
 (defn- discover-one [context id coord]
   (cond
-    ;; Route the core module through `core-index` so the override seam
-    ;; (`*core-index-override*`) is the single source of truth — instead
+    ;; Route the foundation module through `foundation-index` so the override seam
+    ;; (`*foundation-index-override*`) is the single source of truth — instead
     ;; of having `discover!` re-resolve isaac-manifest.edn from disk.
-    (= core-module-id id)
-    (if-let [entry (get (core-index) core-module-id)]
-      {:entry {core-module-id entry}}
+    (= foundation-module-id id)
+    (if-let [entry (get (foundation-index) foundation-module-id)]
+      {:entry {foundation-module-id entry}}
       {:errors [{:key (mod-error-key id) :value "manifest: could not read"}]})
 
     :else
@@ -288,15 +288,15 @@
               module-id))
           module-index)))
 
-(defonce ^:private core-index-cache (atom nil))
+(defonce ^:private foundation-index-cache (atom nil))
 (defonce ^:private builtin-index-cache (atom nil))
 
 ;; When bound, replaces the resource-loaded core manifest index.
 ;; Tests use this to swap in a themed manifest; see spec/isaac/marigold.clj.
-(def ^:dynamic *core-index-override* nil)
+(def ^:dynamic *foundation-index-override* nil)
 
 (defn clear-activations! []
-  (reset! core-index-cache nil)
+  (reset! foundation-index-cache nil)
   (reset! builtin-index-cache nil)
   (reset! activated-modules* #{})
   (reset! started-modules* [])
@@ -304,21 +304,21 @@
     (handler)))
 
 (defn clear-caches! []
-  (reset! core-index-cache nil)
+  (reset! foundation-index-cache nil)
   (reset! builtin-index-cache nil))
 
 (defn- index-entry [resource]
   (let [manifest (manifest/read-manifest resource (fs/instance))]
     [(:id manifest) {:coord {} :manifest manifest :path nil}]))
 
-(defn core-index []
-  (or *core-index-override*
-      @core-index-cache
-      (let [result (if-let [resource (manifest-resource core-module-id)]
+(defn foundation-index []
+  (or *foundation-index-override*
+      @foundation-index-cache
+      (let [result (if-let [resource (manifest-resource foundation-module-id)]
                      (let [manifest (manifest/read-manifest resource (fs/instance))]
-                        {core-module-id {:coord {} :manifest manifest :path nil}})
+                        {foundation-module-id {:coord {} :manifest manifest :path nil}})
                       {})]
-        (reset! core-index-cache result)
+        (reset! foundation-index-cache result)
         result)))
 
 (defn- builtin-manifest-resource? [resource]
@@ -331,19 +331,19 @@
        (into {})))
 
 (defn builtin-index []
-  (or *core-index-override*
+  (or *foundation-index-override*
       @builtin-index-cache
-      (let [result (merge (core-index) (classpath-builtin-index))]
+      (let [result (merge (foundation-index) (classpath-builtin-index))]
         (reset! builtin-index-cache result)
         result)))
 
 (def server-module-id :isaac.server)
 
-(defn activate-core! []
-  (activate! core-module-id (core-index)))
+(defn activate-foundation! []
+  (activate! foundation-module-id (foundation-index)))
 
-(defn deactivate-core! []
-  (swap! activated-modules* disj core-module-id))
+(defn deactivate-foundation! []
+  (swap! activated-modules* disj foundation-module-id))
 
 (defn activate-server! []
   (activate! server-module-id (builtin-index)))

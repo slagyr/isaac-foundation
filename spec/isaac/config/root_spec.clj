@@ -1,14 +1,14 @@
-(ns isaac.root-spec
+(ns isaac.config.root-spec
   (:require
     [isaac.fs :as fs]
-    [isaac.root :as sut]
+    [isaac.config.root :as sut]
     [isaac.logger :as log]
     [isaac.spec-helper :as helper]
     [speclj.core :refer :all]))
 
 (def ^:dynamic *fs* nil)
 
-(describe "root"
+(describe "config root"
 
   (helper/with-captured-logs)
 
@@ -20,6 +20,18 @@
       (sut/init-root! nil)
       (example)
       (sut/init-root! nil)))
+
+  (it "default-root with no args is ~/.isaac"
+    (should= "/tmp/user/.isaac" (sut/default-root)))
+
+  (it "default-root with a home string derives <home>/.isaac"
+    (should= "/home/me/.isaac" (sut/default-root "/home/me")))
+
+  (it "default-root with opts prefers :root"
+    (should= "/explicit" (sut/default-root {:root "/explicit" :home "/ignored"})))
+
+  (it "default-root with opts derives from :home when :root absent"
+    (should= "/home/me/.isaac" (sut/default-root {:home "/home/me"})))
 
   (it "uses the explicit --root before pointer files"
     (fs/mkdirs *fs* "/tmp/user/.config")

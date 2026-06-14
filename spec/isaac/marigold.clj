@@ -160,13 +160,13 @@
    :models    {(keyword helm-mark-iii) (model-cfg (keyword helm-systems) "helm-mk-3-1.0")}
    :crew      {(keyword captain) (crew-cfg captain :model helm-mark-iii)}})
 
-;; ----- Themed core manifest ----------------------------------------
+;; ----- Themed foundation manifest ----------------------------------
 
-(def baseline-core-manifest
+(def baseline-foundation-manifest
   "A stand-in for src/isaac-manifest.edn — foundation only."
-  {:id      :isaac.core
+  {:id      :isaac.foundation
    :version "0.1.0"
-   :factory 'isaac.core/create-module
+   :factory 'isaac.foundation/create-module
    :berths  {:isaac/cli {:description "CLI commands."
                    :schema      {:type       :map
                                  :key-spec   {:type :keyword}
@@ -190,8 +190,8 @@
                                                :value-spec {:type :map
                                                             :schema {:fn {:type :symbol :validations [:present?]}}}}}}})
 
-(def ^:private baseline-core-index
-  {:isaac.core {:coord {} :manifest baseline-core-manifest :path nil}})
+(def ^:private baseline-foundation-index
+  {:isaac.foundation {:coord {} :manifest baseline-foundation-manifest :path nil}})
 
 ;; ----- Aboard the Marigold -----------------------------------------
 ;;
@@ -220,7 +220,7 @@
   (speclj/around [example]
     (let [mem (fs/mem-fs)]
       (nexus/-with-nested-nexus {:fs mem}
-        (binding [module-loader/*core-index-override* baseline-core-index]
+        (binding [module-loader/*foundation-index-override* baseline-foundation-index]
           (reset! c3env/-overrides {})
           (config-loader/clear-env-overrides!)
           (schema-compose/clear-cache!)

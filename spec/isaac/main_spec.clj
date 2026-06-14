@@ -5,7 +5,7 @@
     [isaac.cli.registry :as registry]
     [isaac.config.api :as config]
     [isaac.fs :as fs]
-    [isaac.root :as root]
+    [isaac.config.root :as root]
     [isaac.module.loader :as module-loader]
     [isaac.main :as sut]
     [isaac.nexus :as nexus]
@@ -19,7 +19,7 @@
 
 (defmethod cli-api/run :greet [_id _opts] 0)
 
-(defn- core-manifest-cli-command-names []
+(defn- foundation-manifest-cli-command-names []
   (->> (keys (:isaac/cli (edn/read-string (slurp "src/isaac-manifest.edn"))))
        (map name)
        set))
@@ -214,9 +214,9 @@
                       (fn [config context]
                         (should= {:modules {:hello {}}} config)
                         (should= {:cwd (System/getProperty "user.dir")} context)
-                        ;; Mock both the berth declaration (on core) and a
+                        ;; Mock both the berth declaration (on foundation) and a
                         ;; contribution from the user module.
-                        {:index {:isaac.core {:manifest {:id      :isaac.core
+                        {:index {:isaac.foundation {:manifest {:id      :isaac.foundation
                                                          :version "1"
                                                          :berths  {:isaac/cli {:description "CLI commands"
                                                                          :schema       {:type       :map
@@ -232,8 +232,8 @@
         (should-not-be-nil (registry/get-command "greet"))
         (should= "Greets" (:summary (registry/get-command "greet")))))
 
-    (it "declares core command cli contributions in the manifest"
-      (should= #{"init"} (core-manifest-cli-command-names)))
+    (it "declares foundation command cli contributions in the manifest"
+      (should= #{"init"} (foundation-manifest-cli-command-names)))
 
     (it "installs the active fs into runtime init"
       (let [mem       (fs/mem-fs)

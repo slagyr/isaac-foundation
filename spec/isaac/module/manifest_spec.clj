@@ -14,7 +14,7 @@
    :version           "0.1.0"
    :bootstrap         'isaac.comm.pigeon/bootstrap
    :description       "Carrier pigeon comm"
-   :isaac.server/comm {:pigeon {:factory 'isaac.comm.pigeon/make
+   :isaac.server/comm {:pigeon {:namespace 'isaac.comm.pigeon
                                 :schema  {:loft      {:type :string :validations [:present?]}
                                           :max-bytes {:type :int :coercions [[:default 140]]}}}}})
 
@@ -52,7 +52,7 @@
 (def route-manifest
   ;; Phase 5 of the berth epic (isaac-8v1n): routes are now berth
   ;; contributions, not a top-level extension kind. Per-entry shape
-  ;; validation moved to the berth's :manifest :schema.
+  ;; validation moved to the berth's :manifest schema.
   {:id                 :isaac.routes.bibelot
    :version            "0.1.0"
    :isaac.server/route [{:method :get :path "/status"  :handler 'isaac.server.status/handle}
@@ -129,7 +129,7 @@
 
     ;; :isaac/cli is a berth, not a hardcoded
     ;; extension kind. Per-entry :factory presence is enforced by the
-    ;; berth's :manifest :schema rather than by read-manifest itself,
+    ;; berth's :manifest schema rather than by read-manifest itself,
     ;; so the manifest reader no longer rejects this shape outright.
 
     (it "rejects v1 manifests that use :extends"
@@ -212,7 +212,7 @@
 
     ;; Phase 5 of the berth epic: per-entry shape rejection for routes
     ;; (malformed [method path] keys, non-symbol handlers, etc.) is now
-    ;; handled by the :isaac.server/route berth's :manifest :schema
+    ;; handled by the :isaac.server/route berth's :manifest schema
     ;; rather than by read-manifest. The old "rejects malformed route
     ;; keys" / "rejects route handlers that are not symbols" tests
     ;; covered the deleted validate-routes! pass.

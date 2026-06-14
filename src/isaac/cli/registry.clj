@@ -169,7 +169,7 @@
 ;; region ----- Berth registration factory -----
 ;;
 ;; `:isaac/cli` is a berth declared by
-;; isaac.core's manifest. The berth's per-entry factory (called by
+;; isaac.foundation's manifest. The berth's per-entry factory (called by
 ;; isaac.module.loader/process-manifest-berths!) is this fn. It
 ;; resolves the entry's symbol-valued :run-fn / :help-text and
 ;; registers a command spec with the registry above.

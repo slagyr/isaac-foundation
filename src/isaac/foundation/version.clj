@@ -1,4 +1,4 @@
-(ns isaac.version
+(ns isaac.foundation.version
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]))
@@ -7,7 +7,7 @@
   (try
     (some (fn [url]
             (let [manifest (edn/read-string (slurp url))]
-              (when (= :isaac.core (:id manifest))
+              (when (= :isaac.foundation (:id manifest))
                 (:version manifest))))
           (enumeration-seq
             (.getResources (or (.getContextClassLoader (Thread/currentThread))

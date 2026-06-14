@@ -1,2 +1,2 @@
 {:paths ["src" "resources"]
- :deps  {io.github.slagyr/isaac-foundation {:local/root "../.."}}}
+ :deps  {io.github.slagyr/isaac {:local/root "../.."}}}

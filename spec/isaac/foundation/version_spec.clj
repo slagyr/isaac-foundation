@@ -1,10 +1,10 @@
-(ns isaac.version-spec
+(ns isaac.foundation.version-spec
   (:require
     [clojure.string :as str]
-    [isaac.version :as sut]
+    [isaac.foundation.version :as sut]
     [speclj.core :refer :all]))
 
-(describe "isaac.version"
+(describe "isaac.foundation.version"
 
   (it "version-string starts with 'isaac '"
     (should (str/starts-with? (sut/version-string) "isaac ")))

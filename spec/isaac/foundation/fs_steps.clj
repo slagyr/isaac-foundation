@@ -12,7 +12,7 @@
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen helper!]]
     [isaac.fs :as fs]
-    [isaac.root :as root]
+    [isaac.config.root :as root]
     [isaac.nexus :as nexus]
     [isaac.shell :as shell]))
 

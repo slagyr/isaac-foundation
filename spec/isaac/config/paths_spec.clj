@@ -9,9 +9,6 @@
   (it "root-filename is the root config filename"
     (should= "isaac.edn" sut/root-filename))
 
-  (it "default-root derives <home>/.isaac"
-    (should= "/home/me/.isaac" (sut/default-root "/home/me")))
-
   (it "config-root joins the state dir with config"
     (should= "/state/config" (sut/config-root "/state")))
 

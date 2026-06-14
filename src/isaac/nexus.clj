@@ -6,24 +6,17 @@
 ;; isolated runtime around an example.
 
 (def schema
-  "c3kit schema documenting reserved nexus keys.
-   Modules may register additional state under namespaced keywords (e.g. :my-module/state)."
+  "c3kit schema documenting foundation-reserved nexus slots.
+   Platform hosts install additional keys at runtime (:sessions, :tool-registry,
+   :comm-registry, ...); those are intentionally omitted here. Modules may also
+   register namespaced state (e.g. :my-module/state) via register!."
   {:name        :nexus
    :type        :map
-   :description "Isaac global runtime context"
-   :schema      {:fs                {:type :ignore :description "Filesystem implementation (isaac.fs/Fs)"}
-                 :server            {:type :ignore :description "HTTP server instance"}
-                 :sessions          {:type        :map
-                                    :description "Session runtime components"
-                                    :schema      {:store            {:type :ignore :description "Session store instance (SessionStore)"}
-                                                  :naming-strategy  {:type :ignore :description "Naming strategy instance (NameStrategy)"}}}
-                 :scheduler         {:type :ignore :description "Shared task scheduler instance"}
-                 :config            {:type :ignore :description "Runtime configuration atom or value"}
-                 :tool-registry     {:type :ignore :description "Tool registry atom"}
-                 :slash-registry    {:type :ignore :description "Slash command registry atom"}
-                 :comm-registry     {:type :ignore :description "Comm registry atom"}
-                 :provider-registry {:type :ignore :description "Provider registry atom"}
-                 :module-index      {:type :ignore :description "Module activation index"}}})
+   :description "Isaac global runtime context (foundation slots)"
+   :schema      {:fs           {:type :ignore :description "Filesystem implementation (isaac.fs/Fs)"}
+                 :config       {:type :ignore :description "Runtime configuration atom or value"}
+                 :module-index {:type :ignore :description "Module activation index"}
+                 :scheduler    {:type :ignore :description "Shared task scheduler instance"}}})
 
 
 (defonce ^:private root-runtime (atom {}))

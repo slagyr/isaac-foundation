@@ -3,7 +3,7 @@
  :factory     isaac.module.protocol/module
  :description "A sample module that contributes a CLI subcommand"
 
- ;; Contributes to isaac.core's :isaac/cli berth.
+ ;; Contributes to isaac.foundation's :isaac/cli berth.
  ;; The berth's per-entry factory (isaac.cli.registry/register-cli-command!)
  ;; resolves :run-fn and installs each entry as a CLI command.
  :isaac/cli   {:greet {:usage     "greet"

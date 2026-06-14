@@ -1,7 +1,10 @@
-(ns isaac.root
-  "The single source of truth for where Isaac keeps its config and state on
-   disk. After the isaac-root collapse, --root <dir> points at the data
-   directory directly; the only place the .isaac literal survives is as the
+(ns isaac.config.root
+  "Bootstrap root resolution: where Isaac keeps config and state on disk.
+   Sibling to config.paths / config.nav — requires only fs and logger, not
+   config.loader.
+
+   After the isaac-root collapse, --root <dir> points at the data directory
+   directly; the only place the .isaac literal survives is as the
    default-root value when nothing else is provided.
 
    Lookup chain (first hit wins):
@@ -26,9 +29,14 @@
   (or *user-home* (System/getProperty "user.home")))
 
 (defn default-root
-  "The default Isaac root when no flag/env/pointer is provided: ~/.isaac."
-  []
-  (str (user-home) "/.isaac"))
+  "The default Isaac root. No args: ~/.isaac. A string home: <home>/.isaac.
+   A CLI opts map: :root wins, else :home (or user-home) + /.isaac."
+  ([] (str (user-home) "/.isaac"))
+  ([home-or-opts]
+   (if (map? home-or-opts)
+     (or (:root home-or-opts)
+         (default-root (or (:home home-or-opts) (user-home))))
+     (str home-or-opts "/.isaac"))))
 
 (defn current-root
   "Returns the currently-active Isaac root. Thread-local binding wins,
@@ -84,24 +92,3 @@
           (pointer-root fs*)
           (default-root))
       absolute-path))
-
-(defn extract-root-flag
-  "Strips --root <dir> (or --root=<dir>) from args, returning
-   {:args <stripped> :root <explicit-or-nil>}."
-  [args]
-  (loop [remaining args
-         stripped  []
-         explicit  nil]
-    (if-let [arg (first remaining)]
-      (cond
-        (= "--root" arg)
-        (if-let [value (second remaining)]
-          (recur (nnext remaining) stripped value)
-          {:args args :root explicit})
-
-        (str/starts-with? arg "--root=")
-        (recur (rest remaining) stripped (subs arg (count "--root=")))
-
-        :else
-        (recur (rest remaining) (conj stripped arg) explicit))
-      {:args stripped :root explicit})))

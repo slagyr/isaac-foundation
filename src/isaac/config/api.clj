@@ -16,9 +16,7 @@
    Each fn delegates to its source at call time, so `with-redefs` on the
    underlying fn still takes effect for callers through this API."
   (:require
-    [isaac.config.loader :as loader]
-    [isaac.config.paths :as paths]
-    [isaac.root :as root]))
+    [isaac.config.loader :as loader]))
 
 ;; ----- loading & snapshot -----
 
@@ -69,15 +67,6 @@
    present, otherwise the loaded config snapshot's :root."
   []
   (loader/root))
-
-(defn default-root
-  "Computes the default state directory for CLI-style opts: :root wins,
-   otherwise :home (or the user's home directory) + the standard .isaac suffix.
-   Use at entry points before load; the running process should read [[root]]
-   (the resolved snapshot) instead."
-  [opts]
-  (or (:root opts)
-      (paths/default-root (or (:home opts) (root/user-home)))))
 
 ;; ----- env -----
 

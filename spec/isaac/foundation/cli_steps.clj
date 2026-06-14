@@ -14,7 +14,7 @@
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.fs :as fs]
     [isaac.main :as main]
-    [isaac.root :as root]
+    [isaac.config.root :as root]
     [isaac.spec-helper :as helper]
     [isaac.nexus :as nexus]
     [isaac.shell :as shell]))

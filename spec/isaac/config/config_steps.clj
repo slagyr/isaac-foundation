@@ -92,7 +92,7 @@
       (finally
         (System/setProperty "user.dir" base-cwd)))))
 
-(defn- load-result []
+(defn load-result []
   (or (g/get :loaded-config-result)
       (let [result       (load-config-result)
             module-index (get-in result [:config :module-index])]
@@ -103,6 +103,13 @@
         (when (and module-index (empty? (:errors result)))
           (module-loader/process-manifest-berths! module-index))
         result)))
+
+(defn reload-result
+  "Drops the cached load and loads fresh — for steps that rewrite
+   isaac.edn mid-scenario and need the loader to see it."
+  []
+  (g/assoc! :loaded-config-result nil)
+  (load-result))
 
 (defn- parse-expected [value]
   (cond

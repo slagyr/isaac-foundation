@@ -158,17 +158,18 @@
     (it "is a map with :name :nexus"
       (should= :nexus (:name sut/schema)))
 
-    (it "declares all expected keys"
+    (it "documents foundation-reserved slots only"
+      (should= #{:fs :config :module-index :scheduler}
+               (set (keys (:schema sut/schema)))))
+
+    (it "omits platform-wide slots from foundation documentation"
       (let [ks (set (keys (:schema sut/schema)))]
-        (should (contains? ks :server))
-        (should (contains? ks :sessions))
-        (should (contains? ks :config))
-        (should (contains? ks :tool-registry))
-        (should (contains? ks :slash-registry))
-        (should (contains? ks :comm-registry))
-        (should (contains? ks :provider-registry))
-        (should-not (contains? ks :active-turns))
-        (should (contains? ks :module-index)))))
+        (should-not (contains? ks :server))
+        (should-not (contains? ks :sessions))
+        (should-not (contains? ks :tool-registry))
+        (should-not (contains? ks :slash-registry))
+        (should-not (contains? ks :comm-registry))
+        (should-not (contains? ks :provider-registry)))))
 
   ;; endregion ^^^^^ schema structure ^^^^^
 

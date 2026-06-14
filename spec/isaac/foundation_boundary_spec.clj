@@ -15,8 +15,9 @@
    config namespaces transitively required by isaac.config.loader
    (check-compose / schema-compose / validation), created by the config
    schema/check pre-work. Closed under isaac.* requires (asserted below)."
-  '#{isaac.main isaac.cli.registry isaac.core isaac.module.protocol isaac.nexus
-     isaac.fs isaac.logger isaac.root isaac.version isaac.naming isaac.scheduler.runtime
+  '#{isaac.main isaac.cli.registry isaac.foundation isaac.module.protocol isaac.nexus
+     isaac.fs isaac.logger isaac.config.root isaac.foundation.version isaac.reconfigurable
+     isaac.naming isaac.scheduler.runtime
      isaac.spec-helper
      isaac.module.loader isaac.module.manifest
      isaac.scheduler.cron
@@ -25,7 +26,8 @@
      isaac.config.paths isaac.config.nav isaac.config.companion isaac.config.loader
      isaac.config.api isaac.config.berths isaac.config.schema-base
      isaac.config.check-compose isaac.config.schema-compose isaac.config.validation
-     isaac.cli.api isaac.cli.color isaac.cli.table isaac.shell})
+     isaac.cli.api isaac.cli.args isaac.cli.color isaac.cli.table
+     isaac.shell})
 
 (def forbidden-prefixes
   ["isaac.server" "isaac.session" "isaac.llm" "isaac.comm" "isaac.bridge"

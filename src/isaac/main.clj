@@ -10,8 +10,9 @@
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
     [isaac.nexus :as nexus]
-    [isaac.root :as root]
-    [isaac.version :as version]))
+    [isaac.cli.args :as cli-args]
+    [isaac.config.root :as root]
+    [isaac.foundation.version :as version]))
 
 (def ^:dynamic *extra-opts* nil)
 
@@ -87,7 +88,7 @@
 (defn run
   "Run the CLI. Returns exit code."
   [args]
-  (let [{after-root :args :keys [root]} (root/extract-root-flag args)
+  (let [{after-root :args :keys [root]} (cli-args/extract-root-flag args)
          args (resolve-alias after-root)
          cmd  (first args)
          opts (rest args)

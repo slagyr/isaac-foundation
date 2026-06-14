@@ -1,7 +1,7 @@
 (ns marigold.longwave
   "Fixture consumer module shared by manifest-only and config-berth tests."
   (:require
-    [isaac.config.berths :as berths]
+    [isaac.reconfigurable :as reconfigurable]
     [isaac.module.protocol :as module]
     [marigold.bridge.comm :as bridge.comm]))
 
@@ -18,7 +18,7 @@
 ;; lifecycle calls to nodes that opt in (and recreates the ones that
 ;; don't — see the plain :longwave map above).
 (defrecord RelayStation [state*]
-  berths/Reconfigurable
+  reconfigurable/Reconfigurable
   (on-startup! [_ slice]
     (reset! state* {:slice slice :last-event :started}))
   (on-config-change! [_ _old new]

@@ -3,21 +3,13 @@
    I/O. The root directory is the canonical home for config and runtime data:
    config lives at <root>/config and runtime data (crew, sessions, memory)
    under <root>. In production the root defaults to ~/.isaac, but any
-   directory is valid (see isaac.root/default-root)."
+   directory is valid (see isaac.config.root/default-root)."
   (:require [clojure.string :as str]))
 
 (def ^:private entity-file-pattern #"[^/]+/[^/]+\.edn")
 (def ^:private markdown-file-pattern #"(crew|cron|hooks)/[^/]+\.md")
 
 (def root-filename "isaac.edn")
-
-(defn default-root
-  "Legacy helper: derive the Isaac data dir from a parent `home` (returns
-   `<home>/.isaac`). Kept as a transitional shim for callers that still
-   pass :home in opts; prefer isaac.root/default-root or pass :root
-   directly."
-  [home]
-  (str home "/.isaac"))
 
 (defn config-root [root]
   (str root "/config"))

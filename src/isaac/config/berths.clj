@@ -4,6 +4,7 @@
     [isaac.config.schema-base :as schema-base]
     [isaac.logger :as log]
     [isaac.nexus :as nexus]
+    [isaac.reconfigurable :as reconfigurable]
     [isaac.schema.dynamic :as dynamic]
     [isaac.schema.lexicon :as lexicon]
     [isaac.schema.meta :as meta-schema]
@@ -11,9 +12,7 @@
 
 (def ^:private config-schema-key :isaac.config/schema)
 
-(defprotocol Reconfigurable
-  (on-startup!       [this slice])
-  (on-config-change! [this old-slice new-slice]))
+(def Reconfigurable reconfigurable/Reconfigurable)
 
 (defn- ordered-berth-decls [module-index]
   (reduce
@@ -254,7 +253,7 @@
                     (factory node-path conformed))]
     (when (some? node)
       (when (satisfies? Reconfigurable node)
-        (on-startup! node conformed))
+        (reconfigurable/on-startup! node conformed))
       (nexus/register! node-path node)
       (log/info :lifecycle/started :path (dotted node-path) :impl (node-impl node-path conformed)))
     node))
@@ -262,7 +261,7 @@
 (defn- remove-node! [node-path old-slice]
   (when-let [existing (nexus/get-in node-path)]
     (when (satisfies? Reconfigurable existing)
-      (on-config-change! existing old-slice nil))
+      (reconfigurable/on-config-change! existing old-slice nil))
     (nexus/deregister! node-path)
     (log/info :lifecycle/stopped :path (dotted node-path) :impl (node-impl node-path old-slice))))
 
@@ -277,7 +276,7 @@
           (create-node! module-index node-path node-spec new-slice))
 
       (satisfies? Reconfigurable existing)
-      (do (on-config-change! existing old-slice new-slice)
+      (do (reconfigurable/on-config-change! existing old-slice new-slice)
           (log/info :lifecycle/changed :path (dotted node-path) :impl (node-impl node-path new-slice)))
 
       :else

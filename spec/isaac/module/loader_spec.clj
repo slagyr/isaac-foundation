@@ -121,7 +121,7 @@
 
 (describe "module loader"
 
-  (describe "core-index"
+  (describe "foundation-index"
 
     #_{:clj-kondo/ignore [:unresolved-symbol]}
     (around [example] (nexus/-with-nested-nexus {:fs (fs/mem-fs)} (example)))
@@ -132,7 +132,7 @@
     (after
       (sut/clear-caches!))
 
-    (it "reads the core manifest only once"
+    (it "reads the foundation manifest only once"
       (let [resource-calls (atom 0)
             read-calls     (atom 0)]
         (with-redefs-fn {#'isaac.module.loader/manifest-resource (fn [_]
@@ -140,13 +140,13 @@
                                                                    :core-resource)
                          #'isaac.module.manifest/read-manifest    (fn [_ _]
                                                                     (swap! read-calls inc)
-                                                                    {:id :isaac.core :version "1.0.0"})}
+                                                                    {:id :isaac.foundation :version "1.0.0"})}
           #(do
-             (should= {:isaac.core {:coord {}
-                                    :manifest {:id :isaac.core :version "1.0.0"}
-                                    :path nil}}
-                      (sut/core-index))
-             (should= (sut/core-index) (sut/core-index))))
+             (should= {:isaac.foundation {:coord {}
+                                          :manifest {:id :isaac.foundation :version "1.0.0"}
+                                          :path nil}}
+                      (sut/foundation-index))
+             (should= (sut/foundation-index) (sut/foundation-index))))
         (should= 1 @resource-calls)
         (should= 1 @read-calls))))
 
@@ -162,7 +162,7 @@
     (it "includes builtin manifests even when :modules is absent"
       (let [{:keys [index errors]} (sut/discover! {} ctx)]
         (should= [] errors)
-        (should= :isaac.core (get-in index [:isaac.core :manifest :id]))))
+        (should= :isaac.foundation (get-in index [:isaac.foundation :manifest :id]))))
 
     (it "builds an index entry for a valid local module"
       (write-local-module! :isaac.comm.pigeon valid-comm-manifest)
@@ -246,7 +246,7 @@
               (should-not (contains? index :isaac.fixture.unflagged)))
             (finally
               (sut/clear-caches!)
-              (sut/core-index))))))
+              (sut/foundation-index))))))
 
     (it "adds errors when a manifest fails schema validation"
       (write-local-module! :isaac.comm.pigeon {:id :isaac.comm.pigeon})
@@ -259,7 +259,7 @@
       (write-local-module! :mod.b {:id :mod.b :version "1"})
       (let [{:keys [index errors]} (discover-local! [:mod.a :mod.b])]
         (should= [] errors)
-        (should= #{:mod.a :mod.b :isaac.core} (set (keys index))))))
+        (should= #{:mod.a :mod.b :isaac.foundation} (set (keys index))))))
 
   (describe "process-manifest-berths!"
 
