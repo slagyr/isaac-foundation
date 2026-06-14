@@ -78,15 +78,15 @@ Re-exported fn / protocol / var surfaces only. Defined in `src/isaac/foundation.
 | | `create-module` | fn | Manifest `:factory` entry point (same ns) |
 | `isaac.config.loader` | `load-config!` | fn | Load, validate, commit snapshot (entry points) |
 | | `load-config-result` | fn | Inspect without committing |
-| | `snapshot` | fn | Ambient read — entry points only |
-| | `root` | fn | Runtime root from snapshot |
-| | `env` | fn | `${VAR}` substitution |
+| | `config-snapshot` | fn | Ambient read — entry points only |
+| | `root-dir` | fn | Runtime root from snapshot |
+| | `env-get` | fn | `${VAR}` substitution |
 | `isaac.reconfigurable` | `Reconfigurable` | protocol | Config-driven component lifecycle |
 | | `on-startup!` | fn | Protocol dispatch |
 | | `on-config-change!` | fn | Protocol dispatch |
-| `isaac.nexus` | `get` | fn | Read registered runtime state |
-| | `get-in` | fn | Nested read |
-| | `register!` | fn | Publish factory output |
+| `isaac.nexus` | `nexus-get` | fn | Read registered runtime state |
+| | `nexus-get-in` | fn | Nested read |
+| | `nexus-register!` | fn | Publish factory output |
 
 **Not in the facade:**
 
@@ -173,7 +173,7 @@ typed contribution slot declared in the foundation manifest (`:berths` in
 | `:isaac.config/check` | Map of check id → post-load validation fn |
 
 The loader resolves per-entry `:factory` symbols at activation time. Factories
-typically use Tier-1 APIs (`foundation/register!`, `isaac.logger`, `isaac.fs`) to
+typically use Tier-1 APIs (`foundation/nexus-register!`, `isaac.logger`, `isaac.fs`) to
 publish live instances into the nexus.
 
 Manifest-only modules (EDN contributions, no Clojure requires) are the common case.
@@ -185,7 +185,7 @@ Two different “roots”:
 | Concept | Namespace | When |
 |---------|-----------|------|
 | **Bootstrap root** | `isaac.config.root` | CLI / `main` resolves before config is loaded (`default-root`, `--root` flag) |
-| **Runtime root** | `foundation/root` or snapshot `:root` | After `load-config!` commits the process-wide snapshot |
+| **Runtime root** | `foundation/root-dir` or snapshot `:root` | After `load-config!` commits the process-wide snapshot |
 
 Path construction helpers (`config-path`, entity dirs, pointer files) live in
 `isaac.config.paths` (direct import). Module authors read config through the

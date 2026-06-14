@@ -1,7 +1,6 @@
 (ns isaac.foundation
   "Tier-1 public API for Isaac modules. Documented fn/protocol/var surfaces only.
    CLI multimethods, fs, logger, and config.paths are direct imports — see FOUNDATION.md."
-  (:refer-clojure :exclude [get get-in])
   (:require
     [isaac.module.protocol :as module-protocol]
     [isaac.config.loader :as loader]
@@ -51,7 +50,7 @@
   [root fs reason]
   (loader/load-config! root fs reason))
 
-(defn snapshot
+(defn config-snapshot
   "Returns the current process-wide config snapshot, or nil if not yet set.
    An ambient read: call ONLY at entry points / wake boundaries; in-flight code
    must receive config as a value. `reason` documents why this site reads
@@ -59,13 +58,13 @@
   [reason]
   (loader/snapshot reason))
 
-(defn root
+(defn root-dir
   "Returns the resolved state directory: a nexus-installed test override if
    present, otherwise the loaded config snapshot's `:root`."
   []
   (loader/root))
 
-(defn env
+(defn env-get
   "Resolves an environment variable name for `${VAR}` substitution: an override
    first, then the process environment, then the loaded .env snapshot."
   [name]
@@ -90,17 +89,17 @@
 
 ;; nexus (factory publish/read)
 
-(defn get
+(defn nexus-get
   "Returns the value registered under `k` in the process-wide nexus, or nil."
   [k]
   (nexus/get k))
 
-(defn get-in
+(defn nexus-get-in
   "Returns the value at `path` in the process-wide nexus, or nil."
   [path]
   (nexus/get-in path))
 
-(defn register!
+(defn nexus-register!
   "Registers `v` at `path` in the process-wide nexus."
   [path v]
   (nexus/register! path v))

@@ -25,7 +25,7 @@
   "Module-style entry: facade for module/nexus, direct imports for fs/logger."
   []
   (and (foundation/module? (create-module))
-       (if-let [fs* (foundation/get :fs)]
+       (if-let [fs* (foundation/nexus-get :fs)]
          (satisfies? fs/Fs fs*)
          true)))
 

@@ -102,9 +102,9 @@
                     loader/env                (fn [_] ::env)
                     loader/load-config!       (fn [& _] ::loaded)]
         (should= ::load-result (sut/load-config-result))
-        (should= ::snapshot (sut/snapshot "test"))
-        (should= ::root (sut/root))
-        (should= ::env (sut/env "X"))
+        (should= ::snapshot (sut/config-snapshot "test"))
+        (should= ::root (sut/root-dir))
+        (should= ::env (sut/env-get "X"))
         (should= ::loaded (sut/load-config! "/" nil "test"))))
 
     (it "does not expose normalize-config"
@@ -115,15 +115,23 @@
 
   (describe "nexus delegation"
 
-    (it "delegates get, get-in, and register! to nexus"
+    (it "delegates nexus-get, nexus-get-in, and nexus-register! to nexus"
       (nexus/-with-nexus {}
-        (sut/register! [:smoke] :registered)
-        (should= :registered (sut/get :smoke))
-        (should= :registered (sut/get-in [:smoke]))))
+        (sut/nexus-register! [:smoke] :registered)
+        (should= :registered (sut/nexus-get :smoke))
+        (should= :registered (sut/nexus-get-in [:smoke]))))
 
     (it "with-redefs on nexus flow through foundation"
       (with-redefs [nexus/get (fn [_] ::stub)]
-        (should= ::stub (sut/get :smoke)))))
+        (should= ::stub (sut/nexus-get :smoke)))))
+
+    (it "does not expose the old short names"
+      (should= nil (resolve 'isaac.foundation/snapshot))
+      (should= nil (resolve 'isaac.foundation/root))
+      (should= nil (resolve 'isaac.foundation/env))
+      (should= nil (resolve 'isaac.foundation/get))
+      (should= nil (resolve 'isaac.foundation/get-in))
+      (should= nil (resolve 'isaac.foundation/register!)))
 
   (describe "create-module"
 
