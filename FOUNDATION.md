@@ -80,7 +80,6 @@ Re-exported fn / protocol / var surfaces only. Defined in `src/isaac/foundation.
 | | `load-config-result` | fn | Inspect without committing |
 | | `snapshot` | fn | Ambient read — entry points only |
 | | `root` | fn | Runtime root from snapshot |
-| | `normalize-config` | fn | Canonical config shape |
 | | `env` | fn | `${VAR}` substitution |
 | `isaac.reconfigurable` | `Reconfigurable` | protocol | Config-driven component lifecycle |
 | | `on-startup!` | fn | Protocol dispatch |

@@ -99,15 +99,16 @@
       (with-redefs [loader/load-config-result (fn [& _] ::load-result)
                     loader/snapshot           (fn [& _] ::snapshot)
                     loader/root               (fn [] ::root)
-                    loader/normalize-config   (fn [_] ::normalized)
                     loader/env                (fn [_] ::env)
                     loader/load-config!       (fn [& _] ::loaded)]
         (should= ::load-result (sut/load-config-result))
         (should= ::snapshot (sut/snapshot "test"))
         (should= ::root (sut/root))
-        (should= ::normalized (sut/normalize-config {}))
         (should= ::env (sut/env "X"))
         (should= ::loaded (sut/load-config! "/" nil "test"))))
+
+    (it "does not expose normalize-config"
+      (should= nil (resolve 'isaac.foundation/normalize-config)))
 
     (it "does not re-export default-root"
       (should= nil (resolve 'isaac.foundation/default-root))))

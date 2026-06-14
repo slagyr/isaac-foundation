@@ -42,12 +42,6 @@
   ([]     (loader/load-config-result))
   ([opts] (loader/load-config-result opts)))
 
-(defn normalize-config
-  "Normalizes a raw config map into canonical shape (crew/models/providers,
-   legacy forms migrated)."
-  [cfg]
-  (loader/normalize-config cfg))
-
 (defn load-config!
   "THE loader: load config from `root` (read via `fs`), validate it, commit
    it as the process-wide snapshot, and return the value. Call once per process
