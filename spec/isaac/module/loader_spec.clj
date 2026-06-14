@@ -180,6 +180,14 @@
         (should= :isaac.cli.greeter (get-in result [:index :isaac.cli.greeter :manifest :id]))
         (should= module-root (get-in result [:index :isaac.cli.greeter :path]))))
 
+    (it "invalidates builtin-index cache when a module dep is dynamically loaded"
+      (let [invalidated? (atom false)
+            cwd          (System/getProperty "user.dir")]
+        (with-redefs [sut/invalidate-builtin-index! (fn [] (reset! invalidated? true))]
+          (sut/discover! {:modules {:isaac.cli.greeter {:local/root "modules/isaac.cli.greeter"}}}
+                         (assoc ctx :cwd cwd))
+          (should @invalidated?))))
+
     (it "adds an error when a local/root path is not found"
       (let [{:keys [index errors]} (sut/discover! {:modules {:isaac.comm.ghost {:local/root "/state/.isaac/modules/isaac.comm.ghost"}}} ctx)]
         (should= nil (get index :isaac.comm.ghost))

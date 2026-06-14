@@ -62,6 +62,7 @@
 (declare activate!)
 (declare builtin-index)
 (declare foundation-index)
+(declare invalidate-builtin-index!)
 (declare resolve-symbol!)
 
 (defn- ->module-id [raw]
@@ -169,7 +170,10 @@
                  (reset! add? true)
                  (conj loaded key)))))
     (when @add?
-      (add-module-deps! id coord))))
+      (add-module-deps! id coord)
+      ;; Classpath grew — refresh builtin-index on next read so provider
+      ;; templates and other :builtin? manifests are visible.
+      (invalidate-builtin-index!))))
 
 (defn- resource-urls [resource-name]
   (let [loader (or (.getContextClassLoader (Thread/currentThread))
@@ -290,6 +294,9 @@
 
 (defonce ^:private foundation-index-cache (atom nil))
 (defonce ^:private builtin-index-cache (atom nil))
+
+(defn- invalidate-builtin-index! []
+  (reset! builtin-index-cache nil))
 
 ;; When bound, replaces the resource-loaded core manifest index.
 ;; Tests use this to swap in a themed manifest; see spec/isaac/marigold.clj.
