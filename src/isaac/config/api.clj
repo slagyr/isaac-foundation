@@ -1,7 +1,7 @@
 (ns isaac.config.api
-  "Host and test write helpers for Isaac configuration. Module authors read config
-   through `isaac.foundation`; server lifecycle (install, reconcile, reload) lives in
-   `isaac.config.runtime`. This namespace is for committing synthetic snapshots and
+  "Host and test write helpers for Isaac configuration. Server lifecycle (install,
+   reconcile, reload) lives in `isaac.config.runtime`. This namespace is for
+   committing synthetic snapshots and
    env-var overrides in tests and boot paths that bypass the loader.
 
    Each fn delegates to `isaac.config.loader` at call time, so `with-redefs` on the

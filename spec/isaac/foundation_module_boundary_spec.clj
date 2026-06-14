@@ -1,17 +1,17 @@
 (ns isaac.foundation-module-boundary-spec
-  "Module→foundation-internal boundary gate (isaac-fkxv step 9): every
-   production module namespace under modules/ may require isaac.* only from
-   Tier 1 (isaac.foundation facade + documented carve-outs) or from agent
-   surfaces (isaac.comm, isaac.llm, isaac.slash, isaac.api). Foundation
-   internals (loader, berths, cli.registry, compose pipeline, ...) are
-   forbidden. Parses :require forms statically — no runtime requiring-resolve."
+  "Module→foundation-internal boundary gate: every production module namespace
+   under modules/ may require documented foundation components or agent surfaces
+   (isaac.comm, isaac.llm, isaac.slash, isaac.api). Foundation internals (loader,
+   berths, cli.registry, compose pipeline, ...) are forbidden. Parses :require
+   forms statically — no runtime requiring-resolve."
   (:require
     [clojure.java.io :as io]
     [clojure.string :as str]
     [speclj.core :refer [describe it should=]]))
 
-(def tier-1-direct-imports
-  "Documented carve-outs — keep in sync with FOUNDATION.md and foundation_spec."
+(def tier-1-allowed
+  "isaac.* namespaces module authors may require directly — keep in sync with
+   FOUNDATION.md."
   '#{isaac.cli.api
      isaac.fs
      isaac.logger
@@ -19,19 +19,13 @@
      isaac.config.root
      isaac.schema.lexicon
      isaac.schema.meta
-     isaac.reconfigurable})
-
-(def tier-1-allowed
-  "isaac.* namespaces module authors may require (facade + carve-outs + the
-   small protocol/nexus surfaces re-exported by isaac.foundation)."
-  (conj tier-1-direct-imports
-        'isaac.foundation
-        'isaac.module.protocol
-        'isaac.nexus))
+     isaac.reconfigurable
+     isaac.module.protocol
+     isaac.nexus})
 
 (def agent-allowed-prefixes
-  "Agent/platform module namespaces — not foundation Tier 1, but allowed for
-   modules that extend comm, llm, slash, or the agent API."
+  "Agent/platform module namespaces — allowed for modules that extend comm, llm,
+   slash, or the agent API."
   ["isaac.comm" "isaac.llm" "isaac.slash" "isaac.api"])
 
 (defn- read-ns-form [file]
@@ -74,7 +68,7 @@
       (agent-allowed? ns-sym)))
 
 (defn disallowed-module-requires
-  "Returns isaac.* requires that violate the module→Tier-1 boundary."
+  "Returns isaac.* requires that violate the module boundary."
   [requires]
   (set (remove allowed-module-isaac-ns? requires)))
 
@@ -99,21 +93,22 @@
               :when         (seq bad)]
           [ns-sym (vec bad)])))
 
-(describe "module→foundation Tier-1 boundary"
+(describe "module→foundation boundary"
 
-  (it "every module namespace under modules/ stays on Tier 1 or agent surfaces"
+  (it "every module namespace under modules/ stays on allowed components or agent surfaces"
     (should= {} (module-violations)))
 
   (it "flags deliberate foundation-internal requires"
     (should= #{'isaac.config.loader 'isaac.cli.registry}
-             (disallowed-module-requires '#{isaac.foundation
+             (disallowed-module-requires '#{isaac.module.protocol
                                            isaac.config.loader
                                            isaac.cli.registry
                                            isaac.cli.api})))
 
-  (it "allows Tier-1 facade, carve-outs, and agent namespaces"
+  (it "allows documented foundation components and agent namespaces"
     (should= #{}
-             (disallowed-module-requires '#{isaac.foundation
+             (disallowed-module-requires '#{isaac.nexus
+                                           isaac.module.protocol
                                            isaac.cli.api
                                            isaac.logger
                                            isaac.reconfigurable

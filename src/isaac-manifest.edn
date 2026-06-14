@@ -1,6 +1,6 @@
 {:id        :isaac.foundation
  :version   "0.1.0"
- :factory   isaac.foundation/create-module
+ :factory   isaac.foundation.module/create-module
 
  :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
                                    :schema      {:type       :map

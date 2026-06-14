@@ -166,7 +166,7 @@
   "A stand-in for src/isaac-manifest.edn — foundation only."
   {:id      :isaac.foundation
    :version "0.1.0"
-   :factory 'isaac.foundation/create-module
+   :factory 'isaac.foundation.module/create-module
    :berths  {:isaac/cli {:description "CLI commands."
                    :schema      {:type       :map
                                  :key-spec   {:type :keyword}
