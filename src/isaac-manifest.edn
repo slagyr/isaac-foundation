@@ -1,31 +1,47 @@
-{:id      :isaac.core
- :version "0.1.0"
- :factory isaac.core/create-module
+{:id        :isaac.core
+ :version   "0.1.0"
+ :factory   isaac.core/create-module
 
- :berths  {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
-                                 :schema      {:type       :map
-                                               :key-spec   {:type :keyword}
-                                               :value-spec {:type    :map
-                                                            :factory isaac.cli.registry/register-cli-command!
-                                                            :schema  {:usage     {:type :string :validations [:present?]}
-                                                                      :summary   {:type :string :validations [:present?]}
-                                                                      :namespace {:type :symbol :validations [:present?]}}}}}
-           :isaac.config/schema {:description "Top-level config schema fragments contributed by modules."
-                                 :schema      {:type       :map
-                                               :key-spec   {:type :keyword}
-                                               :value-spec {:type   :map
-                                                            :schema {:schema             {:type :map :validations [:present?]}
-                                                                     :entity-dir         {:type :string}
-                                                                     :frontmatter?       {:type :boolean}
-                                                                     :merge-root-entity? {:type :boolean}
-                                                                     :companion          {:type   :map
-                                                                                          :schema {:field {:type :keyword}
-                                                                                                   :mode  {:type :keyword}}}}}}}
-           :isaac.config/check  {:description "Post-load config validation checks contributed by modules."
-                                 :schema      {:type       :map
-                                               :key-spec   {:type :keyword}
-                                               :value-spec {:type   :map
-                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}
+ :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
+                                   :schema      {:type       :map
+                                                 :key-spec   {:type :keyword}
+                                                 :value-spec {:type    :map
+                                                              :factory isaac.cli.registry/register-cli-command!
+                                                              :schema  {:usage     {:type        :string
+                                                                                    :validations [:present?]
+                                                                                    :description "Usage line for isaac help (e.g. \"config <subcommand> [options]\"). Command name comes from the map key."}
+                                                                        :summary   {:type        :string
+                                                                                    :validations [:present?]
+                                                                                    :description "One-line description shown in command listings and the help header."}
+                                                                        :namespace {:type        :symbol
+                                                                                    :validations [:present?]
+                                                                                    :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}}}}}
+             :isaac.config/schema {:description "Top-level config schema fragments contributed by modules."
+                                   :schema      {:type       :map
+                                                 :key-spec   {:type :keyword}
+                                                 :value-spec {:type   :map
+                                                              :schema {:schema             {:type        :map
+                                                                                            :validations [:present?]
+                                                                                            :description "Apron schema spec for this config table (types, validations, :dynamic-schema)."}
+                                                                       :entity-dir         {:type        :string
+                                                                                            :description "Config subdirectory for per-id entity files (e.g. \"crew\" → config/crew/*.edn)."}
+                                                                       :frontmatter?       {:type        :boolean
+                                                                                            :description "When true, entity-dir also accepts <id>.md with YAML frontmatter."}
+                                                                       :merge-root-entity? {:type        :boolean
+                                                                                            :description "Merge top-level isaac.edn entries for this key with entity files; error if same id appears in both."}
+                                                                       :companion          {:type        :map
+                                                                                            :description "Sidecar text for one entity field (inline value or companion file)."
+                                                                                            :schema      {:field {:type        :keyword
+                                                                                                                  :description "Entity key filled from file if omitted inline (:soul, :prompt, :template)."}
+                                                                                                          :mode  {:type        :keyword
+                                                                                                                  :description "exclusive | required | optional — see loader companion resolution."}}}}}}}
+             :isaac.config/check  {:description "Post-load config validation checks contributed by modules."
+                                   :schema      {:type       :map
+                                                 :key-spec   {:type :keyword}
+                                                 :value-spec {:type   :map
+                                                              :schema {:fn {:type        :symbol
+                                                                            :validations [:present?]
+                                                                            :description "Symbol resolving to (fn [ctx] {:errors [] :warnings []})."}}}}}}
 
  :isaac/cli {:init {:usage     "init"
                     :summary   "Scaffold a default Isaac config"

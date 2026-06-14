@@ -202,8 +202,14 @@
   [[id {:keys [usage summary namespace]}]]
   (let [name (clojure.core/name id)]
     (when (contains? @berth-command-names* name)
-      (throw (ex-info (str "duplicate CLI command \"" name "\"")
-                      {:command id :namespace namespace})))
+      ;; berth passes re-run (every dispatch, server boot, reload) — the
+      ;; same entry re-registering is idempotent; a DIFFERENT entry
+      ;; claiming the id is a genuine collision.
+      (let [existing (get-command name)]
+        (when-not (= (select-keys existing [:usage :summary :namespace])
+                     {:usage usage :summary summary :namespace namespace})
+          (throw (ex-info (str "duplicate CLI command \"" name "\"")
+                          {:command id :namespace namespace})))))
     (let [cmd    {:name      name
                   :id        id
                   :usage     usage
