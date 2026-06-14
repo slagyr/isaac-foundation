@@ -57,6 +57,18 @@ The spec tree is exported for consumers as
 `io.github.slagyr/isaac-foundation-spec` (`:deps/root "spec"`): step
 definitions, the marigold fixture world, and the marigold fixture modules.
 
+Consumers should depend on a tagged release (not `:local/root`):
+
+```clojure
+io.github.slagyr/isaac-foundation
+{:git/url "https://github.com/slagyr/isaac-foundation.git"
+ :git/tag "v0.1.0"
+ :git/sha "535ce491e45875ac97bf97a4b2306def7bb82a7c"}
+```
+
+Use the `:dev-local` alias in sibling repos to override back to
+`../isaac-foundation` while developing in the monorepo.
+
 The boundary gates (`spec/isaac/foundation_boundary_spec.clj`,
 `spec/isaac/foundation_module_boundary_spec.clj`) are permanent guards that
 foundation and module code stay on the documented public API.
