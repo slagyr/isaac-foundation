@@ -4,8 +4,9 @@
 *.jar
 .beads-credential-key
 .claude
-.clj-kondo
+.clj-kondo/
 .cpcache/
+.toolbox/
 .dolt/
 .DS_Store
 .env
