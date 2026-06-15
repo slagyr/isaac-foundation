@@ -267,7 +267,13 @@
       (write-local-module! :mod.b {:id :mod.b :version "1"})
       (let [{:keys [index errors]} (discover-local! [:mod.a :mod.b])]
         (should= [] errors)
-        (should= #{:mod.a :mod.b :isaac.foundation} (set (keys index))))))
+        ;; Both independent modules plus foundation get index entries. We
+        ;; assert presence (not an exact set): sibling :builtin? manifests can
+        ;; legitimately appear on the test classpath once an earlier spec
+        ;; discover!s a fixture module whose deps.edn back-references its repo.
+        (should-contain :mod.a index)
+        (should-contain :mod.b index)
+        (should-contain :isaac.foundation index))))
 
   (describe "process-manifest-berths!"
 
