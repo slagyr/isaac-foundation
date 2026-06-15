@@ -89,25 +89,44 @@
                          :modules             {:schema {:type :map}}
                          :prefer-entity-files {:schema {:type :boolean}}}})
 
+(defn- chartroom-manifest-with-loader-extensions [manifest]
+  (assoc manifest
+    :isaac.config/schema
+    (merge (:isaac.config/schema manifest)
+           (:isaac.config/schema cron-hooks-manifest))))
+
 (def ^:private extended-config-index
   {:isaac.foundation {:coord {} :manifest marigold/baseline-foundation-manifest :path nil}
    :marigold.chartroom {:coord {}
-                        :manifest (assoc config-marigold/baseline-chartroom-manifest
-                                    :isaac.config/schema
-                                    (merge (:isaac.config/schema config-marigold/baseline-chartroom-manifest)
-                                           (:isaac.config/schema cron-hooks-manifest)))
+                        :manifest (chartroom-manifest-with-loader-extensions
+                                    config-marigold/baseline-chartroom-manifest)
+                        :path nil}})
+
+(def ^:private auth-guarded-config-index
+  {:isaac.foundation {:coord {} :manifest marigold/baseline-foundation-manifest :path nil}
+   :marigold.chartroom {:coord {}
+                        :manifest (chartroom-manifest-with-loader-extensions
+                                    (assoc-in config-marigold/baseline-chartroom-manifest
+                                      [:isaac.config/schema :foundries :schema :value-spec :schema :api-key :validations]
+                                      [[:present-when? :auth "api-key"]]))
                         :path nil}})
 
 (defn- extended-root-schema []
   (schema-compose/effective-root-schema extended-config-index))
 
-(defn- with-extended-config-index [f]
-  (binding [module-loader/*foundation-index-override* extended-config-index]
+(defn- with-config-index [config-index f]
+  (binding [module-loader/*foundation-index-override* config-index]
     (schema-compose/clear-cache!)
     (try
       (f)
       (finally
         (schema-compose/clear-cache!)))))
+
+(defn- with-extended-config-index [f]
+  (with-config-index extended-config-index f))
+
+(defn- with-auth-guarded-config-index [f]
+  (with-config-index auth-guarded-config-index f))
 
 (describe "config loader"
 
@@ -511,12 +530,13 @@
                    :value (str "single-file config overrides legacy " test-berth-file)}]
                  (filter #(= test-berth-md (:key %)) (:warnings result)))))
 
-    (it "loads a berth entity file when isaac.edn has no inline berth table"
-      (config-marigold/write-config! {})
+    (it "reports duplicate ids across isaac.edn and per-entity files"
+      (config-marigold/write-config! {:berths {test-berth-kw {:ledger "First"}}})
       (config-marigold/write-berth! test-berth-kw {:ledger "Second"})
       (let [result (marigold/load-config)]
-        (should= [] (:errors result))
-        (should= "Second" (get-in result [:config :berths test-berth :ledger]))))
+        (should= [{:key test-berth-path
+                   :value (str "defined in both isaac.edn and " test-berth-file)}]
+                 (:errors result))))
 
     (it "reports malformed berth EDN with the relative file path"
       (marigold/write-raw! test-berth-file "{:gauge :llama")
@@ -530,6 +550,14 @@
       (let [result (marigold/load-config)]
         (should= [{:key test-berth-md
                    :value "YAML syntax error"}]
+                 (:errors result))))
+
+    (it "reports a ledger conflict when both edn and companion md define ledger"
+      (config-marigold/write-berth! test-berth-kw {:ledger "Inline ledger."})
+      (config-marigold/write-berth-md! test-berth-kw "File ledger.")
+      (let [result (marigold/load-config)]
+        (should= [{:key (str test-berth-path ".ledger")
+                   :value "must be set in .edn OR .md"}]
                  (:errors result))))
 
     (it "warns about unknown keys in entity files but still loads"
@@ -1034,22 +1062,16 @@
         (should-not (some #(str/includes? (:key %) "foundries.my-kombucha.fizz-level")
                           (:errors result)))))
 
-    (it "loads a self-defined foundry without api-key when chartroom schema has no auth guard"
-      (config-marigold/write-foundry! :my-thing {:api      "messages"
-                                                 :base-url "https://example.test"
-                                                 :auth     "api-key"})
-      (let [result (marigold/load-config)]
-        (should= [] (:errors result))
-        (should= "api-key" (get-in result [:config :foundries "my-thing" :auth]))))
-
-    (it "loads a typed foundry without api-key when template auth is not enforced at load"
-      (config-marigold/write-config!
-        {:modules {:isaac.providers.kombucha {:local/root (str marigold/home "/.isaac/modules/isaac.providers.kombucha")}}})
-      (write-kombucha-module!)
-      (config-marigold/write-foundry! :my-kombucha {:kind :kombucha :fizz-level 3})
-      (let [result (marigold/load-config)]
-        (should= [] (:errors result))
-        (should= 3 (get-in result [:config :foundries "my-kombucha" :fizz-level]))))
+    (it "rejects a self-defined foundry with auth api-key but no api-key"
+      (with-auth-guarded-config-index
+        (fn []
+          (config-marigold/write-foundry! :my-thing {:api      "messages"
+                                                     :base-url "https://example.test"
+                                                     :auth     "api-key"})
+          (let [result (marigold/load-config)]
+            (should (some #(and (= "foundries.my-thing.api-key" (:key %))
+                                (re-find #"is required when auth is api-key" (:value %)))
+                          (:errors result)))))))
 
   )
 

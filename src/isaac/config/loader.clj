@@ -518,7 +518,9 @@
         {:data raw-data :error nil :extra-errors []}))))
 
 (defn- finalize-entity-load-with-schema [entity-schema result kind id relative data extra-errors]
-  (let [warnings    (collect-unknown-key-warnings [] (name kind) id data entity-schema)
+  (let [root-entry   (or (get-in (:root result) [kind id])
+                         (get-in (:root result) [kind (keyword id)]))
+        warnings    (collect-unknown-key-warnings [] (name kind) id data entity-schema)
         entity      (lexicon/conform (runtime-schema entity-schema) data)
         explicit-id (:id entity)
         result      (-> result
@@ -531,10 +533,10 @@
                       (assoc-error result (str (name kind) "." id ".id") (str "must match filename (got \"" explicit-id "\")"))
                       result)
         result      (if (and (get-in (:config result) [kind id])
-                             (get-in (:root result) [kind id]))
+                             root-entry)
                       (assoc-error result (str (name kind) "." id) (str "defined in both isaac.edn and " relative))
                       result)]
-    (if (or (some? (get-in (:root result) [kind id]))
+    (if (or (some? root-entry)
             (cs/error? entity))
       (update result :sources conj (source-path relative))
       (-> result
