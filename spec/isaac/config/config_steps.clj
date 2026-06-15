@@ -4,6 +4,7 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
+    [isaac.config.berths :as berths]
     [isaac.config.loader :as loader]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
@@ -195,6 +196,40 @@
   (let [result (load-result)]
     (g/assoc! :loaded-config-result result)))
 
+;; --- config-berth node lifecycle (reconcile! engine) ----------------------
+;; load-result fires process-manifest-berths! (manifest-only berths only).
+;; Config berths (a :config-claimed path like [:relays]) are installed by
+;; the reconcile engine; do it lazily on first nexus assertion so loading
+;; stays cheap and these steps stay self-contained.
+
+(defn- loaded-module-index []
+  (merge (module-loader/foundation-index)
+         (get-in (g/get :loaded-config-result) [:config :module-index])))
+
+(defn- ensure-config-berths-installed! []
+  (when-not (g/get :config-berths-installed?)
+    (when-let [loaded (g/get :loaded-config-result)]
+      (let [module-index (loaded-module-index)]
+        ;; start-modules! invokes each module factory, loading its ns so
+        ;; factory multimethods (e.g. marigold's create-comm-node! impls)
+        ;; register before the berth engine dispatches on them.
+        (module-loader/start-modules! module-index)
+        (berths/install! {:config       (:config loaded)
+                          :module-index module-index}))
+      (g/assoc! :config-berths-installed? true))))
+
+(defn config-is-reloaded []
+  ;; Install the pre-reload nodes (boot), then reconcile against the freshly
+  ;; loaded config so Reconfigurable nodes receive on-config-change! and
+  ;; removed slots deregister — the real reload path, not a fresh install.
+  (ensure-config-berths-installed!)
+  (let [prev   (:config (g/get :loaded-config-result))
+        result (reload-result)]
+    (g/assoc! :loaded-config-result result)
+    (berths/reconcile! {:config       (:config result)
+                        :old-config   prev
+                        :module-index (loaded-module-index)})))
+
 ;; endregion ^^^^^ When step bodies ^^^^^
 
 ;; region ----- Then step bodies -----
@@ -270,6 +305,44 @@
 (defn config-has-no-validation-warnings []
   (g/should= [] (:warnings (load-result))))
 
+(defn- parse-state-value [value]
+  (cond
+    (re-matches #"-?\d+" value)        (parse-long value)
+    (= "true" (str/lower-case value))  true
+    (= "false" (str/lower-case value)) false
+    (str/starts-with? value "[")       (edn/read-string value)
+    (str/starts-with? value "{")       (edn/read-string value)
+    (str/starts-with? value ":")       (edn/read-string value)
+    (str/starts-with? value "\"")      (edn/read-string value)
+    :else                              value))
+
+(defn- get-by-dotted-path [m path]
+  (get-in m (mapv keyword (str/split path #"\."))))
+
+(defn- node-at-path [path-str]
+  (nexus/get-in (edn/read-string path-str)))
+
+(defn- read-state [instance]
+  ;; Reconfigurable fixture nodes (RelayStation) expose their tracked state
+  ;; via a :state* atom; plain map nodes are their own state.
+  (cond
+    (some-> instance :state*) @(:state* instance)
+    (map? instance)           instance
+    :else                     {}))
+
+(defn nexus-node-state-has [path-str table]
+  (ensure-config-berths-installed!)
+  (let [state (read-state (node-at-path path-str))]
+    (g/should-not-be-nil (node-at-path path-str))
+    (doseq [row (:rows table)]
+      (let [row-map (zipmap (:headers table) row)]
+        (g/should= (parse-state-value (get row-map "value"))
+                   (get-by-dotted-path state (get row-map "path")))))))
+
+(defn nexus-no-node-at [path-str]
+  (ensure-config-berths-installed!)
+  (g/should-be-nil (node-at-path path-str)))
+
 ;; endregion ^^^^^ Then step bodies ^^^^^
 
 ;; region ----- Routing -----
@@ -299,6 +372,21 @@
   "Triggers a fresh load-config-result against the root and caches
    the result so subsequent Then steps (loaded-config-has, validation
    errors) use the same load.")
+
+(defwhen "the config is reloaded" isaac.config.config-steps/config-is-reloaded
+  "Reloads isaac.edn and reconciles config-berth nodes against the new
+   config: Reconfigurable nodes get on-config-change!, plain nodes are
+   recreated, removed slots deregister. Use after rewriting isaac.edn
+   mid-scenario.")
+
+(defthen #"the nexus node at (.+) has state:" isaac.config.config-steps/nexus-node-state-has
+  "Reads the config-berth node registered at the EDN path (e.g.
+   [:relays :relay1]) and asserts its state. For Reconfigurable nodes
+   the state is the tracked @:state* map; for plain nodes the node map
+   itself. Rows use dotted paths (e.g. slice.helm/freq).")
+
+(defthen #"the nexus has no node at (.+)" isaac.config.config-steps/nexus-no-node-at
+  "Asserts no config-berth node is registered at the EDN path.")
 
 (defthen "the loaded config has:" isaac.config.config-steps/loaded-config-has
   "Prefers the committed config snapshot (hot-reload-aware) via
