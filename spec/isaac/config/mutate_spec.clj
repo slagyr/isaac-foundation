@@ -25,7 +25,7 @@
   (fs/exists? (nexus/get :fs) (str config-root "/" relative)))
 
 (def ^:private telly-module-root
-  (str (System/getProperty "user.dir") "/modules/isaac.comm.telly"))
+  (str (config-marigold/agent-modules-root) "/isaac.comm.telly"))
 
 (describe "isaac.config.mutate"
 

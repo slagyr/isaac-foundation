@@ -2,6 +2,7 @@
   (:require
     [isaac.config.cli.command :as sut]
     [isaac.config.cli.spec-support :as support]
+    [isaac.config.marigold :as config-marigold]
     [isaac.marigold :as marigold]
     [isaac.config.mutate :as mutate]
     [speclj.core :refer :all])
@@ -11,6 +12,8 @@
 (def ^:private test-root (str test-home "/.isaac"))
 
 (describe "CLI Config set"
+
+  (config-marigold/with-manifest)
 
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]

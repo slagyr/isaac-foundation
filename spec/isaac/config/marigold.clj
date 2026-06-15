@@ -1,7 +1,7 @@
 (ns isaac.config.marigold
   "Test fixtures for config CLI, mutate, and schema rendering specs.
-   Loads the agent manifest schema contributions from the sibling
-   isaac-agent repo when present."
+   Uses a bundled agent manifest for CI; prefers the sibling isaac-agent
+   checkout when present so local monorepo layouts stay fresh."
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
@@ -19,9 +19,18 @@
     (when (.exists f)
       (edn/read-string (slurp f)))))
 
+(defn- bundled-agent-manifest []
+  (or (when-let [url (io/resource "isaac/config/fixtures/agent-manifest.edn")]
+        (edn/read-string (slurp url)))
+      (let [f (io/file (System/getProperty "user.dir")
+                       "spec/isaac/config/fixtures/agent-manifest.edn")]
+        (when (.exists f)
+          (edn/read-string (slurp f))))))
+
 (def baseline-agent-manifest
   (let [manifest (or (sibling-agent-manifest)
-                     (throw (ex-info "config specs require ../isaac-agent/resources/isaac-manifest.edn"
+                     (bundled-agent-manifest)
+                     (throw (ex-info "config specs require an agent manifest fixture"
                                      {:cwd (System/getProperty "user.dir")})))]
     ;; Foundation specs run without isaac-agent on the classpath; schema
     ;; contributions suffice for CLI/mutate tests.
@@ -32,12 +41,15 @@
    :isaac.agent      {:coord {} :manifest baseline-agent-manifest :path nil}})
 
 (defn agent-modules-root
-  "Path to isaac-agent/modules for optional third-party module fixtures."
+  "Path to config-spec module fixtures (telly, kombucha, ...)."
   []
-  (let [sibling (io/file (System/getProperty "user.dir") "../isaac-agent/modules")]
-    (if (.exists sibling)
-      (.getPath sibling)
-      (str (System/getProperty "user.dir") "/modules"))))
+  (let [cwd     (System/getProperty "user.dir")
+        sibling (io/file cwd "../isaac-agent/modules")
+        bundled (io/file cwd "spec/isaac/config/fixtures/modules")]
+    (cond
+      (.exists sibling) (.getPath sibling)
+      (.exists bundled) (.getPath bundled)
+      :else             (str cwd "/modules"))))
 
 (defn test-root-schema
   "Composed config schema used by config-cli specs."

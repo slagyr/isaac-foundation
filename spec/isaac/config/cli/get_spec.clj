@@ -5,6 +5,7 @@
      [isaac.config.cli.common :as common]
      [isaac.config.cli.command :as sut]
      [isaac.config.cli.spec-support :as support]
+     [isaac.config.marigold :as config-marigold]
      [isaac.fs :as fs]
      [isaac.marigold :as marigold]
      [isaac.nexus :as nexus]
@@ -25,7 +26,15 @@
     (fs/mkdirs fs* (fs/parent path))
     (fs/spit   fs* path (pr-str data))))
 
+(defn- write-crew-with-soul! [crew-id cfg soul]
+  (let [fs* (nexus/get :fs)]
+    (fs/mkdirs fs* (str test-root "/config/crew"))
+    (fs/spit fs* (str test-root "/config/crew/" (name crew-id) ".edn") (pr-str cfg))
+    (fs/spit fs* (str test-root "/config/crew/" (name crew-id) ".md") soul)))
+
 (describe "CLI Config get"
+
+  (config-marigold/with-manifest)
 
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]
@@ -64,20 +73,17 @@
   (describe "subtree"
 
     (it "prints scalar values by dotted path"
-      (write-config! (str test-root "/config/isaac.edn")
-                     {:crew {test-crew (marigold/crew-cfg marigold/first-mate)}})
+      (write-crew-with-soul! test-crew {} "You are Cordelia.")
       (should= 0 (sut/run {:root test-root} ["get" (str "crew." marigold/first-mate ".soul")]))
       (should-contain "You are Cordelia." (str *out*)))
 
     (it "prints scalar values by bracket keyword path"
-      (write-config! (str test-root "/config/isaac.edn")
-                     {:crew {test-crew (marigold/crew-cfg marigold/first-mate)}})
+      (write-crew-with-soul! test-crew {} "You are Cordelia.")
       (should= 0 (sut/run {:root test-root} ["get" (str "crew[:" marigold/first-mate "].soul")]))
       (should-contain "You are Cordelia." (str *out*)))
 
     (it "returns 1 for a missing key"
-      (write-config! (str test-root "/config/isaac.edn")
-                     {:crew {test-crew (marigold/crew-cfg marigold/first-mate)}})
+      (write-crew-with-soul! test-crew {} "You are Cordelia.")
       (should= 1 (sut/run {:root test-root} ["get" (str "crew." marigold/first-mate ".nope")]))
       (should-contain (str "not found: crew." marigold/first-mate ".nope") (str *err*)))
 

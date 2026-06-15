@@ -3,6 +3,7 @@
     [c3kit.apron.env :as c3env]
     [clojure.java.io :as io]
     [isaac.cli.registry :as cli-registry]
+    [isaac.config.marigold :as config-marigold]
     [isaac.fs :as fs]
     [isaac.logger :as log]
     [isaac.module.manifest]
@@ -379,7 +380,7 @@
       ;; only logs the activation now. Coverage for the registration
       ;; itself lives under process-manifest-berths! and the comm
       ;; registry spec.
-      (let [telly-dir    (str (System/getProperty "user.dir") "/modules/isaac.comm.telly")
+      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
             module-index {:isaac.comm.telly {:dir telly-dir
                                              :manifest {:isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}]
         (log/capture-logs
@@ -394,7 +395,7 @@
       ;; resolves :comm factory symbols (those flow through the
       ;; :isaac.server/comm berth's per-entry factory). The remaining
       ;; activate!-side failure path is :bootstrap symbol resolution.
-      (let [telly-dir    (str (System/getProperty "user.dir") "/modules/isaac.comm.telly")
+      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
             module-index {:isaac.comm.telly {:dir telly-dir
                                              :manifest {:bootstrap         'isaac.comm.telly/bootstrap-load
                                                         :isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}]
@@ -411,7 +412,7 @@
             (should= "isaac.comm.telly" (:module event))))))
 
     (it "adds local/root deps on first activation"
-      (let [telly-dir    (str (System/getProperty "user.dir") "/modules/isaac.comm.telly")
+      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
             module-index {:isaac.comm.telly {:coord {:local/root telly-dir}
                                              :path  telly-dir
                                              :manifest {:isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}
