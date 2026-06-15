@@ -89,23 +89,32 @@
                                      :key-spec       {:type :string}
                                      :value-spec     {:name   :crew
                                                       :type   :map
-                                                      :schema {:id         {:type :id
-                                                                            :description "Crew member id; must match filename when present"}
-                                                               :model      {:type        :id
-                                                                            :description "ID of the model this crew member uses."
-                                                                            :validations [:model-exists?]}
-                                                               :soul       {:type        :string
-                                                                            :description "The personality of this crew member. Alternatively saved at config/crew/<id>.md"}
-                                                               :provider   {:type        :id
-                                                                            :description "Provider id for direct provider/model crews"
-                                                                            :validations [[:registered-in? :marigold.server/provider [:providers]]]}
-                                                               :tags       {:type        :ignore
-                                                                            :set-type?   true
-                                                                            :description "Flat set of keyword tags for discovery and routing"}
-                                                               :effort     {:type        :int
-                                                                            :description "Effort level override for this crew member (0-10)"}
-                                                               :compaction {:type   :map
-                                                                            :schema {:threshold {:type :double}}}}}}}
+                                                      :schema {:id       {:type :id
+                                                                          :description "Crew member id; must match filename when present"}
+                                                               :model    {:type        :id
+                                                                          :description "ID of the model this crew member uses."
+                                                                          :validations [:model-exists?]}
+                                                               :soul     {:type        :string
+                                                                          :description "The personality of this crew member. Alternatively saved at config/crew/<id>.md"}
+                                                               :provider {:type        :id
+                                                                          :description "Provider id for direct provider/model crews"
+                                                                          :validations [[:registered-in? :marigold.server/provider [:providers]]]}}}}}
+    :station   {:schema {:name   :station
+                         :type   :map
+                         :schema {:primary {:type :id}
+                                  :backup  {:type :id}}}}
+    :relay     {:entity-dir "relay"
+                :schema     {:name     "relay table"
+                             :type     :map
+                             :key-spec {:type :string}
+                             :value-spec {:name   :relay
+                                          :type   :map
+                                          :schema {:id      {:type :id}
+                                                   :channel {:type :id}
+                                                   :gain    {:type :int}
+                                                   :flags   {:type :ignore :set-type? true}
+                                                   :limits  {:type   :map
+                                                             :schema {:ceiling {:type :double}}}}}}}
     :defaults  {:schema {:name        :defaults
                          :type        :map
                          :description "Default crew and model selections"

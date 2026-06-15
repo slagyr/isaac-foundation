@@ -15,33 +15,33 @@
   (describe "path->spec"
 
     (it "returns ok with spec for a known scalar path"
-      (let [result (sut/path->spec (root) "defaults.crew")]
+      (let [result (sut/path->spec (root) "station.primary")]
         (should (:ok? result))
         (should= :id (:type (:spec result)))))
 
-    (it "returns ok with spec for a crew entity path"
-      (let [result (sut/path->spec (root) "crew.joe.model")]
+    (it "returns ok with spec for a dynamic entity path"
+      (let [result (sut/path->spec (root) "relay.r1.channel")]
         (should (:ok? result))
         (should= :id (:type (:spec result)))))
 
-    (it "returns ok for an effort path (int type)"
-      (let [result (sut/path->spec (root) "crew.joe.effort")]
+    (it "returns ok for an int path"
+      (let [result (sut/path->spec (root) "relay.r1.gain")]
         (should (:ok? result))
         (should= :int (:type (:spec result)))))
 
     (it "returns ok with member for a set-typed terminal"
-      (let [result (sut/path->spec (root) "crew.joe.tags.wip")]
+      (let [result (sut/path->spec (root) "relay.r1.flags.wip")]
         (should (:ok? result))
         (should= :wip (:member result))
         (should (:set-type? (:spec result)))))
 
     (it "returns ok with namespaced member for a set-typed terminal"
-      (let [result (sut/path->spec (root) "crew.joe.tags.role/worker")]
+      (let [result (sut/path->spec (root) "relay.r1.flags.role/worker")]
         (should (:ok? result))
         (should= :role/worker (:member result))))
 
     (it "returns error with failing segment for unknown leaf"
-      (let [result (sut/path->spec (root) "crew.joe.bogus")]
+      (let [result (sut/path->spec (root) "relay.r1.bogus")]
         (should-not (:ok? result))
         (should= "bogus" (:segment result))
         (should (str/includes? (:error result) "bogus"))))
@@ -51,66 +51,66 @@
         (should-not (:ok? result))
         (should= "bogus" (:segment result))))
 
-    (it "returns ok for a nested compaction path"
-      (let [result (sut/path->spec (root) "crew.joe.compaction.threshold")]
+    (it "returns ok for a nested path"
+      (let [result (sut/path->spec (root) "relay.r1.limits.ceiling")]
         (should (:ok? result)))))
 
   (describe "set-value"
 
     (it "sets a scalar value at a known path"
-      (let [result (sut/set-value (root) {} "defaults.crew" "marvin")]
+      (let [result (sut/set-value (root) {} "station.primary" "alpha")]
         (should (:ok? result))
-        (should= "marvin" (get-in (:config result) [:defaults :crew]))))
+        (should= "alpha" (get-in (:config result) [:station :primary]))))
 
     (it "returns error for unknown path"
-      (let [result (sut/set-value (root) {} "crew.joe.bogus" "x")]
+      (let [result (sut/set-value (root) {} "relay.r1.bogus" "x")]
         (should-not (:ok? result))
         (should= "bogus" (:segment result))))
 
     (it "overwrites existing scalar value"
-      (let [base   {:defaults {:crew "old"}}
-            result (sut/set-value (root) base "defaults.crew" "new")]
+      (let [base   {:station {:primary "old"}}
+            result (sut/set-value (root) base "station.primary" "new")]
         (should (:ok? result))
-        (should= "new" (get-in (:config result) [:defaults :crew]))))
+        (should= "new" (get-in (:config result) [:station :primary]))))
 
     (it "adds a member to a set-typed terminal"
-      (let [base   {:crew {:joe {:tags #{:role/worker}}}}
-            result (sut/set-value (root) base "crew.joe.tags.wip" nil)]
+      (let [base   {:relay {:r1 {:flags #{:role/worker}}}}
+            result (sut/set-value (root) base "relay.r1.flags.wip" nil)]
         (should (:ok? result))
-        (should= #{:role/worker :wip} (get-in (:config result) [:crew :joe :tags]))))
+        (should= #{:role/worker :wip} (get-in (:config result) [:relay :r1 :flags]))))
 
     (it "is idempotent when adding a set member already present"
-      (let [base   {:crew {:joe {:tags #{:role/worker}}}}
-            result (sut/set-value (root) base "crew.joe.tags.role/worker" nil)]
+      (let [base   {:relay {:r1 {:flags #{:role/worker}}}}
+            result (sut/set-value (root) base "relay.r1.flags.role/worker" nil)]
         (should (:ok? result))
-        (should= #{:role/worker} (get-in (:config result) [:crew :joe :tags]))))
+        (should= #{:role/worker} (get-in (:config result) [:relay :r1 :flags]))))
 
     (it "initializes set when adding first member"
-      (let [result (sut/set-value (root) {:crew {:joe {}}} "crew.joe.tags.wip" nil)]
+      (let [result (sut/set-value (root) {:relay {:r1 {}}} "relay.r1.flags.wip" nil)]
         (should (:ok? result))
-        (should= #{:wip} (get-in (:config result) [:crew :joe :tags])))))
+        (should= #{:wip} (get-in (:config result) [:relay :r1 :flags])))))
 
   (describe "unset-value"
 
     (it "removes a scalar value at a known path"
-      (let [base   {:defaults {:crew "marvin" :model "grover"}}
-            result (sut/unset-value (root) base "defaults.crew")]
+      (let [base   {:station {:primary "alpha" :backup "beta"}}
+            result (sut/unset-value (root) base "station.primary")]
         (should (:ok? result))
-        (should-be-nil (get-in (:config result) [:defaults :crew]))
-        (should= "grover" (get-in (:config result) [:defaults :model]))))
+        (should-be-nil (get-in (:config result) [:station :primary]))
+        (should= "beta" (get-in (:config result) [:station :backup]))))
 
     (it "is idempotent when scalar value is already absent"
-      (let [result (sut/unset-value (root) {} "defaults.crew")]
+      (let [result (sut/unset-value (root) {} "station.primary")]
         (should (:ok? result))))
 
     (it "removes a member from a set-typed terminal"
-      (let [base   {:crew {:joe {:tags #{:role/worker :wip}}}}
-            result (sut/unset-value (root) base "crew.joe.tags.wip")]
+      (let [base   {:relay {:r1 {:flags #{:role/worker :wip}}}}
+            result (sut/unset-value (root) base "relay.r1.flags.wip")]
         (should (:ok? result))
-        (should= #{:role/worker} (get-in (:config result) [:crew :joe :tags]))))
+        (should= #{:role/worker} (get-in (:config result) [:relay :r1 :flags]))))
 
     (it "is idempotent when removing a set member not present"
-      (let [base   {:crew {:joe {:tags #{:role/worker}}}}
-            result (sut/unset-value (root) base "crew.joe.tags.wip")]
+      (let [base   {:relay {:r1 {:flags #{:role/worker}}}}
+            result (sut/unset-value (root) base "relay.r1.flags.wip")]
         (should (:ok? result))
-        (should= #{:role/worker} (get-in (:config result) [:crew :joe :tags]))))))
+        (should= #{:role/worker} (get-in (:config result) [:relay :r1 :flags]))))))
