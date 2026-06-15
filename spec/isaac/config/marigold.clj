@@ -1,9 +1,10 @@
 (ns isaac.config.marigold
   "Test fixtures for config CLI, mutate, and schema rendering specs.
-   Binds a fictional :marigold.server module alongside foundation so
-   specs exercise composed schema without isaac-agent."
+   Binds a fictional :marigold.chartroom module alongside foundation so
+   specs exercise composed schema without agent or server vocabulary."
   (:require
     [c3kit.apron.env :as c3env]
+    [clojure.string :as str]
     [isaac.config.loader :as loader]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.fs :as fs]
@@ -12,93 +13,93 @@
     [isaac.nexus :as nexus]
     [speclj.core :as speclj]))
 
-(def baseline-server-manifest
-  "Fictional consumer module for config-spec schema composition."
-  {:id       :marigold.server
+(def baseline-chartroom-manifest
+  "Fictional chartroom module for config-spec schema composition."
+  {:id       :marigold.chartroom
    :version  "0.1.0"
    :builtin? true
    :factory  'isaac.module.protocol/module
 
-   :berths   {:marigold.server/comm
-              {:description "Communication channel impls (config-spec fixtures)."
+   :berths   {:marigold.chartroom/signal
+              {:description "Signal channel impls (config-spec fixtures)."
                :schema      {:type       :map
                              :key-spec   {:type :keyword}
                              :value-spec {:type   :map
                                           :schema {:namespace     {:type :symbol :validations [:present?]}
                                                    :extra-schema  {:type :schema-map}
                                                    :configurable? {:type :boolean}}}}}
-              :marigold.server/provider-template
-              {:description "Provider templates (config-spec fixtures)."
+              :marigold.chartroom/foundry-template
+              {:description "Foundry templates (config-spec fixtures)."
                :schema      {:type       :map
                              :key-spec   {:type :keyword}
                              :value-spec {:type   :map
                                           :schema {:template {:type :map}
                                                    :schema   {:type :map}}}}}
-              :marigold.server/provider
-              {:description "Materialized providers (config-spec fixtures)."
+              :marigold.chartroom/foundry
+              {:description "Materialized foundries (config-spec fixtures)."
                :schema      {:type       :map
                              :key-spec   {:type :keyword}
                              :value-spec {:type :map}}}}
 
-   :marigold.server/comm
+   :marigold.chartroom/signal
    {(keyword marigold/longwave) {:namespace 'marigold.comm.stub}
     (keyword marigold/skybeam)  {:namespace 'marigold.comm.stub}
     (keyword marigold/logbook)  {:namespace 'marigold.comm.stub}}
 
-   :marigold.server/provider-template
+   :marigold.chartroom/foundry-template
    {(keyword marigold/helm-systems) {:template (select-keys marigold/helm-provider [:api :base-url :auth])}
     (keyword marigold/starcore)     {:template (select-keys marigold/starcore-provider [:api :base-url :auth])}
     (keyword marigold/flicker-labs) {:template marigold/flicker-provider}
     (keyword marigold/grover-stub)  {:template {:api marigold/grover-api :auth "none"}}}
 
    :isaac.config/schema
-   {:providers {:entity-dir         "providers"
-                 :merge-root-entity? true
-                 :schema             {:name           "provider table"
-                                      :type           :map
-                                      :snapshot-only? true
-                                      :description    "Provider configurations (map of id -> provider config)"
-                                      :key-spec       {:type :string}
-                                      :value-spec     {:name           :provider
-                                                       :type           :map
-                                                       :dynamic-schema {:berth :marigold.server/provider-template
-                                                                        :path  [:schema]}
-                                                       :schema         {:api-key  {:type :string :description "API key"}
-                                                                        :auth     {:type :string
-                                                                                   :description "Authentication mode (e.g. \"oauth-device\")"}
-                                                                        :base-url {:type :string :description "API base URL"}
-                                                                        :type     {:type        :id
-                                                                                   :description "Manifest provider id to inherit template from"
-                                                                                   :validations [[:registered-in? :marigold.server/provider-template]]}}}}}
-    :tools     {:schema {:type        :map
-                        :description "Tool configuration (per-tool config maps)"
-                        :schema      {:web_search {:type        :map
-                                                   :description "Web search tool config"
-                                                   :schema      {:provider {:type :keyword
-                                                                            :validations [[:one-of? :brave]]}
-                                                                 :api-key  {:type :string
-                                                                            :validations [:present?]}}}}}}
-    :crew      {:entity-dir         "crew"
-                :frontmatter?       true
+   {:foundries {:entity-dir         "foundries"
                 :merge-root-entity? true
-                :companion          {:field :soul :mode :exclusive}
-                :schema             {:name           "crew table"
+                :schema             {:name           "foundry table"
                                      :type           :map
                                      :snapshot-only? true
-                                     :description    "Crew member configurations (map of id -> crew config)"
+                                     :description    "Foundry configurations (map of id -> foundry config)"
                                      :key-spec       {:type :string}
-                                     :value-spec     {:name   :crew
+                                     :value-spec     {:name           :foundry
+                                                      :type           :map
+                                                      :dynamic-schema {:berth :marigold.chartroom/foundry-template
+                                                                        :path  [:schema]}
+                                                      :schema         {:api-key  {:type :string :description "API key"}
+                                                                       :auth     {:type :string
+                                                                                  :description "Authentication mode (e.g. \"oauth-device\")"}
+                                                                       :base-url {:type :string :description "API base URL"}
+                                                                       :kind     {:type        :id
+                                                                                  :description "Manifest foundry kind to inherit template from"
+                                                                                  :validations [[:registered-in? :marigold.chartroom/foundry-template]]}}}}}
+    :kit       {:schema {:type        :map
+                        :description "Implement configuration (per-implement config maps)"
+                        :schema      {:distant-read {:type        :map
+                                                     :description "Distant-read implement config"
+                                                     :schema      {:vendor  {:type :keyword
+                                                                             :validations [[:one-of? :brave]]}
+                                                                   :api-key {:type :string
+                                                                             :validations [:present?]}}}}}}
+    :berths    {:entity-dir         "berths"
+                :frontmatter?       true
+                :merge-root-entity? true
+                :companion          {:field :ledger :mode :exclusive}
+                :schema             {:name           "berth table"
+                                     :type           :map
+                                     :snapshot-only? true
+                                     :description    "Berth configurations (map of id -> berth config)"
+                                     :key-spec       {:type :string}
+                                     :value-spec     {:name   :berth
                                                       :type   :map
-                                                      :schema {:id       {:type :id
-                                                                          :description "Crew member id; must match filename when present"}
-                                                               :model    {:type        :id
-                                                                          :description "ID of the model this crew member uses."
-                                                                          :validations [:model-exists?]}
-                                                               :soul     {:type        :string
-                                                                          :description "The personality of this crew member. Alternatively saved at config/crew/<id>.md"}
-                                                               :provider {:type        :id
-                                                                          :description "Provider id for direct provider/model crews"
-                                                                          :validations [[:registered-in? :marigold.server/provider [:providers]]]}}}}}
+                                                      :schema {:id      {:type :id
+                                                                        :description "Berth id; must match filename when present"}
+                                                               :gauge   {:type        :id
+                                                                         :description "Gauge this berth reads."
+                                                                         :validations [:gauge-exists?]}
+                                                               :ledger  {:type        :string
+                                                                         :description "Standing orders. Alternatively saved at config/berths/<id>.md"}
+                                                               :foundry {:type        :id
+                                                                         :description "Foundry id for direct foundry/gauge berths"
+                                                                         :validations [[:registered-in? :marigold.chartroom/foundry [:foundries]]]}}}}}
     :station   {:schema {:name   :station
                          :type   :map
                          :schema {:primary {:type :id}
@@ -115,56 +116,98 @@
                                                    :flags   {:type :ignore :set-type? true}
                                                    :limits  {:type   :map
                                                              :schema {:ceiling {:type :double}}}}}}}
-    :defaults  {:schema {:name        :defaults
+    :watch     {:schema {:name        :watch
                          :type        :map
-                         :description "Default crew and model selections"
-                         :schema      {:crew  {:type        :id
+                         :description "Default berth and gauge on the watch"
+                         :schema      {:berth {:type        :id
                                                :default     "main"
-                                               :description "Default crew member id"
-                                               :validations [:crew-exists?]}
-                                       :model {:type        :id
+                                               :description "Default berth id"
+                                               :validations [:berth-exists?]}
+                                       :gauge {:type        :id
                                                :default     "llama"
-                                               :description "Default model alias"
-                                               :validations [:model-exists?]}}}}
-    :models    {:entity-dir         "models"
+                                               :description "Default gauge alias"
+                                               :validations [:gauge-exists?]}}}}
+    :gauges    {:entity-dir         "gauges"
                 :merge-root-entity? true
-                :schema             {:name           "model table"
+                :schema             {:name           "gauge table"
                                      :type           :map
                                      :snapshot-only? true
-                                     :description    "Model configurations (map of id -> model config)"
+                                     :description    "Gauge configurations (map of id -> gauge config)"
                                      :key-spec       {:type :string}
-                                     :value-spec     {:name   :model
+                                     :value-spec     {:name   :gauge
                                                       :type   :map
-                                                      :schema {:id       {:type :id
-                                                                          :description "Model alias; must match filename when present"}
-                                                               :model    {:type        :string
-                                                                          :description "Provider-specific model name or id"
-                                                                          :validations [:present?]
-                                                                          :required?   true}
-                                                               :provider {:type        :id
-                                                                          :description "Provider alias"
-                                                                          :validations [:present?
-                                                                                        [:registered-in? :marigold.server/provider [:providers]]]
-                                                                          :required?   true}}}}}
-    :comms     {:schema {:name        "comms table"
+                                                      :schema {:id      {:type :id
+                                                                        :description "Gauge alias; must match filename when present"}
+                                                               :reading {:type        :string
+                                                                         :description "Foundry-specific gauge reading"
+                                                                         :validations [:present?]
+                                                                         :required?   true}
+                                                               :foundry {:type        :id
+                                                                         :description "Foundry alias"
+                                                                         :validations [:present?
+                                                                                       [:registered-in? :marigold.chartroom/foundry [:foundries]]]
+                                                                         :required?   true}}}}}
+    :signals   {:schema {:name        "signals table"
                          :type        :map
-                         :description "Communication channel configurations (map of name -> comm config)"
+                         :description "Signal channel configurations (map of name -> signal config)"
                          :key-spec    {:type :id}
-                         :value-spec  {:name           :comm
+                         :value-spec  {:name           :signal
                                        :type           :map
                                        :factory        'isaac.comm.factory/create!
-                                       :dynamic-schema {:berth :marigold.server/comm :path [:extra-schema]}
-                                       :schema         {:type {:type        :id
-                                                               :options-from :comms
-                                                               :description "Manifest comm kind to instantiate"
-                                                               :validations [[:registered-in? :marigold.server/comm [:comms]]]}
-                                                        :crew {:type        :id
-                                                               :description "Crew id this comm routes into"
-                                                               :validations [:crew-exists?]}}}}}}})
+                                       :dynamic-schema {:berth :marigold.chartroom/signal :path [:extra-schema]}
+                                       :schema         {:kind  {:type         :id
+                                                               :options-from :signals
+                                                               :description  "Manifest signal kind to instantiate"
+                                                               :validations  [[:registered-in? :marigold.chartroom/signal [:signals]]]}
+                                                        :berth {:type        :id
+                                                                :description "Berth id this signal routes into"
+                                                                :validations [:berth-exists?]}}}}}}})
+
+(def baseline-config
+  "Fully-valid baseline isaac.edn for config-spec tests."
+  {:watch     {:berth marigold/captain :gauge marigold/helm-mark-iii}
+   :foundries {(keyword marigold/helm-systems) (merge (select-keys marigold/helm-provider [:api :base-url :auth])
+                                                     {:api-key "helm-test-key"})}
+   :gauges    {(keyword marigold/helm-mark-iii) {:reading "helm-mk-3-1.0"
+                                                 :foundry (keyword marigold/helm-systems)}}
+   :berths    {(keyword marigold/captain) {:gauge marigold/helm-mark-iii}}})
+
+(defn berth-cfg
+  [name & {:as overrides}]
+  (merge {:ledger (str "You are " (str/capitalize name) ".")} overrides))
+
+(defn- config-path [suffix]
+  (str marigold/root "/config/" suffix))
+
+(defn write-config!
+  [data]
+  (fs/spit (nexus/get :fs) (config-path "isaac.edn") (pr-str data)))
+
+(defn write-baseline!
+  []
+  (write-config! baseline-config))
+
+(defn write-berth!
+  [berth-id cfg & {:keys [ledger]}]
+  (fs/spit (nexus/get :fs) (config-path (str "berths/" (name berth-id) ".edn")) (pr-str cfg))
+  (when ledger
+    (fs/spit (nexus/get :fs) (config-path (str "berths/" (name berth-id) ".md")) ledger)))
+
+(defn write-berth-md!
+  [berth-id body]
+  (fs/spit (nexus/get :fs) (config-path (str "berths/" (name berth-id) ".md")) body))
+
+(defn write-gauge!
+  [gauge-id cfg]
+  (fs/spit (nexus/get :fs) (config-path (str "gauges/" (name gauge-id) ".edn")) (pr-str cfg)))
+
+(defn write-foundry!
+  [foundry-id cfg]
+  (fs/spit (nexus/get :fs) (config-path (str "foundries/" (name foundry-id) ".edn")) (pr-str cfg)))
 
 (def ^:private baseline-config-test-index
   {:isaac.foundation {:coord {} :manifest marigold/baseline-foundation-manifest :path nil}
-   :marigold.server  {:coord {} :manifest baseline-server-manifest :path nil}})
+   :marigold.chartroom {:coord {} :manifest baseline-chartroom-manifest :path nil}})
 
 (defn fixture-modules-root
   "Path to marigold.* config-spec module fixtures on disk."
@@ -196,7 +239,7 @@
   (schema-compose/effective-root-schema baseline-config-test-index))
 
 (defn with-manifest
-  "Bind foundation + marigold.server schema manifests for config schema/CLI specs."
+  "Bind foundation + marigold.chartroom schema manifests for config schema/CLI specs."
   []
   (speclj/around [example]
     (binding [module-loader/*foundation-index-override* baseline-config-test-index]
@@ -207,7 +250,7 @@
           (schema-compose/clear-cache!))))))
 
 (defn aboard
-  "Mem-fs scene with marigold.server schema contributions for mutate specs."
+  "Mem-fs scene with marigold.chartroom schema contributions for mutate specs."
   []
   (speclj/around [example]
     (let [mem (fs/mem-fs)]

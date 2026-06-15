@@ -22,7 +22,22 @@
 
 (defn- entity-sections []
   (set (map keyword (schema-compose/entity-dir-names))))
-(def ^:private soul-inline-limit 64)
+(def ^:private companion-inline-limit 64)
+
+(def ^:private companion-md-specs
+  {:crew   {:field :soul   :relative paths/soul-relative}
+   :berths {:field :ledger :relative paths/ledger-relative}})
+
+(defn- companion-spec [root-key]
+  (companion-md-specs root-key))
+
+(defn- companion-field? [root-key field-path]
+  (when-let [{:keys [field]} (companion-spec root-key)]
+    (and (= 1 (count field-path)) (= field (first field-path)))))
+
+(defn- companion-md-relative [root-key entity-id]
+  (when-let [{:keys [relative]} (companion-spec root-key)]
+    (relative entity-id)))
 
 (defn- runtime-fs []
   (or (fs/instance) (throw (ex-info "config.mutate requires :fs in system" {}))))
@@ -118,31 +133,35 @@
            :root-key      root-key
            :root-path     (if entity? [(first segments) (second segments)] [(first segments)])
            :segments      segments
-           :soul?         (and entity? (= :crew root-key) (= [:soul] field-path))
+           :companion?    (and entity? (companion-field? root-key field-path))
            :whole-entity? (and entity? (= 2 (count segments)))})))))
 
 (defn- config-state [root parsed]
-  (let [root-path         (paths/root-config-file root)
-        root-data         (or (read-edn-path root-path) {})
-        entity-relative   (when (:entity? parsed) (paths/entity-relative (:root-key parsed) (:entity-id parsed)))
-        entity-path       (when entity-relative (paths/config-path root entity-relative))
-        entity-data       (or (some-> entity-path read-edn-path) {})
-        soul-relative     (when (:soul? parsed) (paths/soul-relative (:entity-id parsed)))
-        soul-path         (when soul-relative (paths/config-path root soul-relative))]
-    {:entity-data           entity-data
+  (let [root-path              (paths/root-config-file root)
+        root-data              (or (read-edn-path root-path) {})
+        entity-relative        (when (:entity? parsed) (paths/entity-relative (:root-key parsed) (:entity-id parsed)))
+        entity-path            (when entity-relative (paths/config-path root entity-relative))
+        entity-data            (or (some-> entity-path read-edn-path) {})
+        companion-field        (when (:companion? parsed) (:field (companion-spec (:root-key parsed))))
+        companion-relative     (when (:companion? parsed) (companion-md-relative (:root-key parsed) (:entity-id parsed)))
+        companion-path         (when companion-relative (paths/config-path root companion-relative))]
+    {:companion-field       companion-field
+     :companion-path        companion-path
+     :companion-relative    companion-relative
+     :entity-data           entity-data
      :entity-exists?        (boolean (and entity-path (fs/exists? (runtime-fs) entity-path)))
      :entity-path           entity-path
      :entity-relative       entity-relative
      :entity-root-exists?   (and (:entity? parsed) (path-present? root-data (:root-path parsed)))
-     :inline-entity-soul?   (and (:soul? parsed) (path-present? entity-data [:soul]))
-     :inline-root-soul?     (and (:soul? parsed) (path-present? root-data (:segments parsed)))
-     :md-exists?            (boolean (and soul-path (fs/exists? (runtime-fs) soul-path)))
+     :inline-entity-companion? (and (:companion? parsed)
+                                    (path-present? entity-data [companion-field]))
+     :inline-root-companion?   (and (:companion? parsed)
+                                    (path-present? root-data (:segments parsed)))
+     :md-exists?            (boolean (and companion-path (fs/exists? (runtime-fs) companion-path)))
      :prefer-entity-files?  (true? (value-at-path root-data [:prefer-entity-files]))
      :root-data             root-data
      :root-path-exists?     (path-present? root-data (:segments parsed))
-     :root-path             root-path
-     :soul-path             soul-path
-     :soul-relative         soul-relative}))
+     :root-path             root-path}))
 
 ;; endregion ^^^^^ Parse & state ^^^^^
 
@@ -164,9 +183,9 @@
 
 (defn- choose-set-location [parsed state]
   (cond
-    (and (:soul? parsed) (:md-exists? state)) :md
-    (and (:soul? parsed) (:inline-root-soul? state)) :root
-    (and (:soul? parsed) (:inline-entity-soul? state)) :entity
+    (and (:companion? parsed) (:md-exists? state)) :md
+    (and (:companion? parsed) (:inline-root-companion? state)) :root
+    (and (:companion? parsed) (:inline-entity-companion? state)) :entity
     (and (:entity? parsed) (:entity-root-exists? state)) :root
     (and (:entity? parsed) (:entity-exists? state)) :entity
     (and (:entity? parsed) (:prefer-entity-files? state)) :entity
@@ -174,29 +193,30 @@
 
 (defn- choose-unset-location [parsed state]
   (cond
-    (and (:soul? parsed) (:md-exists? state)) :md
+    (and (:companion? parsed) (:md-exists? state)) :md
     (:root-path-exists? state) :root
     (and (:entity? parsed)
          (or (and (:whole-entity? parsed) (:entity-exists? state))
              (path-present? (:entity-data state) (:field-path parsed)))) :entity
     :else nil))
 
-(defn- use-soul-markdown? [parsed state location value]
-  (and (:soul? parsed)
+(defn- use-companion-markdown? [parsed state location value]
+  (and (:companion? parsed)
        (= :entity location)
        (not (:md-exists? state))
-       (not (:inline-entity-soul? state))
+       (not (:inline-entity-companion? state))
        (string? value)
-       (> (count value) soul-inline-limit)))
+       (> (count value) companion-inline-limit)))
 
 (defn- set-plan [parsed state value]
   (let [location (choose-set-location parsed state)]
     (cond
-      (or (= :md location) (use-soul-markdown? parsed state location value))
-      (let [entity-data' (when (:entity-exists? state)
-                           (dissoc-path (:entity-data state) [:soul]))]
-        (cond-> {:deletes #{} :file (:soul-relative state) :writes {}}
-          true (update-text-file (:soul-relative state) value)
+      (or (= :md location) (use-companion-markdown? parsed state location value))
+      (let [field-key    (:companion-field state)
+            entity-data' (when (:entity-exists? state)
+                           (dissoc-path (:entity-data state) [field-key]))]
+        (cond-> {:deletes #{} :file (:companion-relative state) :writes {}}
+          true (update-text-file (:companion-relative state) value)
           (:entity-exists? state) (update-edn-file (:entity-relative state) entity-data')))
 
       (= :entity location)
@@ -215,7 +235,7 @@
   (when-let [location (choose-unset-location parsed state)]
     (case location
       :md
-      {:deletes #{(:soul-relative state)} :file (:soul-relative state) :writes {}}
+      {:deletes #{(:companion-relative state)} :file (:companion-relative state) :writes {}}
 
       :entity
       (let [entity-data' (if (:whole-entity? parsed)

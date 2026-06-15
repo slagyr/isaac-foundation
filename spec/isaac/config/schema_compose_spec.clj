@@ -34,13 +34,13 @@
 
     (it "derives entity metadata from inline :isaac.config/schema contributions"
       (let [index       {:mod.x {:manifest {:isaac.config/schema
-                                            {:crew {:schema       {:type :map :key-spec {:type :keyword} :value-spec {:type :map}}
-                                                    :entity-dir   "crew"
-                                                    :frontmatter? true}
-                                             :cron {:schema     {:type :map :key-spec {:type :keyword} :value-spec {:type :map}}
-                                                    :entity-dir "cron"}}}}}
+                                            {:berths {:schema       {:type :map :key-spec {:type :keyword} :value-spec {:type :map}}
+                                                      :entity-dir   "berths"
+                                                      :frontmatter? true}
+                                             :cron   {:schema     {:type :map :key-spec {:type :keyword} :value-spec {:type :map}}
+                                                       :entity-dir "cron"}}}}}
             descriptors (sut/descriptors index)]
-        (should= "crew" (:entity-dir (:crew descriptors)))
-        (should (true? (:frontmatter? (:crew descriptors))))
+        (should= "berths" (:entity-dir (:berths descriptors)))
+        (should (true? (:frontmatter? (:berths descriptors))))
         (should= "cron" (:entity-dir (:cron descriptors)))
         (should-be-nil (:frontmatter? (:cron descriptors)))))))

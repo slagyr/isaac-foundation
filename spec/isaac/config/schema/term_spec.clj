@@ -9,9 +9,9 @@
 (def ^:private plain-no-paths {:color? false :paths? false :width 80})
 
 (defn- root-schema [] (config-marigold/test-root-schema))
-(defn- defaults [] (get-in (root-schema) [:schema :defaults]))
-(defn- crew-collection [] (get-in (root-schema) [:schema :crew]))
-(defn- provider-entity [] (schema-compose/schema-for-kind (root-schema) :providers))
+(defn- watch [] (get-in (root-schema) [:schema :watch]))
+(defn- berths-collection [] (get-in (root-schema) [:schema :berths]))
+(defn- foundry-entity [] (schema-compose/schema-for-kind (root-schema) :foundries))
 
 (describe "schema.term"
 
@@ -71,26 +71,26 @@
         (should-contain "User's name." out)))
 
     (it "uses :description from config specs as the field description"
-      (let [out (sut/spec->term (defaults) plain)]
-        (should-contain "Default crew member id" out)
-        (should-contain "Default model alias" out)))
+      (let [out (sut/spec->term (watch) plain)]
+        (should-contain "Default berth id" out)
+        (should-contain "Default gauge alias" out)))
 
     (it "renders field paths as absolute using the path-prefix option"
       (let [out (sut/spec->term (root-schema) (assoc plain :path-prefix []))]
-        (should-contain "defaults" out)
-        (should-contain "crew" out)
-        (should-contain "providers" out)))
+        (should-contain "watch" out)
+        (should-contain "berths" out)
+        (should-contain "foundries" out)))
 
     (it "prefixes paths with the configured path-prefix and wraps them in brackets"
-      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :crew)
-                                (assoc plain :path-prefix ["crew" "value"]))]
-        (should-contain "[crew.value.id]" out)
-        (should-contain "[crew.value.model]" out)))
+      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :berths)
+                                (assoc plain :path-prefix ["berths" "value"]))]
+        (should-contain "[berths.value.id]" out)
+        (should-contain "[berths.value.gauge]" out)))
 
     (it ":paths? false suppresses field paths"
-      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :crew)
-                                (assoc plain-no-paths :path-prefix ["crew" "value"]))]
-        (should-not-contain "[crew.value.id]" out)))
+      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :berths)
+                                (assoc plain-no-paths :path-prefix ["berths" "value"]))]
+        (should-not-contain "[berths.value.id]" out)))
 
     (it "marks required fields"
       (let [out (sut/spec->term
@@ -105,7 +105,7 @@
         (should-contain "example: 30" out)))
 
     (it "shows default on its own line when present"
-      (let [out (sut/spec->term (defaults) plain)]
+      (let [out (sut/spec->term (watch) plain)]
         (should-contain "default: \"main\"" out)
         (should-contain "default: \"llama\"" out)))
 
@@ -117,12 +117,12 @@
         (should-contain "map → pet" out)))
 
     (it "map with key-spec + value-spec renders 'map of K → V'"
-      (let [spec {:type :map :schema {:crew {:type :map
-                                             :key-spec   {:type :keyword}
-                                             :value-spec {:type :map :name :crew-entity
-                                                          :schema {:name {:type :string}}}}}}
+      (let [spec {:type :map :schema {:berths {:type :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type :map :name :berth-entity
+                                                            :schema {:name {:type :string}}}}}}
             out  (sut/spec->term spec plain)]
-        (should-contain "map of keyword → crew-entity" out)))
+        (should-contain "map of keyword → berth-entity" out)))
 
     (it "map with only value-spec renders 'map → V'"
       (let [spec {:type :map :schema {:counts {:type :map :value-spec {:type :int}}}}
@@ -147,27 +147,27 @@
   (context "map-with-value-spec rendering"
 
     (it "renders map-of-id as title, description, and key/value rows"
-      (let [out (sut/spec->term (crew-collection)
-                                (assoc plain :path-prefix ["crew"]))]
-        (should-contain "[crew] crew table schema" out)
-        (should-contain "Crew member configurations" out)
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-contain "[berths] berth table schema" out)
+        (should-contain "Berth configurations" out)
         (should-contain "key" out)
         (should-contain "value" out)
-        (should-contain "[crew.key]" out)
-        (should-contain "[crew.value]" out)))
+        (should-contain "[berths.key]" out)
+        (should-contain "[berths.value]" out)))
 
     (it "renders description after the key/value rows"
-      (let [out  (sut/spec->term (crew-collection)
-                                 (assoc plain :path-prefix ["crew"]))
-            desc (s/index-of out "Crew member configurations")
-            row  (s/index-of out "[crew.key]")]
+      (let [out  (sut/spec->term (berths-collection)
+                                 (assoc plain :path-prefix ["berths"]))
+            desc (s/index-of out "Berth configurations")
+            row  (s/index-of out "[berths.key]")]
         (should (< row desc))))
 
-    (it "does not render the crew entity fields when showing the collection wrapper"
-      (let [out (sut/spec->term (crew-collection)
-                                (assoc plain :path-prefix ["crew"]))]
-        (should-not-contain "Model alias" out)
-        (should-not-contain "System prompt" out))))
+    (it "does not render the berth entity fields when showing the collection wrapper"
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-not-contain "Gauge this berth reads." out)
+        (should-not-contain "Standing orders." out))))
 
   (context "titles"
 
@@ -176,14 +176,14 @@
         (should-contain "[isaac] isaac schema" out)))
 
     (it "adds the entity-name suffix when path and entity differ"
-      (let [out (sut/spec->term (provider-entity)
-                                (assoc plain :path-prefix ["providers" "value"]))]
-        (should-contain "[providers.value] provider schema" out)))
+      (let [out (sut/spec->term (foundry-entity)
+                                (assoc plain :path-prefix ["foundries" "value"]))]
+        (should-contain "[foundries.value] foundry schema" out)))
 
     (it "uses the collection's :name as the suffix when present"
-      (let [out (sut/spec->term (crew-collection)
-                                (assoc plain :path-prefix ["crew"]))]
-        (should-contain "[crew] crew table schema" out)))
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-contain "[berths] berth table schema" out)))
 
     (it "falls back to map suffix when a collection has no :name"
       (let [out (sut/spec->term {:type :map :value-spec {:type :string}}

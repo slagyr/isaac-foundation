@@ -228,13 +228,19 @@
      :text    (when (exists?* path)
                 (slurp* path))}))
 
-(defn- resolve-crew-soul [id data load-fn]
-  (let [result (companion/resolve-text {:inline  (:soul data)
+(defn- companion-md-relative [kind id]
+  (case kind
+    :crew   (paths/soul-relative id)
+    :berths (paths/ledger-relative id)
+    nil))
+
+(defn- resolve-inline-or-md-companion [kind field-key id data load-fn]
+  (let [result (companion/resolve-text {:inline  (get data field-key)
                                         :load-fn load-fn})]
     {:data  (cond-> data
-                    (:value result) (assoc :soul (:value result)))
+                    (:value result) (assoc field-key (:value result)))
      :error (when (and (:inline? result) (:companion-exists? result))
-              {:key   (str "crew." id ".soul")
+              {:key   (str (name kind) "." id "." (name field-key))
                :value "must be set in .edn OR .md"})}))
 
 (defn- resolve-companion-field [ns-prefix field-key id entity load-fn relative]
@@ -478,11 +484,13 @@
           load-md? (= format :md-frontmatter)
           load-fn  (fn [] {:exists? true :text body})]
       (case (:field companion)
-        :soul
+        (:soul :ledger)
         (let [{resolved-data :data companion-error :error}
-              (resolve-crew-soul id raw-data (if load-md?
-                                               load-fn
-                                               #(load-companion-text (str root "/" (paths/soul-relative id)))))]
+              (resolve-inline-or-md-companion kind (:field companion) id raw-data
+                                              (if load-md?
+                                                load-fn
+                                                #(load-companion-text (str root "/"
+                                                                           (companion-md-relative kind id)))))]
           {:data resolved-data :error companion-error :extra-errors []})
 
         :prompt
@@ -837,7 +845,7 @@
                                                                                         (mapcat :warnings (vals entity-files-by-kind))
                                                                                         md-warnings))
                                                           :sources         root-sources
-                                                          :root            (normalize-config effective-schema (or root-data {}))}
+                                                          :root            (or root-data {})}
                                         result           (reduce (fn [acc kind]
                                                                    (merge-root-entity effective-schema acc kind))
                                                                  result

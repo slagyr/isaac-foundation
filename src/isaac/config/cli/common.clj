@@ -217,7 +217,10 @@
     (fn [node]
       (if (map? node)
         (cond-> node
+          (string? (:berth node))    (assoc :berth (keyword (:berth node)))
           (string? (:crew node))     (assoc :crew (keyword (:crew node)))
+          (string? (:foundry node))  (assoc :foundry (keyword (:foundry node)))
+          (string? (:gauge node))    (assoc :gauge (keyword (:gauge node)))
           (string? (:model node))    (assoc :model (keyword (:model node)))
           (string? (:provider node)) (assoc :provider (keyword (:provider node))))
         node))

@@ -30,6 +30,12 @@
 (defn known-model-ids [config]
   (->> (keys (:models config)) (map ->id) distinct sort vec))
 
+(defn known-berth-ids [config]
+  (->> (keys (:berths config)) (map ->id) distinct sort vec))
+
+(defn known-gauge-ids [config]
+  (->> (keys (:gauges config)) (map ->id) distinct sort vec))
+
 (defn- exists-ref [ref-key known-fn message]
   {:validate (fn [value]
                (contains? (or (get-in *config* [:known-sets ref-key])
@@ -42,7 +48,9 @@
 
 (def ^:private existence-refs
   {:model-exists? (exists-ref :model-exists? known-model-ids "references undefined model")
-   :crew-exists?  (exists-ref :crew-exists? known-crew-ids "references undefined crew")})
+   :crew-exists?  (exists-ref :crew-exists? known-crew-ids "references undefined crew")
+   :gauge-exists? (exists-ref :gauge-exists? known-gauge-ids "references undefined gauge")
+   :berth-exists? (exists-ref :berth-exists? known-berth-ids "references undefined berth")})
 
 (def ^:private value-refs
   ;; nil-tolerant: apron's conform also resolves these refs and (unlike the

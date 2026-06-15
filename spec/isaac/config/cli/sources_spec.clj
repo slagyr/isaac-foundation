@@ -27,9 +27,9 @@
                                (example))))
 
   (it "lists the config files that contributed"
-    (write-config! (str test-root "/config/isaac.edn") {:crew {(keyword marigold/captain) {}}})
-    (write-config! (str test-root "/config/crew/" marigold/first-mate ".edn")
-                   {:model (keyword marigold/helm-mark-iii)})
+    (write-config! (str test-root "/config/isaac.edn") {:berths {(keyword marigold/captain) {}}})
+    (write-config! (str test-root "/config/berths/" marigold/first-mate ".edn")
+                   {:gauge (keyword marigold/helm-mark-iii)})
     (should= 0 (sut/run {:root test-root} ["sources"]))
     (should-contain "config/isaac.edn" (str *out*))
-    (should-contain (str "config/crew/" marigold/first-mate ".edn") (str *out*))))
+    (should-contain (str "config/berths/" marigold/first-mate ".edn") (str *out*))))

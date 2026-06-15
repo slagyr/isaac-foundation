@@ -7,7 +7,7 @@
     [isaac.module.loader :as module-loader]))
 
 (def ^:private entity-collections
-  #{:crew :hail :models :providers})
+  #{:berths :gauges :foundries :crew :hail :models :providers})
 
 (defn module-index-for-config
   [config result]

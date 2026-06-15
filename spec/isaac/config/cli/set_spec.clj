@@ -32,7 +32,7 @@
   (it "returns 1 when set is missing a value"
     (let [err (StringWriter.)]
       (binding [*err* err]
-        (should= 1 (sut/run {:root test-root} ["set" "defaults.crew"])))
+        (should= 1 (sut/run {:root test-root} ["set" "watch.berth"])))
       (should-contain "missing value" (str err))))
 
   (it "treats a hyphen-prefixed token as the set value after the path"
@@ -40,5 +40,5 @@
       (with-redefs [mutate/set-config (fn [_home path value & _]
                                         (reset! captured [path value])
                                         {:status :ok :warnings [] :file "isaac.edn"})]
-        (should= 0 (sut/run {:root test-root} ["set" (str "crew." marigold/first-mate ".soul") "--raw"])))
-      (should= [(str "crew." marigold/first-mate ".soul") "--raw"] @captured))))
+        (should= 0 (sut/run {:root test-root} ["set" (str "berths." marigold/first-mate ".ledger") "--raw"])))
+      (should= [(str "berths." marigold/first-mate ".ledger") "--raw"] @captured))))

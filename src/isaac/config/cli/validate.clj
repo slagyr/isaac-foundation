@@ -18,7 +18,7 @@
      :option-spec   option-spec
      :post-sections [["Arguments" "  -  Read EDN to validate from stdin (isolated when no --as)"]]}))
 
-(def ^:private entity-collections #{:crew :models :providers})
+(def ^:private entity-collections #{:berths :gauges :foundries :crew :models :providers})
 
 (defn- parse-data-path [path-str]
   (let [segments (str/split path-str #"\.")

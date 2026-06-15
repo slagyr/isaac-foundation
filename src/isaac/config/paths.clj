@@ -7,7 +7,7 @@
   (:require [clojure.string :as str]))
 
 (def ^:private entity-file-pattern #"[^/]+/[^/]+\.edn")
-(def ^:private markdown-file-pattern #"(crew|cron|hooks)/[^/]+\.md")
+(def ^:private markdown-file-pattern #"(berths|crew|cron|hooks)/[^/]+\.md")
 
 (def root-filename "isaac.edn")
 
@@ -25,6 +25,9 @@
 
 (defn soul-relative [id]
   (str "crew/" id ".md"))
+
+(defn ledger-relative [id]
+  (str "berths/" id ".md"))
 
 (defn cron-relative [id]
   (str "cron/" id ".md"))

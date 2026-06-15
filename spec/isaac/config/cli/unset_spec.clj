@@ -31,5 +31,5 @@
       (with-redefs [mutate/unset-config (fn [_home path]
                                           (reset! captured path)
                                           {:status :ok :warnings [] :file "isaac.edn"})]
-        (should= 0 (sut/run {:root test-root} ["unset" (str "crew." marigold/first-mate ".soul") "--help"])))
-      (should= (str "crew." marigold/first-mate ".soul") @captured))))
+        (should= 0 (sut/run {:root test-root} ["unset" (str "berths." marigold/first-mate ".ledger") "--help"])))
+      (should= (str "berths." marigold/first-mate ".ledger") @captured))))

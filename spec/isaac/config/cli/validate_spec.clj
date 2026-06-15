@@ -11,7 +11,7 @@
 
 (def ^:private test-home "/test/config-validate")
 (def ^:private test-root (str test-home "/.isaac"))
-(def ^:private test-crew (keyword marigold/captain))
+(def ^:private test-berth (keyword marigold/captain))
 
 (defn- write-config! [path data]
   (let [fs* (nexus/get :fs)]
@@ -32,26 +32,26 @@
 
   (it "prints OK and returns 0 when validation passes"
     (write-config! (str test-root "/config/isaac.edn")
-                   {:defaults {:crew test-crew :model :llama}
-                    :crew {test-crew {:soul "You are Atticus."}}
-                    :models {:llama {:model "llama3.3:1b" :provider :anthropic}}
-                    :providers {:anthropic {}}})
+                   {:watch     {:berth test-berth :gauge :llama}
+                    :berths    {test-berth {:ledger "You are Atticus."}}
+                    :gauges    {:llama {:reading "llama3.3:1b" :foundry :anthropic}}
+                    :foundries {:anthropic {}}})
     (should= 0 (sut/run {:root test-root} ["validate"]))
     (should-contain "OK" (str *out*)))
 
   (it "returns 1 and prints errors when validation fails"
     (write-config! (str test-root "/config/isaac.edn")
-                   {:defaults {:crew :ghost :model :llama}})
+                   {:watch {:berth :ghost :gauge :llama}})
     (should= 1 (sut/run {:root test-root} ["validate"]))
-    (should-contain "defaults.crew" (str *err*)))
+    (should-contain "watch.berth" (str *err*)))
 
   (it "overlays stdin content at a data path when validating"
     (write-config! (str test-root "/config/isaac.edn")
-                   {:defaults  {:crew test-crew :model :llama}
-                    :crew      {}
-                    :models    {:llama {:model "llama3.3:1b" :provider :anthropic}}
-                    :providers {:anthropic {}}})
-    (binding [*in* (BufferedReader. (StringReader. "{:soul \"You are Atticus.\"}"))]
-      (let [result (sut/run {:root test-root} ["validate" "--as" (str "crew." marigold/captain) "-"])]
+                   {:watch     {:berth test-berth :gauge :llama}
+                    :berths    {}
+                    :gauges    {:llama {:reading "llama3.3:1b" :foundry :anthropic}}
+                    :foundries {:anthropic {}}})
+    (binding [*in* (BufferedReader. (StringReader. "{:ledger \"You are Atticus.\"}"))]
+      (let [result (sut/run {:root test-root} ["validate" "--as" (str "berths." marigold/captain) "-"])]
         (should= 0 result))
       (should-contain "OK" (str *out*)))))

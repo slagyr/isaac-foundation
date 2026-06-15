@@ -23,7 +23,9 @@
 
 (defn validation-context [config]
   (let [known-values {:model-exists? (vlex/known-model-ids config)
-                      :crew-exists?  (vlex/known-crew-ids config)}]
+                      :crew-exists?  (vlex/known-crew-ids config)
+                      :gauge-exists? (vlex/known-gauge-ids config)
+                      :berth-exists? (vlex/known-berth-ids config)}]
     {:raw          config
      :known-values known-values
      :known-sets   (into {} (map (fn [[predicate values]] [predicate (set values)])) known-values)}))

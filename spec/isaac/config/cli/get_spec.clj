@@ -14,23 +14,26 @@
 
 (def ^:private test-home "/test/config-get")
 (def ^:private test-root (str test-home "/.isaac"))
-(def ^:private test-provider (keyword marigold/helm-systems))
-(def ^:private test-model (keyword marigold/helm-mark-iii))
-(def ^:private test-crew (keyword marigold/first-mate))
+(def ^:private test-foundry (keyword marigold/helm-systems))
+(def ^:private test-gauge (keyword marigold/helm-mark-iii))
+(def ^:private test-berth (keyword marigold/first-mate))
 
 (defn- api-key-load-result []
-  {:config {:providers {test-provider {:api-key "${CONFIG_TEST_API_KEY}"}}}})
+  {:config {:foundries {test-foundry {:api-key "${CONFIG_TEST_API_KEY}"}}}})
 
 (defn- write-config! [path data]
   (let [fs* (nexus/get :fs)]
     (fs/mkdirs fs* (fs/parent path))
     (fs/spit   fs* path (pr-str data))))
 
-(defn- write-crew-with-soul! [crew-id cfg soul]
+(defn- write-berth-with-ledger! [berth-id cfg ledger]
   (let [fs* (nexus/get :fs)]
-    (fs/mkdirs fs* (str test-root "/config/crew"))
-    (fs/spit fs* (str test-root "/config/crew/" (name crew-id) ".edn") (pr-str cfg))
-    (fs/spit fs* (str test-root "/config/crew/" (name crew-id) ".md") soul)))
+    (fs/mkdirs fs* (str test-root "/config/berths"))
+    (fs/spit fs* (str test-root "/config/berths/" (name berth-id) ".edn") (pr-str cfg))
+    (fs/spit fs* (str test-root "/config/berths/" (name berth-id) ".md") ledger)))
+
+(defn- gauge-cfg [foundry reading & {:as overrides}]
+  (merge {:reading reading :foundry foundry} overrides))
 
 (describe "CLI Config get"
 
@@ -73,41 +76,41 @@
   (describe "subtree"
 
     (it "prints scalar values by dotted path"
-      (write-crew-with-soul! test-crew {} "You are Cordelia.")
-      (should= 0 (sut/run {:root test-root} ["get" (str "crew." marigold/first-mate ".soul")]))
+      (write-berth-with-ledger! test-berth {} "You are Cordelia.")
+      (should= 0 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate ".ledger")]))
       (should-contain "You are Cordelia." (str *out*)))
 
     (it "prints scalar values by bracket keyword path"
-      (write-crew-with-soul! test-crew {} "You are Cordelia.")
-      (should= 0 (sut/run {:root test-root} ["get" (str "crew[:" marigold/first-mate "].soul")]))
+      (write-berth-with-ledger! test-berth {} "You are Cordelia.")
+      (should= 0 (sut/run {:root test-root} ["get" (str "berths[:" marigold/first-mate "].ledger")]))
       (should-contain "You are Cordelia." (str *out*)))
 
     (it "returns 1 for a missing key"
-      (write-crew-with-soul! test-crew {} "You are Cordelia.")
-      (should= 1 (sut/run {:root test-root} ["get" (str "crew." marigold/first-mate ".nope")]))
-      (should-contain (str "not found: crew." marigold/first-mate ".nope") (str *err*)))
+      (write-berth-with-ledger! test-berth {} "You are Cordelia.")
+      (should= 1 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate ".nope")]))
+      (should-contain (str "not found: berths." marigold/first-mate ".nope") (str *err*)))
 
     (it "prints nested values across multiple lines"
       (write-config! (str test-root "/config/isaac.edn")
-                     {:defaults {:crew (keyword marigold/captain) :model test-model}
-                      :crew {(keyword marigold/captain) {}
-                             test-crew (marigold/crew-cfg marigold/first-mate :model marigold/helm-mark-iii)}
-                      :models {test-model (marigold/model-cfg test-provider "helm-mk-3-1.0")}
-                      :providers {test-provider {}}})
-      (should= 0 (sut/run {:root test-root} ["get" (str "crew." marigold/first-mate)]))
+                     {:watch  {:berth (keyword marigold/captain) :gauge test-gauge}
+                      :berths {(keyword marigold/captain) {}
+                               test-berth (config-marigold/berth-cfg marigold/first-mate :gauge marigold/helm-mark-iii)}
+                      :gauges {test-gauge (gauge-cfg test-foundry "helm-mk-3-1.0")}
+                      :foundries {test-foundry {}}})
+      (should= 0 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate)]))
       (should (<= 2 (count (str/split-lines (str *out*))))))
 
-    (it "prints provider auth when configured"
+    (it "prints foundry auth when configured"
       (write-config! (str test-root "/config/isaac.edn")
-                     {:providers {(keyword marigold/quantum-anvil) {:auth "oauth-device"}}})
-      (should= 0 (sut/run {:root test-root} ["get" (str "providers." marigold/quantum-anvil ".auth")]))
+                     {:foundries {(keyword marigold/quantum-anvil) {:auth "oauth-device"}}})
+      (should= 0 (sut/run {:root test-root} ["get" (str "foundries." marigold/quantum-anvil ".auth")]))
       (should-contain "oauth-device" (str *out*)))
 
     (it "reveals get values after typed confirmation and prompts first"
       (write-config! (str test-root "/config/isaac.edn")
-                     {:providers {test-provider {:api-key "${CONFIG_TEST_API_KEY}"}}})
+                     {:foundries {test-foundry {:api-key "${CONFIG_TEST_API_KEY}"}}})
       (c3env/override! "CONFIG_TEST_API_KEY" "sk-test-123")
       (binding [*in* (BufferedReader. (StringReader. "REVEAL\n"))]
-        (should= 0 (sut/run {:root test-root} ["get" (str "providers." marigold/helm-systems ".api-key") "--reveal"])))
+        (should= 0 (sut/run {:root test-root} ["get" (str "foundries." marigold/helm-systems ".api-key") "--reveal"])))
       (should-contain "type REVEAL to confirm:" (str *err*))
       (should-contain "sk-test-123" (str *out*)))))

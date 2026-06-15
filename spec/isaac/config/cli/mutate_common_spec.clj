@@ -6,8 +6,8 @@
       [isaac.config.cli.mutate-common :as sut]
       [speclj.core :refer :all]))
 
- (def path-str (str "crew." marigold/captain ".soul"))
- (def slash-path (str "/crew/" marigold/captain "/soul"))
+ (def path-str (str "berths." marigold/captain ".ledger"))
+ (def slash-path (str "/berths/" marigold/captain "/ledger"))
 
  (describe "config cli mutate common"
 
