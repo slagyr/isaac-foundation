@@ -696,7 +696,7 @@
             (should= {:expr   "0 9 * * *"
                       :berth  "main"
                       :prompt "Run the health checkin."}
-                     (get-in result [:config :cron "health-check"]))))))
+                     (get-in result [:config :cron "health-check"])))))
 
     (it "loads cron prompt from a companion markdown file"
       (with-extended-config-index
@@ -811,6 +811,8 @@
             (should= :prompt (:field entry))
             (should= "cron.health-check" (:key entry)))))))
 
+  )
+
   (describe "normalize-config"
 
     (it "normalizes modern map-based sections and preserves optional top-level config"
@@ -886,9 +888,9 @@
                                                     :cron         {"nightly" {:berth "ghost"}}
                                                     :hooks        {"webhook" {:berth "ghost" :gauge "phantom"}
                                                                    :auth      {:token "secret"}}
-                                                             :module-index module-index}
-                                                            nil
-                                                            schema))))))
+                                                    :module-index module-index}
+                                                   nil
+                                                   schema)))))
 
     (it "returns no semantic errors when all references resolve"
       (let [schema       (extended-root-schema)
@@ -903,6 +905,8 @@
                                               :module-index module-index}
                                              nil
                                              schema)))))
+
+  )
 
   (describe "module discovery integration"
 
@@ -1026,7 +1030,7 @@
       (write-kombucha-module!)
       (let [result (marigold/load-config)]
         (should-not (some #(str/includes? (:key %) "foundries.my-kombucha.fizz-level")
-                          (:errors result))))))
+                          (:errors result)))))
 
     (it "loads a self-defined foundry without api-key when chartroom schema has no auth guard"
       (config-marigold/write-foundry! :my-thing {:api      "messages"
@@ -1044,6 +1048,8 @@
       (let [result (marigold/load-config)]
         (should= [] (:errors result))
         (should= 3 (get-in result [:config :foundries "my-kombucha" :fizz-level]))))
+
+  )
 
   (describe "signal slot validation"
 
@@ -1259,4 +1265,6 @@
       (with-redefs [sut/load-config-result (fn [_] {:config {:root "/sd"}
                                                     :errors [{:key "config" :value "missing"}]
                                                     :missing-config? true})]
-        (should= {:root "/sd"} (sut/load-config! "/sd" (fs/mem-fs) "spec"))))))
+        (should= {:root "/sd"} (sut/load-config! "/sd" (fs/mem-fs) "spec")))))
+
+  )
