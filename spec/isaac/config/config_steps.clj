@@ -6,6 +6,7 @@
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.config.berths :as berths]
     [isaac.config.loader :as loader]
+    [isaac.config.marigold :as config-marigold]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
     [isaac.nexus :as nexus]))
@@ -92,17 +93,26 @@
       (finally
         (System/setProperty "user.dir" base-cwd)))))
 
+(defn- load-result* []
+  (let [result       (load-config-result)
+        module-index (get-in result [:config :module-index])]
+    ;; Per-entry berth :factory invocation runs OUTSIDE the loader's
+    ;; nested-nexus wrap so its nexus registrations persist into the
+    ;; ambient nexus (the wrap's install!/restore would otherwise
+    ;; discard them). When no errors slipped through, fire the pass.
+    (when (and module-index (empty? (:errors result)))
+      (module-loader/process-manifest-berths! module-index))
+    result))
+
 (defn load-result []
   (or (g/get :loaded-config-result)
-      (let [result       (load-config-result)
-            module-index (get-in result [:config :module-index])]
-        ;; Per-entry berth :factory invocation runs OUTSIDE the loader's
-        ;; nested-nexus wrap so its nexus registrations persist into the
-        ;; ambient nexus (the wrap's install!/restore would otherwise
-        ;; discard them). When no errors slipped through, fire the pass.
-        (when (and module-index (empty? (:errors result)))
-          (module-loader/process-manifest-berths! module-index))
-        result)))
+      ;; When a scenario declares fixture modules that extend a themed test
+      ;; berth (e.g. the chartroom signals/foundries tables), the override
+      ;; supplies those berth declarations for the whole load.
+      (if-let [override (g/get :foundation-index-override)]
+        (binding [module-loader/*foundation-index-override* override]
+          (load-result*))
+        (load-result*))))
 
 (defn reload-result
   "Drops the cached load and loads fresh — for steps that rewrite
@@ -178,6 +188,13 @@
 (defn environment-variable-is [name value]
   (loader/set-env-override! name value)
   (c3env/override! name value))
+
+(defn chartroom-modules-available []
+  ;; Bind the chartroom test index (foundation + :marigold.chartroom) as the
+  ;; foundation-index override for this scenario's loads, so the themed test
+  ;; berths (:signals, :foundries) are declared and fixture-module
+  ;; contributions (parlor, fizz) compose into them.
+  (g/assoc! :foundation-index-override (config-marigold/chartroom-test-index)))
 
 (defn isaac-env-file-contains [content]
   (with-config-fs
@@ -363,6 +380,12 @@
     points so tests don't rely on which one the code happens to use.")
 
 (defgiven #"the env var \"([^\"]+)\" is set to \"([^\"]+)\"" isaac.config.config-steps/environment-variable-is)
+
+(defgiven "the chartroom fixture modules are available" isaac.config.config-steps/chartroom-modules-available
+  "Binds the foundation+chartroom test index as the foundation-index
+   override for this scenario, declaring the themed test berths (:signals,
+   :foundries) that the marigold.comm.parlor / marigold.providers.fizz
+   fixture modules contribute schema fragments into.")
 
 (defgiven "the isaac .env file contains:" isaac.config.config-steps/isaac-env-file-contains
   "Writes the heredoc content to <root>/.isaac/.env. This is the

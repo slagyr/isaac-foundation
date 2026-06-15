@@ -238,6 +238,13 @@
   []
   (schema-compose/effective-root-schema baseline-config-test-index))
 
+(defn chartroom-test-index
+  "The foundation+chartroom module index used by config schema/CLI specs.
+   Bind it to module-loader/*foundation-index-override* (see with-manifest)
+   so the chartroom berths (:signals, :foundries, ...) are declared."
+  []
+  baseline-config-test-index)
+
 (defn with-manifest
   "Bind foundation + marigold.chartroom schema manifests for config schema/CLI specs."
   []
