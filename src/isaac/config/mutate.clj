@@ -242,6 +242,17 @@
           (fs/mkdirs fs* parent))
         (fs/spit fs* path content)))))
 
+(defn- read-edn-on-fs [fs* path]
+  (when (fs/exists? fs* path)
+    (edn/read-string (fs/slurp fs* path))))
+
+(defn- copy-declared-local-modules! [source-fs stage-fs root]
+  (when-let [config (read-edn-on-fs stage-fs (paths/root-config-file root))]
+    (doseq [[_ coord] (:modules config)
+            :let [local-root (:local/root coord)]
+            :when (and (string? local-root) (fs/dir? source-fs local-root))]
+      (fs/copy-tree! source-fs stage-fs local-root))))
+
 (defn- validate-plan [root plan]
   (let [source-fs (or (:fs (nexus/necho))
                       (fs/mem-fs))
@@ -250,6 +261,7 @@
     (fs/copy-tree! source-fs stage-fs config-root)
     (nexus/-with-nested-nexus {:fs stage-fs}
       (apply-plan! root plan)
+      (copy-declared-local-modules! source-fs stage-fs root)
       (loader/load-config-result {:root root :fs stage-fs}))))
 
 ;; endregion ^^^^^ Plan & apply ^^^^^

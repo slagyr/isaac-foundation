@@ -24,8 +24,8 @@
 (defn- file-exists? [relative]
   (fs/exists? (nexus/get :fs) (str config-root "/" relative)))
 
-(def ^:private telly-module-root
-  (str (config-marigold/agent-modules-root) "/isaac.comm.telly"))
+(def ^:private parlor-module-root
+  (str (config-marigold/fixture-modules-root) "/marigold.comm.parlor"))
 
 (describe "isaac.config.mutate"
 
@@ -114,9 +114,10 @@
         (should= true (get-in (read-edn "isaac.edn") [:crew (keyword marigold/captain) :experimental]))))
 
     (it "does not warn on a module-provided comm field"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (marigold/write-config! (merge marigold/baseline-config
-                                     {:modules {:isaac.comm.telly {:local/root telly-module-root}}
-                                      :comms   {:bert {:type :telly :crew :atticus}}}))
+                                     {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                      :comms   {:bert {:type :parlor :crew :atticus}}}))
       (let [result (sut/set-config marigold/root "comms.bert.loft" "rooftop")]
         (should= :ok (:status result))
         (should-not (some #(= {:key "comms.bert.loft" :value "unknown key"}
@@ -125,9 +126,10 @@
         (should= "rooftop" (get-in (read-edn "isaac.edn") [:comms :bert :loft]))))
 
     (it "still warns on an unknown comm field via the loader"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (marigold/write-config! (merge marigold/baseline-config
-                                     {:modules {:isaac.comm.telly {:local/root telly-module-root}}
-                                      :comms   {:bert {:type :telly :crew :atticus}}}))
+                                     {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                      :comms   {:bert {:type :parlor :crew :atticus}}}))
       (let [result (sut/set-config marigold/root "comms.bert.bogus" 42)]
         (should= :ok (:status result))
         (should-contain {:key "comms[:bert].bogus" :value "unknown key"}

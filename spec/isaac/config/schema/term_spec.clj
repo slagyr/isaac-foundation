@@ -247,13 +247,13 @@
 
     (it "prefixes a field's description with [variant] when :isaac/variant is set"
       (let [out (sut/spec->term {:type :map :schema {:loft {:type :string
-                                                            :isaac/variant "telly"
+                                                            :isaac/variant "parlor"
                                                             :description "the roof"}}}
                                 plain)]
-        (should-contain "[telly] the roof" out)))
+        (should-contain "[parlor] the roof" out)))
 
     (it "renders [variant] alone when there is no description"
       (let [out (sut/spec->term {:type :map :schema {:loft {:type :string
-                                                            :isaac/variant "telly"}}}
+                                                            :isaac/variant "parlor"}}}
                                 plain)]
-        (should-contain "[telly]" out)))))
+        (should-contain "[parlor]" out)))))

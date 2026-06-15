@@ -78,6 +78,10 @@
 (def longwave "longwave")   ;; broadcast — Discord analog
 (def skybeam  "skybeam")    ;; direct/streaming — ACP analog
 (def logbook  "logbook")    ;; persisted-local — memory comm analog
+;; Parlor — third-party comm fixture (config dynamic-schema specs).
+(def parlor   "parlor")
+;; Fizz — third-party provider-template fixture (config dynamic-schema specs).
+(def fizz     "fizz")
 
 ;; ----- Hooks (inbound webhooks the crew receives) ------------------
 

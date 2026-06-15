@@ -3,7 +3,6 @@
     [c3kit.apron.env :as c3env]
     [clojure.java.io :as io]
     [isaac.cli.registry :as cli-registry]
-    [isaac.config.marigold :as config-marigold]
     [isaac.fs :as fs]
     [isaac.logger :as log]
     [isaac.module.manifest]
@@ -59,14 +58,6 @@
   (concat (real-resource-urls resource-name)
           [(fixture-url "spec/isaac/module/fixtures/builtin/resources/isaac-manifest.edn")
            (fixture-url "spec/isaac/module/fixtures/unflagged/resources/isaac-manifest.edn")]))
-
-(defn- unload-telly! []
-  (when-let [ns-obj (find-ns 'isaac.comm.telly)]
-    (remove-ns (ns-name ns-obj)))
-  ;; `remove-ns` does not clear require bookkeeping, so JVM specs can skip
-  ;; reloading the module and miss load-time failures on later examples.
-  (let [loaded-libs (var-get #'clojure.core/*loaded-libs*)]
-    (dosync (alter loaded-libs disj 'isaac.comm.telly))))
 
 (defn- reset-cli-registry! []
   (cli-registry/clear-module-commands!))
@@ -366,61 +357,57 @@
         (reset-cli-registry!)
         (sut/clear-activations!)
         (reset! c3env/-overrides {})
-        (unload-telly!)
         (example)
         (reset! @#'isaac.module.loader/loaded-module-coords* #{})
         (reset! c3env/-overrides {})
         (sut/clear-activations!)
-        (reset-cli-registry!)
-        (unload-telly!)))
+        (reset-cli-registry!)))
 
     (it "logs activation once"
       ;; Phase 8 (isaac-qqgv): comm factory registration moved into
-      ;; the :isaac.server/comm berth's per-entry factory; activate!
-      ;; only logs the activation now. Coverage for the registration
-      ;; itself lives under process-manifest-berths! and the comm
-      ;; registry spec.
-      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
-            module-index {:isaac.comm.telly {:dir telly-dir
-                                             :manifest {:isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}]
+      ;; berth per-entry factories; activate! only logs the activation
+      ;; now. Coverage for the registration itself lives under
+      ;; process-manifest-berths! and the comm registry spec.
+      (let [stub-dir     "/tmp/marigold.comm.stub"
+            module-index {:marigold.comm.stub {:dir stub-dir
+                                                :manifest {:marigold.bridge/comm
+                                                           {:stub {:factory 'marigold.comm.stub/make}}}}}]
         (log/capture-logs
-          (sut/activate! :isaac.comm.telly module-index)
-          (sut/activate! :isaac.comm.telly module-index)
+          (sut/activate! :marigold.comm.stub module-index)
+          (sut/activate! :marigold.comm.stub module-index)
           (let [events (filter #(= :module/activated (:event %)) @log/captured-logs)]
             (should= 1 (count events))
-            (should= "isaac.comm.telly" (:module (first events)))))))
+            (should= "marigold.comm.stub" (:module (first events)))))))
 
     (it "wraps bootstrap namespace load failures in structured error data and logs them"
       ;; Phase 8 of brth (isaac-qqgv): activate! no longer eagerly
-      ;; resolves :comm factory symbols (those flow through the
-      ;; :isaac.server/comm berth's per-entry factory). The remaining
-      ;; activate!-side failure path is :bootstrap symbol resolution.
-      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
-            module-index {:isaac.comm.telly {:dir telly-dir
-                                             :manifest {:bootstrap         'isaac.comm.telly/bootstrap-load
-                                                        :isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}]
-        (c3env/override! "ISAAC_TELLY_FAIL_ON_LOAD" "true")
+      ;; resolves berth factory symbols. The remaining activate!-side
+      ;; failure path is :bootstrap symbol resolution.
+      (let [stub-dir     "/tmp/marigold.comm.stub"
+            module-index {:marigold.comm.stub {:dir stub-dir
+                                                :manifest {:bootstrap 'marigold.comm.stub/bootstrap-load}}}]
         (log/capture-logs
           (let [error (try
-                        (sut/activate! :isaac.comm.telly module-index)
+                        (sut/activate! :marigold.comm.stub module-index)
                         (catch clojure.lang.ExceptionInfo e
                           e))
                 event (first (filter #(= :module/activation-failed (:event %)) @log/captured-logs))]
             (should= :module/activation-failed (:type (ex-data error)))
-            (should= :isaac.comm.telly (:module-id (ex-data error)))
+            (should= :marigold.comm.stub (:module-id (ex-data error)))
             (should-not-be-nil event)
-            (should= "isaac.comm.telly" (:module event))))))
+            (should= "marigold.comm.stub" (:module event))))))
 
     (it "adds local/root deps on first activation"
-      (let [telly-dir    (str (config-marigold/agent-modules-root) "/isaac.comm.telly")
-            module-index {:isaac.comm.telly {:coord {:local/root telly-dir}
-                                             :path  telly-dir
-                                             :manifest {:isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}
-            calls       (atom [])]
+      (let [stub-dir     "/tmp/marigold.comm.stub"
+            module-index {:marigold.comm.stub {:coord {:local/root stub-dir}
+                                               :path  stub-dir
+                                               :manifest {:marigold.bridge/comm
+                                                          {:stub {:factory 'marigold.comm.stub/make}}}}}
+            calls        (atom [])]
         (with-redefs [isaac.module.loader/add-module-deps! (fn [id coord]
                                                              (swap! calls conj [id coord]))]
-          (sut/activate! :isaac.comm.telly module-index)
-            (should= [[:isaac.comm.telly {:local/root telly-dir}]] @calls))))
+          (sut/activate! :marigold.comm.stub module-index)
+            (should= [[:marigold.comm.stub {:local/root stub-dir}]] @calls))))
 
     ;; Phase 5 of the berth epic (isaac-8v1n): route registration moved
     ;; out of activate! entirely. The :isaac.server/route berth flows
@@ -437,16 +424,17 @@
     ;; lives under the "process-manifest-berths!" describe above.
 
     (it "does not add the same local/root deps twice across activation resets"
-      (let [telly-dir    (str (System/getProperty "user.dir") "/modules/isaac.comm.telly-cache-test")
-            module-index {:isaac.comm.telly {:coord {:local/root telly-dir}
-                                             :path  telly-dir
-                                             :manifest {:isaac.server/comm {:telly {:factory 'isaac.comm.telly/make}}}}}
-            calls       (atom [])]
+      (let [stub-dir     (str (System/getProperty "user.dir") "/modules/marigold.comm.stub-cache-test")
+            module-index {:marigold.comm.stub {:coord {:local/root stub-dir}
+                                                :path  stub-dir
+                                                :manifest {:marigold.bridge/comm
+                                                           {:stub {:factory 'marigold.comm.stub/make}}}}}
+            calls        (atom [])]
         (with-redefs [isaac.module.loader/add-module-deps! (fn [id coord]
                                                              (swap! calls conj [id coord]))]
-          (sut/activate! :isaac.comm.telly module-index)
+          (sut/activate! :marigold.comm.stub module-index)
           (sut/clear-activations!)
-          (sut/activate! :isaac.comm.telly module-index)
-          (should= [[:isaac.comm.telly {:local/root telly-dir}]] @calls))))))
+          (sut/activate! :marigold.comm.stub module-index)
+          (should= [[:marigold.comm.stub {:local/root stub-dir}]] @calls))))))
 
 

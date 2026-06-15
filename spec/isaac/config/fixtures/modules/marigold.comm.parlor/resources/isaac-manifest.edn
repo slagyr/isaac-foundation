@@ -1,0 +1,11 @@
+{:id      :marigold.comm.parlor
+ :version "0.1.0"
+ :factory 'isaac.module.protocol/module
+
+ :marigold.server/comm
+ {:parlor {:namespace    'marigold.comm.parlor.stub
+           :extra-schema {:loft  {:type :string
+                                  :validations [[:present-when? :type :parlor]]}
+                          :color {:type :string}
+                          :mood  {:type :string
+                                  :validations [[:one-of? "happy" "sad" "grumpy"]]}}}}}

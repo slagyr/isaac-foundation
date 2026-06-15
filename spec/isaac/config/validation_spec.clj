@@ -70,10 +70,10 @@
   (describe "present-when? under conformed values"
 
     (it "fires when the discriminator was coerced to a string id"
-      (should= "is required when type is telly"
+      (should= "is required when type is parlor"
                (:value (first (sut/annotation-errors* nil [:loft]
-                                                      {:validations [[:present-when? :type :telly]]}
-                                                      nil {:type "telly"} :loft))))))
+                                                      {:validations [[:present-when? :type :parlor]]}
+                                                      nil {:type "parlor"} :loft))))))
 
   (describe "compaction-flavored refs"
 

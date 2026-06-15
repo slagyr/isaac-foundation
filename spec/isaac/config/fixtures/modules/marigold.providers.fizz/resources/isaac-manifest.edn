@@ -1,0 +1,10 @@
+{:id      :marigold.providers.fizz
+ :version "0.1.0"
+ :factory 'isaac.module.protocol/module
+
+ :marigold.server/provider-template
+ {:fizz {:template {:api      "chat-completions"
+                    :base-url "https://api.fizz.test/v1"
+                    :auth     "api-key"
+                    :models   ["fizz-large" "fizz-small"]}
+         :schema   {:fizz-level {:type :int}}}}}
