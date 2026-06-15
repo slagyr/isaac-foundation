@@ -698,6 +698,8 @@
                       :prompt "Run the health checkin."}
                      (get-in result [:config :cron "health-check"])))))
 
+    )
+
     (it "loads cron prompt from a companion markdown file"
       (with-extended-config-index
         (fn []
@@ -892,6 +894,8 @@
                                                    nil
                                                    schema)))))
 
+    )
+
     (it "returns no semantic errors when all references resolve"
       (let [schema       (extended-root-schema)
             module-index {:marigold.chartroom {:manifest (get-in extended-config-index [:marigold.chartroom :manifest])}}]
@@ -905,8 +909,6 @@
                                               :module-index module-index}
                                              nil
                                              schema)))))
-
-  )
 
   (describe "module discovery integration"
 
@@ -1266,5 +1268,3 @@
                                                     :errors [{:key "config" :value "missing"}]
                                                     :missing-config? true})]
         (should= {:root "/sd"} (sut/load-config! "/sd" (fs/mem-fs) "spec")))))
-
-  )
