@@ -153,13 +153,18 @@
      (if (cs/error? result) {} result))))
 
 (defn- collect-unknown-key-warnings [warnings kind id entity entity-schema]
-  (let [entity-fields (schema-base/schema-fields entity-schema)]
-    (reduce (fn [acc key]
-              (if (contains? entity-fields key)
-                acc
-                (conj acc (warning (str kind "." id "." (name key)) "unknown key"))))
-            warnings
-            (keys entity))))
+  ;; A non-map entity (e.g. a vector where the schema expects a map) can't have
+  ;; unknown keys — leave it for schema conform to report as a type error rather
+  ;; than crashing on (keys ...).
+  (if-not (map? entity)
+    warnings
+    (let [entity-fields (schema-base/schema-fields entity-schema)]
+      (reduce (fn [acc key]
+                (if (contains? entity-fields key)
+                  acc
+                  (conj acc (warning (str kind "." id "." (name key)) "unknown key"))))
+              warnings
+              (keys entity)))))
 
 (defn- read-dir-files [root dir-name ext]
   (let [dir (str root "/" dir-name)]
