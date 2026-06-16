@@ -108,17 +108,17 @@
 ;; supply them itself. Each handler is a no-op stub appropriate for tests.
 ;; Defined here (not in the server half) because manifests reference them
 ;; by `isaac.marigold/...` symbol.
-(defn heading-slash-factory [_]
+(defn heading-slash-factory []
   {:command-name heading-command
    :description  "Where are we?"
    :handler      (fn [_] {:type :command :command :status :message "steady on course"})})
 
-(defn bearing-slash-factory [_]
+(defn bearing-slash-factory []
   {:command-name bearing-command
    :description  "Bearing on the helm"
    :handler      (fn [_] {:type :command :command :model :message "helm-mk-3-1.0"})})
 
-(defn muster-slash-factory [_]
+(defn muster-slash-factory []
   {:command-name muster-command
    :description  "Call the crew to muster"
    :handler      (fn [_] {:type :command :command :crew :message "all hands"})})
