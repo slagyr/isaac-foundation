@@ -4,5 +4,6 @@
    config.runtime.")
 
 (defprotocol Reconfigurable
-  (on-startup!       [this slice])
-  (on-config-change! [this old-slice new-slice]))
+  (on-load           [this slice])
+  (on-config-change! [this old-slice new-slice])
+  (on-unload         [this slice]))

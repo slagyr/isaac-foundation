@@ -8,10 +8,10 @@
 
 (defrecord LifecycleModule [id calls]
   module/Module
-  (on-startup [_]
-    (swap! calls conj [:startup id]))
-  (on-shutdown [_]
-    (swap! calls conj [:shutdown id])))
+  (on-load [_]
+    (swap! calls conj [:load id]))
+  (on-unload [_]
+    (swap! calls conj [:unload id])))
 
 (defrecord NoopModule [])
 
@@ -24,13 +24,13 @@
 (defn contribution-only-module []
   (module/module))
 
-(defn startup-failure-module []
+(defn load-failure-module []
   (reify module/Module
-    (on-startup [_]
-      (swap! *calls conj [:startup :marigold.longwave])
-      (throw (ex-info "boom" {:phase :startup})))
-    (on-shutdown [_]
-      (swap! *calls conj [:shutdown :marigold.longwave]))))
+    (on-load [_]
+      (swap! *calls conj [:load :marigold.longwave])
+      (throw (ex-info "boom" {:phase :load})))
+    (on-unload [_]
+      (swap! *calls conj [:unload :marigold.longwave]))))
 
 (defn exploding-factory []
   (throw (ex-info "factory exploded" {:phase :factory})))
@@ -52,8 +52,8 @@
 
   (it "supports contribution-only no-op modules"
     (let [noop (contribution-only-module)]
-      (module/run-startup! noop)
-      (module/run-shutdown! noop)
+      (module/run-load! noop)
+      (module/run-unload! noop)
       (should (module/module? noop))
       (should= [] @*calls)))
 
@@ -61,19 +61,19 @@
     (sut/start-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
-    (should= [[:startup :marigold.bridge]
-              [:startup :marigold.longwave]]
+    (should= [[:load :marigold.bridge]
+              [:load :marigold.longwave]]
              @*calls))
 
-  (it "shuts down modules in reverse topological order"
+  (it "unloads modules in reverse topological order"
     (sut/start-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (sut/shutdown-modules!)
-    (should= [[:startup :marigold.bridge]
-              [:startup :marigold.longwave]
-              [:shutdown :marigold.longwave]
-              [:shutdown :marigold.bridge]]
+    (should= [[:load :marigold.bridge]
+              [:load :marigold.longwave]
+              [:unload :marigold.longwave]
+              [:unload :marigold.bridge]]
              @*calls))
 
   (it "aborts load when a factory symbol cannot be resolved"
@@ -103,19 +103,19 @@
       (should= :not-a-module (:reason (ex-data error)))
       (should= :marigold.bridge (:module-id (ex-data error)))))
 
-  (it "rolls back already-started modules when a later startup fails"
+  (it "rolls back already-loaded modules when a later load fails"
     (let [error (try
                   (sut/start-modules!
-                    {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/startup-failure-module :deps {:marigold.bridge {}})
+                    {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/load-failure-module :deps {:marigold.bridge {}})
                      :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
       (should= :startup-failed (:reason (ex-data error)))
       (should= :marigold.longwave (:module-id (ex-data error)))
-      (should= [[:startup :marigold.bridge]
-                [:startup :marigold.longwave]
-                [:shutdown :marigold.bridge]]
+      (should= [[:load :marigold.bridge]
+                [:load :marigold.longwave]
+                [:unload :marigold.bridge]]
                @*calls)))
 
   (it "aborts load when module deps contain a cycle"

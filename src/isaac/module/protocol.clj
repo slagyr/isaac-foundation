@@ -1,8 +1,8 @@
 (ns isaac.module.protocol)
 
 (defprotocol Module
-  (on-startup [this])
-  (on-shutdown [this]))
+  (on-load [this])
+  (on-unload [this]))
 
 (defn- missing-hook-implementation? [hook error]
   (and (instance? IllegalArgumentException error)
@@ -10,32 +10,32 @@
                                     " of protocol: #'isaac\\.module\\.protocol/Module found for: .*"))
                    (.getMessage error))))
 
-(defn run-startup! [this]
+(defn run-load! [this]
   (try
-    (on-startup this)
+    (on-load this)
     (catch IllegalArgumentException e
-      (if (missing-hook-implementation? :on-startup e)
+      (if (missing-hook-implementation? :on-load e)
         nil
         (throw e)))))
 
-(defn run-shutdown! [this]
+(defn run-unload! [this]
   (try
-    (on-shutdown this)
+    (on-unload this)
     (catch IllegalArgumentException e
-      (if (missing-hook-implementation? :on-shutdown e)
+      (if (missing-hook-implementation? :on-unload e)
         nil
         (throw e)))))
 
 (defn module
   ([] (module {}))
-  ([{:keys [on-startup on-shutdown]}]
+  ([{:keys [on-load on-unload]}]
    (reify Module
-     (on-startup [this]
-       (when on-startup
-         (on-startup this)))
-     (on-shutdown [this]
-       (when on-shutdown
-         (on-shutdown this))))))
+     (on-load [this]
+       (when on-load
+         (on-load this)))
+     (on-unload [this]
+       (when on-unload
+         (on-unload this))))))
 
 (defn module? [value]
   (satisfies? Module value))

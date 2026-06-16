@@ -20,10 +20,12 @@
 ;; don't — see the plain :longwave map above).
 (defrecord RelayStation [state*]
   reconfigurable/Reconfigurable
-  (on-startup! [_ slice]
+  (on-load [_ slice]
     (reset! state* {:slice slice :last-event :started}))
   (on-config-change! [_ _old new]
-    (reset! state* {:slice new :last-event (if new :changed :stopped)})))
+    (reset! state* {:slice new :last-event :changed}))
+  (on-unload [_ _old]
+    (reset! state* {:slice nil :last-event :stopped})))
 
 (defmethod bridge.comm/create-comm-node! :relay-station [_path _slice]
   (->RelayStation (atom {})))

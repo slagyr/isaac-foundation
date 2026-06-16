@@ -63,8 +63,9 @@
       (nexus/-with-nested-nexus {}
         (let [changes (atom [])
               node    (reify sut/Reconfigurable
-                        (on-startup! [_ _])
-                        (on-config-change! [_ old new] (swap! changes conj [old new])))
+                        (on-load [_ _])
+                        (on-config-change! [_ old new] (swap! changes conj [old new]))
+                        (on-unload [_ _]))
               index   (things-index (fn [_ _] node))]
           (sut/reconcile! {:config {:things {:a {:x 1}}} :module-index index})
           (sut/reconcile! {:config     {:things {:a {:x 2}}}
@@ -125,8 +126,9 @@
         (nexus/-with-nested-nexus {}
           (let [changes (atom [])
                 node    (reify sut/Reconfigurable
-                          (on-startup! [_ _])
-                          (on-config-change! [_ old new] (swap! changes conj [old new])))
+                          (on-load [_ _])
+                          (on-config-change! [_ old new] (swap! changes conj [old new]))
+                          (on-unload [_ _]))
                 index   (schema-index (fn [_ _] node))]
             (sut/reconcile! {:config {:relays {:a {:freq "1"}}} :module-index index})
             (sut/reconcile! {:config     {:relays {:a {:freq "2"}}}

@@ -253,7 +253,7 @@
                     (factory node-path conformed))]
     (when (some? node)
       (when (satisfies? Reconfigurable node)
-        (reconfigurable/on-startup! node conformed))
+        (reconfigurable/on-load node conformed))
       (nexus/register! node-path node)
       (log/info :lifecycle/started :path (dotted node-path) :impl (node-impl node-path conformed)))
     node))
@@ -261,7 +261,7 @@
 (defn- remove-node! [node-path old-slice]
   (when-let [existing (nexus/get-in node-path)]
     (when (satisfies? Reconfigurable existing)
-      (reconfigurable/on-config-change! existing old-slice nil))
+      (reconfigurable/on-unload existing old-slice))
     (nexus/deregister! node-path)
     (log/info :lifecycle/stopped :path (dotted node-path) :impl (node-impl node-path old-slice))))
 

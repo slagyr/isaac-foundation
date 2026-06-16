@@ -5,7 +5,7 @@ Feature: :isaac/cli declared as a berth
   isn't privileged; it uses the public extension API.
 
   CLI dispatch precedes server boot, so the foundation processes the
-  `:isaac/cli` berth BEFORE running Module/on-startup hooks. CLI handlers
+  `:isaac/cli` berth BEFORE running Module/on-load hooks. CLI handlers
   are stateless registrations; lifecycle isn't required to invoke
   them.
 
