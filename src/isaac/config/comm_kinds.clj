@@ -10,7 +10,9 @@
   ([] (comm-kinds (module-loader/builtin-index)))
   ([module-index]
    (->> (vals module-index)
-        (mapcat #(get-in % [:manifest :isaac.agent/comm]))
+        (mapcat (fn [entry]
+                  (or (get-in entry [:manifest :isaac.server/comm])
+                      (get-in entry [:manifest :isaac.agent/comm]))))
         (remove (fn [[_ v]] (false? (:configurable? v))))
         (map (fn [[k _]] (name k)))
         sort
