@@ -254,25 +254,23 @@
             second-line   "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"
             writer        (java.io.StringWriter.)
             original-print @#'sut/print-line!
-            run*          (future
-                            (binding [*out* writer]
-                              (binding [sut/*follow-sleep-ms* 0]
-                                (with-redefs [sut/print-line!
-                                              (fn [line row opts]
-                                                (let [printed? (original-print line row opts)]
-                                                  (when (and printed? (zero? row))
-                                                    ;; Append while emitting the initial dump so the line
-                                                    ;; lands before the follow loop resumes reading.
-                                                    (spit (.getAbsolutePath f) second-line :append true))
-                                                  printed?))]
-                                  (sut/tail! (.getAbsolutePath f) {:color? false
-                                                                   :follow? true
-                                                                   :limit   20})))))]
-        (try
-          (spit (.getAbsolutePath f) first-line)
-          (helper/await-condition #(str/includes? (str writer) ":first"))
-          (helper/await-condition #(str/includes? (str writer) ":second"))
-          (should (str/includes? (str writer) ":second"))
-          (finally
-            (future-cancel run*)
-            (.delete f)))))))
+            path          (.getAbsolutePath f)]
+        ;; Seed before tail! so row 0 is the initial dump (append lands before follow).
+        (spit path first-line)
+        (let [run* (future
+                    (binding [*out* writer]
+                      (binding [sut/*follow-sleep-ms* 0]
+                        (with-redefs [sut/print-line!
+                                      (fn [line row opts]
+                                        (let [printed? (original-print line row opts)]
+                                          (when (and printed? (zero? row))
+                                            (spit path second-line :append true))
+                                          printed?))]
+                          (sut/tail! path {:color? false :follow? true :limit 20})))))]
+          (try
+            (helper/await-condition #(str/includes? (str writer) ":first") 5000)
+            (helper/await-condition #(str/includes? (str writer) ":second") 5000)
+            (should (str/includes? (str writer) ":second"))
+            (finally
+              (future-cancel run*)
+              (.delete f))))))))
