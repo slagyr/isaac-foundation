@@ -227,10 +227,7 @@
   (when-not (g/get :config-berths-installed?)
     (when-let [loaded (g/get :loaded-config-result)]
       (let [module-index (loaded-module-index)]
-        ;; start-modules! invokes each module factory, loading its ns so
-        ;; factory multimethods (e.g. marigold's create-comm-node! impls)
-        ;; register before the berth engine dispatches on them.
-        (module-loader/start-modules! module-index)
+        (module-loader/reconcile-modules! module-index)
         (berths/install! {:config       (:config loaded)
                           :module-index module-index}))
       (g/assoc! :config-berths-installed? true))))

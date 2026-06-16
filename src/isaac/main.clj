@@ -54,6 +54,7 @@
             (nexus/-with-nested-nexus {:fs fs*}
               (module-loader/discover! config context))]
         (registry/clear-berth-commands!)
+        (module-loader/reconcile-modules! index)
         (module-loader/process-manifest-berths! index)))
     (catch Exception _
       nil)))

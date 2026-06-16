@@ -940,6 +940,8 @@
     (when (and (seq errors) (not missing-config?))
       (throw (ex-info (str "invalid configuration in " root)
                       {:errors errors :root root})))
+    (when (:module-index config)
+      (module-loader/reconcile-modules! (:module-index config)))
     (set-snapshot! config reason)
     config))
 

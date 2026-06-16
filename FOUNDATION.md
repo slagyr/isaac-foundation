@@ -109,7 +109,7 @@ Server, agent daemon, and test harnesses that boot the world.
 
 | Namespace | Surface |
 |-----------|---------|
-| `isaac.module.loader` | `discover!`, `process-manifest-berths!`, `start-modules!`, `shutdown-modules!`, `builtin-index` |
+| `isaac.module.loader` | `discover!`, `process-manifest-berths!`, `load-modules!`, `reconcile-modules!`, `shutdown-modules!`, `builtin-index` |
 | `isaac.config.loader` | `load-config!`, `snapshot`, `root`, `env`, … |
 | `isaac.config.runtime` | `install!`, `install-config-berths!`, `reconcile!`, `reload!`, `validate-config!`, change-source |
 | `isaac.nexus` | Full surface including `init!`, `reset!`, `-with-nexus`, `-with-nested-nexus` |

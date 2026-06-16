@@ -38,7 +38,8 @@
 (def ^:dynamic *calls nil)
 
 (defn- module-entry [factory & {:keys [deps]}]
-  {:manifest (cond-> {:factory factory}
+  {:coord    {:local/root "."}
+   :manifest (cond-> {:factory factory}
                deps (assoc :deps deps))})
 
 (describe "module lifecycle"
@@ -57,8 +58,8 @@
       (should (module/module? noop))
       (should= [] @*calls)))
 
-  (it "starts modules in topological order from :deps"
-    (sut/start-modules!
+  (it "loads modules in topological order from :deps"
+    (sut/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (should= [[:load :marigold.bridge]
@@ -66,7 +67,7 @@
              @*calls))
 
   (it "unloads modules in reverse topological order"
-    (sut/start-modules!
+    (sut/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (sut/shutdown-modules!)
@@ -111,7 +112,7 @@
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
-      (should= :startup-failed (:reason (ex-data error)))
+      (should= :load-failed (:reason (ex-data error)))
       (should= :marigold.longwave (:module-id (ex-data error)))
       (should= [[:load :marigold.bridge]
                 [:load :marigold.longwave]
@@ -120,10 +121,29 @@
 
   (it "aborts load when module deps contain a cycle"
     (let [error (try
-                  (sut/start-modules!
+                  (sut/load-modules!
                     {:marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module :deps {:marigold.longwave {}})
                      :marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})})
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
-      (should= :dependency-cycle (:reason (ex-data error))))))
+      (should= :dependency-cycle (:reason (ex-data error)))))
+
+  (it "reconcile-modules! unloads removed modules and loads new ones"
+    (sut/load-modules!
+      {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
+       :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
+    (sut/reconcile-modules!
+      {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
+    (should= [[:load :marigold.bridge]
+              [:load :marigold.longwave]
+              [:unload :marigold.longwave]]
+             @*calls))
+
+  (it "load-modules! is idempotent for an unchanged index"
+    (let [index {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/bridge-module)}]
+      (sut/load-modules! index)
+      (sut/load-modules! index)
+      (should= [[:load :marigold.bridge]] @*calls))))
+
+

@@ -2,6 +2,7 @@
   (:require
     [c3kit.apron.schema :as cs]
     [clojure.edn :as edn]
+    [clojure.set :as set]
     [clojure.string :as str]
     [isaac.fs :as fs]
     [isaac.logger :as log]
@@ -605,44 +606,93 @@
                               nil)))
     instance))
 
-(defn- rollback-started-modules! [started]
+(def ^:private platform-module-ids
+  #{:isaac.foundation :isaac.server})
+
+(defn- eager-load? [module-id {:keys [path coord manifest]}]
+  (and (:factory manifest)
+       (or (contains? platform-module-ids module-id)
+           (some? path)
+           (:local/root coord))))
+
+(defn- eager-load-module-index [module-index]
+  (into {} (filter (fn [[id entry]] (eager-load? id entry)) module-index)))
+
+(defn- loaded-module-ids []
+  (set (map :id @started-modules*)))
+
+(defn- rollback-loaded-modules! [started]
   (doseq [{:keys [id instance]} (reverse started)]
     (try
       (module/run-unload! instance)
       (catch Exception e
-        (log/error :module/shutdown-failed
+        (log/error :module/unload-failed
                    :error  (.getMessage e)
                    :module (id-str id))))))
 
-(defn start-modules! [module-index]
-  (let [order     (topological-order module-index)
-        instances (mapv (fn [module-id]
-                          {:id       module-id
-                           :instance (instantiate-module! module-id (get module-index module-id))})
-                        order)
-        started   (atom [])]
-    (reset! started-modules* [])
-    (try
-      (doseq [{:keys [id instance] :as started-module} instances]
+(defn- unload-module-ids! [ids]
+  (when (seq ids)
+    (let [to-unload (vec (reverse (filter #(contains? ids (:id %)) @started-modules*)))]
+      (rollback-loaded-modules! to-unload)
+      (swap! started-modules* (fn [started]
+                                (vec (remove #(contains? ids (:id %)) started)))))))
+
+(defn load-modules!
+  "Instantiate each eager-load Module in `module-index` (topological order)
+   and run on-load. Classpath builtin contributions without a user
+   :modules declaration stay lazy (activate! on first use). Idempotent —
+   already-loaded module ids are skipped."
+  [module-index]
+  (let [index     (eager-load-module-index module-index)
+        already   (loaded-module-ids)
+        order     (topological-order index)
+        pending   (vec (remove already order))]
+    (if (empty? pending)
+      :loaded
+      (let [instances (mapv (fn [module-id]
+                              {:id       module-id
+                               :instance (instantiate-module! module-id (get index module-id))})
+                            pending)
+            started   (atom [])]
         (try
-          (module/run-load! instance)
-          (swap! started conj started-module)
+          (doseq [{:keys [id instance] :as loaded-module} instances]
+            (try
+              (module/run-load! instance)
+              (swap! started conj loaded-module)
+              (catch Exception e
+                (throw (lifecycle-error (str "module load failed for " (id-str id))
+                                        {:reason    :load-failed
+                                         :module-id id}
+                                        e)))))
+          (swap! started-modules* into @started)
+          :loaded
           (catch Exception e
-            (throw (lifecycle-error (str "module startup failed for " (id-str id))
-                                    {:reason    :startup-failed
-                                     :module-id id}
-                                    e)))))
-      (reset! started-modules* @started)
-      :started
-      (catch Exception e
-        (rollback-started-modules! @started)
-        (reset! started-modules* [])
-        (throw e)))))
+            (rollback-loaded-modules! @started)
+            (throw e)))))))
+
+(defn reconcile-modules!
+  "Unload eager-load modules removed from `module-index`, then load any
+   new ones. Idempotent when the eager-load set is unchanged."
+  [module-index]
+  (let [index   (eager-load-module-index module-index)
+        loaded  (loaded-module-ids)
+        target  (set (keys index))
+        removed (set/difference loaded target)]
+    (unload-module-ids! removed)
+    (load-modules! module-index)))
 
 (defn shutdown-modules! []
-  (rollback-started-modules! @started-modules*)
+  (rollback-loaded-modules! @started-modules*)
   (reset! started-modules* [])
   :stopped)
+
+(defn start-modules!
+  "Deprecated alias for `load-modules!`. Resets loaded modules first so
+   callers that expect a fresh boot still get one — prefer
+   `reconcile-modules!` for config-load paths."
+  [module-index]
+  (shutdown-modules!)
+  (load-modules! module-index))
 
 ;; ----- Manifest-only berth processing (isaac-8yxs) -----
 
