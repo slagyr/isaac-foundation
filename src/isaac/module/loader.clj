@@ -405,7 +405,7 @@
           implied     (into {}
                             (keep (fn [id]
                                     (when-let [entry (discover-implied-entry id explicit-modules context)]
-                                      [id (get entry id)]))
+                                      [id entry]))
                                   implied-ids))]
       (merge index implied))))
 
