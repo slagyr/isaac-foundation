@@ -59,6 +59,9 @@
 
 (def ^:private foundation-module-id :isaac.foundation)
 
+(def ^:private platform-module-ids
+  #{:isaac.foundation :isaac.server})
+
 (defn- runtime-fs []
   (or (fs/instance) (throw (ex-info "module.loader requires :fs in system" {}))))
 
@@ -114,6 +117,23 @@
           (re-matches #"[A-Za-z]:.*" path))
     path
     (str cwd "/" path)))
+
+(defn- absolute-path? [path]
+  (or (str/starts-with? path "/")
+      (re-matches #"[A-Za-z]:.*" path)))
+
+(defn- coord-directory [coord context]
+  (when-let [root (:local/root coord)]
+    (if (absolute-path? root)
+      root
+      (abs-path (:cwd context) root))))
+
+(defn- resolve-nested-dep-coord [parent-dir dep-coord]
+  (if-let [root (:local/root dep-coord)]
+    (if (absolute-path? root)
+      dep-coord
+      (assoc dep-coord :local/root (.getCanonicalPath (java.io.File. (java.io.File. parent-dir) root))))
+    dep-coord))
 
 (defn- local-root-path [context coord]
   (when-let [root (:local/root coord)]
@@ -205,6 +225,105 @@
          [(str root "/resources/isaac-manifest.edn")
           (str root "/src/isaac-manifest.edn")]))
 
+(defn- read-module-deps-edn [coord context]
+  (when-let [dir (coord-directory coord context)]
+    (let [fs*       (runtime-fs)
+          deps-file (str dir "/deps.edn")]
+      (when (fs/exists? fs* deps-file)
+        (try
+          (:deps (edn/read-string (fs/slurp fs* deps-file)))
+          (catch Exception _ nil))))))
+
+(defn- module-id-from-dep-coord [coord context]
+  (when (map? coord)
+    (let [fs* (runtime-fs)]
+      (when-let [path (coord-directory coord context)]
+        (when-let [manifest-path (local-manifest-path path fs*)]
+          (try
+            (:id (manifest/read-manifest manifest-path fs*))
+            (catch Exception _ nil)))))))
+
+(defn- transitive-module-requirements
+  "Module ids reachable from `coord` via deps.edn edges that ship isaac-manifest.edn."
+  [coord context]
+  (loop [pending [coord]
+         seen    #{}
+         found   #{}]
+    (if (empty? pending)
+      found
+      (let [c (first pending)]
+        (if (contains? seen c)
+          (recur (rest pending) seen found)
+          (let [seen*      (conj seen c)
+                module-id  (module-id-from-dep-coord c context)
+                platform?  (and module-id (contains? platform-module-ids module-id))
+                found*     (if (and module-id (not platform?))
+                             (conj found module-id)
+                             found)
+                parent-dir (coord-directory c context)
+                child-deps (if platform?
+                             []
+                             (->> (vals (or (read-module-deps-edn c context) {}))
+                                  (map #(resolve-nested-dep-coord parent-dir %))))]
+            (recur (into (vec (rest pending)) child-deps) seen* found*)))))))
+
+(defn- loadable-coord [context coord]
+  (if-let [root (local-root-path context coord)]
+    (assoc coord :local/root root)
+    coord))
+
+(defn- explicit-module-map [raw-modules context]
+  (into {}
+        (keep (fn [[raw-id coord]]
+                (when-let [id (->module-id raw-id)]
+                  (when (map? coord)
+                    [id (loadable-coord context coord)])))
+              raw-modules)))
+
+(defn- resolved-module-ids [explicit-modules context]
+  (let [explicit-ids (set (keys explicit-modules))
+        implied      (reduce (fn [acc coord]
+                                 (into acc (transitive-module-requirements coord context)))
+                               #{}
+                               (vals explicit-modules))]
+    (set/union explicit-ids implied)))
+
+(defn- find-dep-coord-for-module [target-id coord context]
+  (let [parent-dir (coord-directory coord context)
+        deps       (or (read-module-deps-edn coord context) {})]
+    (or (some (fn [[_ dep-coord]]
+                (let [resolved (resolve-nested-dep-coord parent-dir dep-coord)]
+                  (when (= target-id (module-id-from-dep-coord resolved context))
+                    resolved)))
+              deps)
+        (some (fn [[_ dep-coord]]
+                (find-dep-coord-for-module target-id
+                                            (resolve-nested-dep-coord parent-dir dep-coord)
+                                            context))
+              deps))))
+
+(defn- classpath-module-index []
+  (->> (resource-urls "isaac-manifest.edn")
+       (keep (fn [url]
+               (when-let [manifest (read-manifest-edn url)]
+                 (when-let [id (:id manifest)]
+                   [id {:coord {} :manifest manifest :path nil}]))))
+       (into {})))
+
+(defn- required-by-map [explicit-modules context]
+  (let [explicit-ids (set (keys explicit-modules))]
+    (reduce
+      (fn [req [explicit-id coord]]
+        (let [required (transitive-module-requirements coord context)]
+          (reduce (fn [m implied-id]
+                    (if (contains? explicit-ids implied-id)
+                      m
+                      (update m implied-id (fnil conj #{}) explicit-id)))
+                  req
+                  required)))
+      {}
+      explicit-modules)))
+
 (defn resolve-manifest-resource [id coord]
   (let [fs* (runtime-fs)]
     (or (when-let [root (:local/root coord)]
@@ -214,11 +333,6 @@
           (when (and (seq coord) (coord-shape-valid? coord))
             (ensure-module-deps! id coord))
           (manifest-resource id)))))
-
-(defn- loadable-coord [context coord]
-  (if-let [root (local-root-path context coord)]
-    (assoc coord :local/root root)
-    coord))
 
 (defn- local-root-error [context id coord]
   (when-let [declared-path (:local/root coord)]
@@ -275,6 +389,25 @@
     (if-let [error (local-root-error context id coord)]
       {:errors [error]}
       (discover-resolved id (loadable-coord context coord) (:local/root coord)))))
+
+(defn- discover-implied-entry [target-id explicit-modules context]
+  (some (fn [[_ coord]]
+          (when-let [dep-coord (find-dep-coord-for-module target-id coord context)]
+            (let [{:keys [entry]} (discover-resolved target-id dep-coord (:local/root dep-coord))]
+              (get entry target-id))))
+        explicit-modules))
+
+(defn- merge-resolved-classpath-modules [index explicit-modules context]
+  (if-not *resolve-classpath?*
+    index
+    (let [allowed-ids (resolved-module-ids explicit-modules context)
+          implied-ids (set/difference allowed-ids (set (keys index)))
+          implied     (into {}
+                            (keep (fn [id]
+                                    (when-let [entry (discover-implied-entry id explicit-modules context)]
+                                      [id (get entry id)]))
+                                  implied-ids))]
+      (merge index implied))))
 
 (defn- cycle-errors [index]
   (let [id->requires (into {} (map (fn [[id e]] [id (keys (get-in e [:manifest :deps] {}))]) index))
@@ -622,9 +755,6 @@
                               nil)))
     instance))
 
-(def ^:private platform-module-ids
-  #{:isaac.foundation :isaac.server})
-
 (defn- eager-load? [module-id {:keys [path coord manifest]}]
   (and (:factory manifest)
        (or (contains? platform-module-ids module-id)
@@ -928,7 +1058,9 @@
                                 :errors (into errors (or mod-errors []))}))))
                        {:index (builtin-index) :errors []}
                        raw-modules)
-            {:keys [index errors]} (resolve-deps! context init-index)]
+            explicit-modules (explicit-module-map raw-modules context)
+            merged-index   (merge-resolved-classpath-modules init-index explicit-modules context)
+            {:keys [index errors]} (resolve-deps! context merged-index)]
         ;; Note: manifest-only berth processing (per-entry :factory
         ;; invocation, isaac-8yxs) must run OUTSIDE the load's
         ;; nested-nexus wrap or the wrap's restore discards any
@@ -948,20 +1080,34 @@
     :else :ok))
 
 (defn list-configured-modules
-  "Returns {:modules [{:id :coord :status}]} for each entry in config
-   :modules. Status is :ok when the coordinate shape resolves, :invalid
-   otherwise. Inspection only — does not load module code or build classpath."
+  "Returns {:modules [{:id :coord :status :required-by}]} for explicit config
+   entries plus transitive module deps (deps.edn-native). Resolves classpath
+   for implied modules; :required-by is [] for explicit, requirer ids for implied."
   [config context]
-  (let [declared (get config :modules {})]
-    (if (or (nil? declared) (not (map? declared)))
-      {:modules []}
-      {:modules
-       (vec
-         (for [[raw-id coord] declared
-               :let [id (or (->module-id raw-id) raw-id)]]
-           (cond-> {:id     id
-                    :status (inspect-module-status context id coord)}
-             (map? coord) (assoc :coord coord))))})))
+  (binding [*resolve-classpath?* true]
+    (let [declared (get config :modules {})]
+      (if (or (nil? declared) (not (map? declared)))
+        {:modules []}
+        (let [explicit-modules (explicit-module-map declared context)
+              explicit-ids     (set (keys explicit-modules))
+              requirers        (required-by-map explicit-modules context)
+              allowed-ids      (resolved-module-ids explicit-modules context)
+              implied-ids      (sort (set/difference allowed-ids explicit-ids))
+              explicit-rows
+              (vec
+                (for [[raw-id coord] (sort-by (fn [[k _]] (id-str (or (->module-id k) k))) declared)
+                      :let [id (or (->module-id raw-id) raw-id)]]
+                  (cond-> {:id           id
+                           :status       (inspect-module-status context id coord)
+                           :required-by  []}
+                    (map? coord) (assoc :coord coord))))
+              implied-rows
+              (vec
+                (for [id implied-ids]
+                  {:id          id
+                   :status      :ok
+                   :required-by (vec (sort (get requirers id #{})))}))]
+          {:modules (vec (concat explicit-rows implied-rows))})))))
 
 (defn- absolutize-local-root [coord cwd]
   (if-let [root (:local/root coord)]

@@ -106,13 +106,21 @@
 
     :else (pr-str coord)))
 
+(defn- format-required-by [{:keys [required-by]}]
+  (let [rb (or required-by [])]
+    (case (count rb)
+      0 ""
+      1 (module-id-str (first rb))
+      (str (module-id-str (first rb)) " +" (dec (count rb))))))
+
 (defn- render-installed-table [modules]
   (table/render
     {:columns [{:header "ID" :key :id :format module-id-str}
                {:header "STATUS" :key :status
                 :format #(name %)
                 :color-fn status-color}
-               {:header "COORD" :key :coord :format format-coord}]
+               {:header "COORD" :key :coord :format format-coord}
+               {:header "REQUIRED BY" :key :required-by :format format-required-by}]
      :rows    modules
      :zebra?  true}))
 

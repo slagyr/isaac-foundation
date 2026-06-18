@@ -1,0 +1,3 @@
+{:paths ["src" "resources"]
+ :deps  {io.github.slagyr/isaac-foundation {:local/root "../.."}
+         marigold.cli.greeter/marigold.cli.greeter {:local/root "../marigold.cli.greeter"}}}

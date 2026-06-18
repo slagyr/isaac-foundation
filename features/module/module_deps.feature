@@ -1,4 +1,3 @@
-@wip
 Feature: isaac modules — transitive module dependencies (deps.edn-native)
   A module declares its dependencies in its own deps.edn (ordinary tools.deps
   coords). Loading a module pulls and activates the modules it depends on that
@@ -14,7 +13,8 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
 
   @slow
   Scenario: A dependency module's contributions activate transitively
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
@@ -24,7 +24,8 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
     And the exit code is 0
 
   Scenario: A plain library dependency is not treated as a module
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
@@ -39,7 +40,8 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
     And the exit code is 0
 
   Scenario: list --edn reports provenance — implied modules carry :required-by
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
@@ -54,7 +56,8 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
     And the exit code is 0
 
   Scenario: A module required by several installed modules lists all requirers
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app  {:local/root "modules/marigold.app"}
                  :marigold.app2 {:local/root "modules/marigold.app2"}}}
@@ -68,7 +71,8 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
     And the exit code is 0
 
   Scenario: The list table renders a REQUIRED BY column
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """

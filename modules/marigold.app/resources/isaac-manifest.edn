@@ -1,0 +1,4 @@
+{:id          :marigold.app
+ :version     "0.1.0"
+ :factory     isaac.module.protocol/module
+ :description "Marigold fixture: app module that depends on greeter (module) and util (lib)"}

@@ -13,9 +13,10 @@ Feature: isaac modules list
     When isaac is run with "modules --edn"
     Then the stdout EDN contains:
       | path             | value                                   |
-      | modules.0.id     | :marigold.bridge                        |
-      | modules.0.coord  | {:local/root "modules/marigold.bridge"} |
-      | modules.0.status | :ok                                     |
+      | modules.0.id          | :marigold.bridge                        |
+      | modules.0.coord       | {:local/root "modules/marigold.bridge"} |
+      | modules.0.status      | :ok                                     |
+      | modules.0.required-by | []                                      |
     And the exit code is 0
 
   Scenario: List table shows human-readable id and coordinate
@@ -28,6 +29,7 @@ Feature: isaac modules list
     Then the stdout contains "marigold.bridge"
     And the stdout does not contain ":marigold.bridge"
     And the stdout contains "local modules/marigold.bridge"
+    And the stdout contains "REQUIRED BY"
     And the exit code is 0
 
   Scenario: A configured module is listed with its source
@@ -39,9 +41,10 @@ Feature: isaac modules list
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
       | path             | value                                   |
-      | modules.0.id     | :marigold.bridge                        |
-      | modules.0.coord  | {:local/root "modules/marigold.bridge"} |
-      | modules.0.status | :ok                                     |
+      | modules.0.id          | :marigold.bridge                        |
+      | modules.0.coord       | {:local/root "modules/marigold.bridge"} |
+      | modules.0.status      | :ok                                     |
+      | modules.0.required-by | []                                      |
     And the exit code is 0
 
   Scenario: A malformed module entry is flagged, not crashed
@@ -53,8 +56,9 @@ Feature: isaac modules list
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
       | path             | value            |
-      | modules.0.id     | :marigold.broken |
-      | modules.0.status | :invalid         |
+      | modules.0.id          | :marigold.broken |
+      | modules.0.status      | :invalid         |
+      | modules.0.required-by | []               |
     And the exit code is 0
 
   # @slow: proves DYNAMIC loading — needs a subprocess step (`the isaac launcher is run
