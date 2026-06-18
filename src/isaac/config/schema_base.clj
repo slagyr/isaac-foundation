@@ -23,8 +23,10 @@
   {:name        :isaac
    :type        :map
    :description "Isaac's root level schema"
-   :schema      {:modules {:type        :map
-                           :key-spec    {:type :keyword}
-                           :value-spec  {:type :map}
-                           :message     "must be a map of id to coordinate (legacy vector shape)"
-                           :description "Declared modules as a map of module id to tools.deps coordinate"}}})
+   :schema      {:module-registry {:type        :string
+                                   :description "Override for the module catalog registry (path relative to the Isaac root, or URL)."}
+                 :modules         {:type        :map
+                                    :key-spec    {:type :keyword}
+                                    :value-spec  {:type :map}
+                                    :message     "must be a map of id to coordinate (legacy vector shape)"
+                                    :description "Declared modules as a map of module id to tools.deps coordinate"}}})

@@ -25,5 +25,6 @@
 
   (describe "base-root"
 
-    (it "contains only :modules"
-      (should= #{:modules} (set (keys (sut/schema-fields sut/base-root)))))))
+    (it "contains :modules and :module-registry"
+      (should= #{:modules :module-registry}
+               (set (keys (sut/schema-fields sut/base-root)))))))

@@ -470,6 +470,41 @@
         (.mkdirs (io/file abs-root))))
     (g/assoc! :root abs-root)))
 
+(defn- strip-quotes [s]
+  (if (and (str/starts-with? s "\"") (str/ends-with? s "\""))
+    (subs s 1 (dec (count s)))
+    s))
+
+(defn- isaac-file-path-for-assert [path]
+  (let [root (absolute-path (or (g/get :root) "."))
+        path (strip-quotes path)]
+    (cond
+      (str/starts-with? path "/") path
+      (= path "isaac.edn")         (str root "/config/isaac.edn")
+      (str/starts-with? path "config/") (str root "/" path)
+      :else                        (str root "/" path))))
+
+(defn isaac-file-edn-contains [path table]
+  (let [full-path (isaac-file-path-for-assert path)
+        text      (if-let [mem-fs (g/get :mem-fs)]
+                    (nexus/-with-nested-nexus {:fs mem-fs}
+                      (fs/slurp mem-fs full-path))
+                    (slurp full-path))
+        value     (parse-edn-text text)]
+    (doseq [row (:rows table)]
+      (let [[path expected-text] row
+            expected             (parse-edn-literal expected-text)
+            actual               (value-at-path value path)]
+        (when (= ::missing actual)
+          (throw (ex-info (str "isaac file EDN missing path: " path
+                                " in " full-path) {})))
+        (when-not (= expected actual)
+          (throw (ex-info (str "isaac file EDN path " path
+                               " expected " (pr-str expected)
+                               " but was " (pr-str actual)
+                               " in " full-path)
+                          {})))))))
+
 (defn isaac-file-contains [path content]
   (let [full-path (if (str/starts-with? path "/")
                     path
@@ -571,9 +606,14 @@
 
 (defgiven "Isaac root {root:string} has no config file" isaac.foundation.cli-steps/isaac-root-has-no-config)
 
-(defthen "the isaac file {path:string} contains:" isaac.foundation.cli-steps/isaac-file-contains
+(defthen #"the isaac file \"([^\"]+)\" contains:" isaac.foundation.cli-steps/isaac-file-contains
   "Asserts an exact-match on file content (trimmed). Path is root-
    relative. Pair with 'the isaac EDN file X exists with:' for the write
    side; 'contains:' is for read-side verification.")
+
+(defthen #"the isaac file \"([^\"]+)\" EDN contains:" isaac.foundation.cli-steps/isaac-file-edn-contains
+  "Assert-only structural EDN inspector for isaac files. Table rows are
+   path | value, using the same dotted-path semantics as 'the stdout EDN
+   contains:'.")
 
 ;; endregion ^^^^^ Routing ^^^^^

@@ -13,6 +13,7 @@
   (:require
      [c3kit.apron.schema.path :as path]
      [clojure.edn :as edn]
+     [clojure.string :as str]
      [isaac.config.loader :as loader]
      [isaac.config.paths :as paths]
      [isaac.config.schema-compose :as schema-compose]
@@ -266,11 +267,18 @@
   (when (fs/exists? fs* path)
     (edn/read-string (fs/slurp fs* path))))
 
+(defn- absolute-local-root [local-root]
+  (if (or (str/starts-with? local-root "/")
+          (re-matches #"[A-Za-z]:.*" local-root))
+    local-root
+    (str (System/getProperty "user.dir") "/" local-root)))
+
 (defn- copy-declared-local-modules! [source-fs stage-fs root]
   (when-let [config (read-edn-on-fs stage-fs (paths/root-config-file root))]
     (doseq [[_ coord] (:modules config)
-            :let [local-root (:local/root coord)]
-            :when (and (string? local-root) (fs/dir? source-fs local-root))]
+            :let [declared   (:local/root coord)
+                  local-root (when (string? declared) (absolute-local-root declared))]
+            :when (and local-root (fs/dir? source-fs local-root))]
       (fs/copy-tree! source-fs stage-fs local-root))))
 
 (defn- validate-plan [root plan]
@@ -306,6 +314,10 @@
   [e]
   (contains? e :bad-value))
 
+(defn- module-discovery-error? [e]
+  (and (string? (:key e))
+       (str/starts-with? (:key e) "modules[")))
+
 
 (defn- pre-existing->warnings
   "Format pre-existing errors as warnings so the user sees them without
@@ -325,7 +337,9 @@
    crew-exists?, etc.) are never treated as new errors — only type errors
    can block the mutation. Use this from the CLI so operators can wire up
    values that reference entities not yet defined."
-  [root path value & {:keys [skip-ref-validation?] :or {skip-ref-validation? false}}]
+  [root path value & {:keys [skip-ref-validation? skip-module-validation?]
+                      :or   {skip-ref-validation? false
+                             skip-module-validation? false}}]
   (let [parsed (parse-config-path path)]
     (cond
       (:status parsed)
@@ -341,9 +355,13 @@
              plan           (set-plan parsed state value)
              result         (validate-plan root plan)
              [new-errors carried-errors] (partition-errors pre-errors (:errors result))
-             new-errors     (if skip-ref-validation?
-                              (remove reference-error? new-errors)
-                              new-errors)
+             new-errors     (as-> new-errors $
+                              (if skip-ref-validation?
+                                (vec (remove reference-error? $))
+                                $)
+                              (if skip-module-validation?
+                                (vec (remove module-discovery-error? $))
+                                $))
              warnings       (concat (:warnings result)
                                     (pre-existing->warnings carried-errors))]
          (if (seq new-errors)
@@ -357,7 +375,7 @@
 
    Pre-existing config errors do not block the unset; they're surfaced
    as warnings."
-  [root path]
+  [root path & {:keys [skip-module-validation?] :or {skip-module-validation? false}}]
   (let [parsed (parse-config-path path)]
     (cond
       (:status parsed)
@@ -375,6 +393,9 @@
           :else
           (let [result   (validate-plan root plan)
                 [new-errors carried-errors] (partition-errors pre-errors (:errors result))
+                new-errors (if skip-module-validation?
+                             (vec (remove module-discovery-error? new-errors))
+                             new-errors)
                 warnings (concat (:warnings result)
                                  (pre-existing->warnings carried-errors))]
             (if (seq new-errors)

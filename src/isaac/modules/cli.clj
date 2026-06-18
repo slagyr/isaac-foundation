@@ -7,15 +7,17 @@
     [isaac.cli.color :as color]
     [isaac.cli.common :as cli-common]
     [isaac.config.cli.common :as common]
+    [isaac.config.mutate :as mutate]
     [isaac.config.paths :as paths]
     [isaac.cli.table :as table]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.loader :as module-loader]
+    [isaac.modules.registry :as registry]))
 
 (def option-spec
   [["-h" "--help" "Show help"]])
 
-(def list-option-spec
+(def structured-option-spec
   (into option-spec
         [[nil "--edn" "Print structured EDN output"]
          [nil "--json" "Print structured JSON output"]]))
@@ -26,8 +28,11 @@
      :params      "[subcommand] [options]"
      :description "Inspect and manage Isaac extension modules declared in config."
      :pre-sections [["Subcommands"
-                     (str "  list   List configured modules (id, coordinate, status)\n"
-                          "  help   Print usage for a subcommand")]]
+                     (str "  available [search]  Browse the installable module catalog\n"
+                          "  install <name>      Add a module coordinate to config :modules\n"
+                          "  list                List configured modules (id, coordinate, status)\n"
+                          "  remove <name>       Remove a module from config :modules\n"
+                          "  help <subcommand>   Print usage for a subcommand")]]
      :option-spec option-spec}))
 
 (defn- list-help []
@@ -35,7 +40,28 @@
     {:command     "isaac modules list"
      :description (str "List every module in config :modules with its source coordinate\n"
                        "and resolution status. Matches the set the packaged launcher loads.")
-     :option-spec list-option-spec}))
+     :option-spec structured-option-spec}))
+
+(defn- available-help []
+  (common/render-help
+    {:command     "isaac modules available"
+     :params      "[search] [options]"
+     :description "List installable modules from the registry catalog."
+     :option-spec structured-option-spec}))
+
+(defn- install-help []
+  (common/render-help
+    {:command     "isaac modules install"
+     :params      "<name>"
+     :description "Resolve a registry module name to its coordinate and add it to config :modules."
+     :option-spec option-spec}))
+
+(defn- remove-help []
+  (common/render-help
+    {:command     "isaac modules remove"
+     :params      "<name>"
+     :description "Remove a module from config :modules."
+     :option-spec option-spec}))
 
 (defn- read-root-config [root]
   (when root
@@ -50,7 +76,7 @@
   (when (= :invalid status)
     color/red))
 
-(defn- render-table [modules]
+(defn- render-installed-table [modules]
   (table/render
     {:columns [{:header "ID" :key :id}
                {:header "STATUS" :key :status
@@ -61,23 +87,120 @@
      :rows    modules
      :zebra?  true}))
 
-(defn- run-list [_opts _arguments options]
+(defn- render-catalog-table [modules]
+  (table/render
+    {:columns [{:header "ID" :key :id}
+               {:header "DESCRIPTION" :key :desc}]
+     :rows    modules
+     :zebra?  true}))
+
+(defn- matches-search? [search {:keys [id desc]}]
+  (let [needle (str/lower-case search)
+        hay    (str/lower-case (str id " " (or desc "")))]
+    (str/includes? hay needle)))
+
+(defn- print-structured! [edn? json? value]
+  (cond
+    json? (cli-common/print-json! value)
+    edn?  (cli-common/print-edn! value)
+    :else (throw (ex-info "structured output requires --edn or --json" {}))))
+
+(defn- run-list [opts _arguments options]
   (let [{:keys [edn json]} options]
     (if (and edn json)
       (common/print-cli-error! "choose one of --edn or --json")
-      (let [config  (or (read-root-config (:root _opts)) {})
+      (let [config  (or (read-root-config (:root opts)) {})
             context {:cwd (System/getProperty "user.dir")}
             {:keys [modules]} (module-loader/list-configured-modules config context)]
         (cond
-          json (cli-common/print-json! {:modules modules})
-          edn  (cli-common/print-edn! {:modules modules})
-          :else (println (render-table modules)))
+          (or edn json) (print-structured! edn json {:modules modules})
+          :else         (println (render-installed-table modules)))
         0))))
 
+(defn- run-available [opts arguments options]
+  (let [{:keys [edn json]} options
+        search   (first arguments)
+        root     (:root opts)
+        config   (or (read-root-config root) {})]
+    (if (and edn json)
+      (common/print-cli-error! "choose one of --edn or --json")
+      (let [{:keys [registry error]} (registry/fetch-registry config root)]
+        (if error
+          (common/print-cli-error! error)
+          (let [modules (->> (registry/catalog-entries registry)
+                             (filter #(or (str/blank? search)
+                                          (matches-search? search %)))
+                             vec)]
+            (cond
+              (or edn json) (print-structured! edn json {:modules modules})
+              :else         (println (render-catalog-table modules)))
+            0))))))
+
+(defn- mutate-modules! [root path value]
+  (let [result (if (some? value)
+                 (mutate/set-config root path value
+                                    :skip-ref-validation? true
+                                    :skip-module-validation? true)
+                 (mutate/unset-config root path :skip-module-validation? true))]
+    (case (:status result)
+      :ok 0
+      (do (common/print-errors! (:errors result) "error")
+          1))))
+
+(defn- run-install [opts arguments _options]
+  (let [module-name (first arguments)
+        root        (:root opts)]
+    (cond
+      (str/blank? module-name)
+      (common/print-cli-error! "missing module name")
+
+      :else
+      (let [config (or (read-root-config root) {})
+            {:keys [registry error]} (registry/fetch-registry config root)]
+        (cond
+          error
+          (common/print-cli-error! error)
+
+          :else
+          (let [{:keys [id coord error]} (registry/lookup-entry registry module-name)]
+            (if error
+              (common/print-cli-error! error)
+              (let [exit (mutate-modules! root (str "modules." (name id)) coord)]
+                (when (zero? exit)
+                  (println (str "Installed " (name id))))
+                exit))))))))
+
+(defn- run-remove [opts arguments _options]
+  (let [module-name (first arguments)
+        root        (:root opts)]
+    (cond
+      (str/blank? module-name)
+      (common/print-cli-error! "missing module name")
+
+      :else
+      (let [config  (or (read-root-config root) {})
+            modules (get config :modules {})
+            id      (keyword module-name)]
+        (if-not (contains? modules id)
+          (common/print-cli-error! (str "Unknown module: " module-name))
+          (let [exit (mutate-modules! root "modules" (dissoc modules id))]
+            (when (zero? exit)
+              (println (str "Removed " module-name)))
+            exit))))))
+
 (def ^:private subcommands
-  {"list" {:option-spec list-option-spec
-           :runner      run-list
-           :help-text   list-help}})
+  {"available" {:option-spec structured-option-spec
+                :runner      run-available
+                :help-text   available-help}
+   "install"   {:option-spec option-spec
+                :runner      run-install
+                :help-text   install-help}
+   "list"      {:option-spec structured-option-spec
+                :runner      run-list
+                :help-text   list-help}
+   "remove"    {:option-spec option-spec
+                :runner      run-remove
+                :help-text   remove-help}})
 
 (defn- print-help! []
   (println (modules-help))

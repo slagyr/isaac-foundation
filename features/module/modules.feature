@@ -1,4 +1,3 @@
-@wip
 Feature: isaac modules — compose the assistant via config
   `isaac modules` manages the user's :modules config. `available` browses the
   registry catalog; `install` / `remove` edit :modules in config/isaac.edn;
@@ -12,7 +11,8 @@ Feature: isaac modules — compose the assistant via config
   :modules, so config stays self-contained.
 
   Scenario: Available lists the registry catalog
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:module-registry "registry.edn"}
       """
@@ -30,7 +30,8 @@ Feature: isaac modules — compose the assistant via config
     And the exit code is 0
 
   Scenario: Install resolves the name and writes the coordinate to config
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:module-registry "registry.edn"}
       """
@@ -46,7 +47,8 @@ Feature: isaac modules — compose the assistant via config
       | modules.greeter | {:local/root "modules/marigold.cli.greeter"} |
 
   Scenario: Remove deletes a module from config
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
@@ -58,7 +60,8 @@ Feature: isaac modules — compose the assistant via config
       | modules | {}    |
 
   Scenario: Installing an unknown module errors and leaves config untouched
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {} :module-registry "registry.edn"}
       """
@@ -74,7 +77,8 @@ Feature: isaac modules — compose the assistant via config
       | modules | {}    |
 
   Scenario: A registry fetch failure aborts without touching config
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {} :module-registry "registry.edn"}
       """
