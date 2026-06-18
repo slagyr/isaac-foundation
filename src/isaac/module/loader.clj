@@ -59,6 +59,10 @@
 
 (def ^:private foundation-module-id :isaac.foundation)
 
+;; Transitive module deps.edn files pin foundation for standalone dev; the
+;; packaged seed already provides it — never let a module pull a second copy.
+(def ^:private seed-foundation-lib 'io.github.slagyr/isaac-foundation)
+
 (def ^:private platform-module-ids
   #{:isaac.foundation :isaac.server})
 
@@ -163,51 +167,105 @@
     (when-not (instance? clojure.lang.DynamicClassLoader cl)
       (.setContextClassLoader thread (clojure.lang.DynamicClassLoader. cl)))))
 
-(defn- call-add-libs! [add-libs lib coord]
-  ;; `clojure.repl.deps/add-libs` is gated on `clojure.core/*repl*` being
-  ;; truthy — it's documented as REPL-only. We bind it around the call so
-  ;; isaac can pull config-declared modules in a plain `clj -M` server too.
-  (binding [clojure.core/*repl* true]
-    (ensure-dynamic-classloader!)
-    (add-libs {lib coord})))
+(defn- classpath-coord [coord]
+  (update coord :exclusions
+          (fn [xs]
+            (vec (set/union (set xs) #{seed-foundation-lib})))))
+
+(defn- invoke-add-deps! [deps-map]
+  (when (seq deps-map)
+    (let [bb-add-deps  (try (requiring-resolve 'babashka.deps/add-deps)
+                            (catch Exception _ nil))
+          clj-add-libs (try (requiring-resolve 'clojure.repl.deps/add-libs)
+                            (catch Exception _ nil))]
+      (cond
+        bb-add-deps
+        (bb-add-deps {:deps deps-map})
+
+        clj-add-libs
+        (try
+          (binding [clojure.core/*repl* true]
+            (ensure-dynamic-classloader!)
+            (clj-add-libs deps-map))
+          (catch Exception e
+            (log/warn :module/add-libs-failed :deps deps-map :error (.getMessage e))))
+
+        :else
+        (log/warn :module/no-add-deps-mechanism :deps deps-map)))))
 
 (defn- add-module-deps! [id coord]
-  (let [lib          (->lib-sym id)
-        bb-add-deps  (try (requiring-resolve 'babashka.deps/add-deps)
-                          (catch Exception _ nil))
-        clj-add-libs (try (requiring-resolve 'clojure.repl.deps/add-libs)
-                          (catch Exception _ nil))]
-    (cond
-      bb-add-deps
-      (bb-add-deps {:deps {lib coord}})
+  (invoke-add-deps! {(->lib-sym id) (classpath-coord coord)}))
 
-      clj-add-libs
-      (try
-        (call-add-libs! clj-add-libs lib coord)
-        (catch Exception e
-          (log/warn :module/add-libs-failed
-                    :module  id
-                    :coord   coord
-                    :error   (.getMessage e))))
+(defn- add-modules-deps! [id-coord-pairs]
+  (let [deps-map (into {}
+                       (map (fn [[id coord]]
+                              [(->lib-sym id) (classpath-coord coord)])
+                            id-coord-pairs))]
+    (invoke-add-deps! deps-map)))
 
-      :else
-      (log/warn :module/no-add-deps-mechanism :module id))))
+(defn- mark-modules-loaded! [id-coord-pairs]
+  (swap! loaded-module-coords* into (set id-coord-pairs))
+  (invalidate-builtin-index!))
+
+(defn- unload-module-pairs [pairs]
+  (remove (fn [[id coord]] (contains? @loaded-module-coords* [id coord])) pairs))
 
 (defn- ensure-module-deps! [id coord]
-  (let [key [id coord]
-        add? (atom false)]
-    (swap! loaded-module-coords*
-           (fn [loaded]
-             (if (contains? loaded key)
-               loaded
-               (do
-                 (reset! add? true)
-                 (conj loaded key)))))
-    (when @add?
-      (add-module-deps! id coord)
-      ;; Classpath grew — refresh builtin-index on next read so provider
-      ;; templates and other :builtin? manifests are visible.
-      (invalidate-builtin-index!))))
+  (when-not (contains? @loaded-module-coords* [id coord])
+    (add-module-deps! id coord)
+    (mark-modules-loaded! [[id coord]])))
+
+(defn- absolutize-local-root [coord cwd]
+  (if-let [root (:local/root coord)]
+    (assoc coord :local/root (abs-path cwd root))
+    coord))
+
+(defn- local-manifest-path [root fs*]
+  (some #(when (fs/exists? fs* %) %)
+         [(str root "/resources/isaac-manifest.edn")
+          (str root "/src/isaac-manifest.edn")]))
+
+(defn- local-root-error [context id coord]
+  (when-let [declared-path (:local/root coord)]
+    (let [root (local-root-path context coord)
+          fs*  (runtime-fs)]
+      (cond
+        (not (string? declared-path))
+        {:key (mod-error-key id) :value "local/root must be a string"}
+
+        (not (or (real-dir? root) (fs/dir? fs* root)))
+        {:key (mod-error-key id) :value "local/root path does not resolve"}))))
+
+(defn- needs-classpath-preload? [coord]
+  "True when discovery must add this coordinate to the runtime classpath.
+   Mem-fs fixtures with only isaac-manifest.edn skip preload — the same
+   shortcut resolve-manifest-resource uses before ensure-module-deps!."
+  (when (map? coord)
+    (if (:local/root coord)
+      (let [fs* (runtime-fs)
+            root (:local/root coord)]
+        (or (fs/exists? fs* (str root "/deps.edn"))
+            (not (local-manifest-path root fs*))))
+      (or (contains? coord :mvn/version)
+          (contains? coord :git/url)
+          (contains? coord :git/tag)
+          (contains? coord :git/sha)))))
+
+(defn- preload-explicit-module-deps! [raw-modules cwd]
+  (when (and *resolve-classpath?* (seq raw-modules))
+    (let [ctx   {:cwd cwd}
+          pairs (vec (keep (fn [[raw-id coord]]
+                             (when-let [id (->module-id raw-id)]
+                               (when (map? coord)
+                                 (let [abs-coord (absolutize-local-root coord cwd)]
+                                   (when (and (needs-classpath-preload? abs-coord)
+                                              (not (local-root-error ctx id abs-coord)))
+                                     [id abs-coord])))))
+                           raw-modules))
+          unloaded (vec (unload-module-pairs pairs))]
+      (when (seq unloaded)
+        (add-modules-deps! unloaded)
+        (mark-modules-loaded! unloaded)))))
 
 (defn- resource-urls [resource-name]
   (let [loader (or (.getContextClassLoader (Thread/currentThread))
@@ -219,11 +277,6 @@
           (when (= id (:id (read-manifest-edn url)))
             url))
         (resource-urls "isaac-manifest.edn")))
-
-(defn- local-manifest-path [root fs*]
-  (some #(when (fs/exists? fs* %) %)
-         [(str root "/resources/isaac-manifest.edn")
-          (str root "/src/isaac-manifest.edn")]))
 
 (defn- read-module-deps-edn [coord context]
   (when-let [dir (coord-directory coord context)]
@@ -333,17 +386,6 @@
           (when (and (seq coord) (coord-shape-valid? coord))
             (ensure-module-deps! id coord))
           (manifest-resource id)))))
-
-(defn- local-root-error [context id coord]
-  (when-let [declared-path (:local/root coord)]
-    (let [root (local-root-path context coord)
-          fs*  (runtime-fs)]
-      (cond
-        (not (string? declared-path))
-        {:key (mod-error-key id) :value "local/root must be a string"}
-
-        (not (or (real-dir? root) (fs/dir? fs* root)))
-        {:key (mod-error-key id) :value "local/root path does not resolve"}))))
 
 (defn- discover-resolved [id coord path]
   (try
@@ -1042,6 +1084,7 @@
   [config context]
   (let [declared    (get config :modules {})
         raw-modules (when (map? declared) declared)]
+    (preload-explicit-module-deps! raw-modules (or (:cwd context) (System/getProperty "user.dir")))
     (if (and (some? declared) (not (map? declared)))
       {:index  (builtin-index)
        :errors [{:key "modules"
@@ -1109,19 +1152,21 @@
                    :required-by (vec (sort (get requirers id #{})))}))]
           {:modules (vec (concat explicit-rows implied-rows))})))))
 
-(defn- absolutize-local-root [coord cwd]
-  (if-let [root (:local/root coord)]
-    (assoc coord :local/root (abs-path cwd root))
-    coord))
-
 (defn compose-config-modules!
-  "Adds each valid :modules coordinate to the runtime classpath.
-   :local/root paths are resolved relative to `cwd` (default user.dir)
-   so packaged launchers can live outside the checkout."
+  "Adds every valid :modules coordinate to the runtime classpath in one
+   tools.deps resolution pass. :local/root paths are resolved relative to
+   `cwd` (default user.dir) so packaged launchers can live outside the
+   checkout. Foundation is excluded from module transitive deps — the seed
+   on the classpath is authoritative."
   ([config] (compose-config-modules! config (System/getProperty "user.dir")))
   ([config cwd]
    (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
-     (doseq [[raw-id coord] modules]
-       (when-let [id (->module-id raw-id)]
-         (when (map? coord)
-           (ensure-module-deps! id (absolutize-local-root coord cwd))))))))
+     (let [pairs (vec (keep (fn [[raw-id coord]]
+                              (when-let [id (->module-id raw-id)]
+                                (when (map? coord)
+                                  [id (absolutize-local-root coord cwd)])))
+                            modules))
+           unloaded (vec (unload-module-pairs pairs))]
+       (when (seq unloaded)
+         (add-modules-deps! unloaded)
+         (mark-modules-loaded! unloaded))))))

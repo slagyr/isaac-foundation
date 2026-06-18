@@ -79,7 +79,7 @@
     (try
       (when effective-cwd
         (System/setProperty "user.dir" effective-cwd))
-	      (with-redefs [module-loader/add-module-deps! (fn [_ _])
+	      (with-redefs [module-loader/invoke-add-deps! (fn [_])
 	                    module-loader/manifest-resource (fn [id]
 	                                                      (or (some-> (module-manifest-path id) manifest-reference)
 	                                                          (real-manifest-resource id)))

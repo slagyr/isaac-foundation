@@ -247,7 +247,7 @@
   ([opts]
    ;; Marigold module fixtures live on mem-fs, so emulate the classpath lookup
    ;; seam instead of trying to add an in-memory local/root to the real JVM classpath.
-   (with-redefs [isaac.module.loader/add-module-deps! (fn [_ _])
+   (with-redefs [isaac.module.loader/invoke-add-deps! (fn [_])
                  isaac.module.loader/manifest-resource local-module-manifest-path]
      (loader/load-config-result (merge {:root root} opts)))))
 

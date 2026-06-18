@@ -47,7 +47,7 @@
       :else nil)))
 
 (defn- discover-local! [ids]
-  (with-redefs [isaac.module.loader/add-module-deps! (fn [_ _])
+  (with-redefs [isaac.module.loader/invoke-add-deps! (fn [_])
                 isaac.module.loader/manifest-resource local-manifest-path]
     (sut/discover! {:modules (into {} (map (fn [id] [id (mod-coord id)]) ids))} ctx)))
 
@@ -199,8 +199,7 @@
         (mod-dir! root)
         (mod-manifest! (str root "/resources/isaac-manifest.edn") (pr-str {:id :isaac.comm.broken :version "0.1.0"}))
         (let [calls (atom [])]
-          (with-redefs [isaac.module.loader/add-module-deps! (fn [id coord]
-                                                               (swap! calls conj [id coord]))]
+          (with-redefs [isaac.module.loader/invoke-add-deps! (fn [_])]
             (let [{:keys [index errors]} (sut/discover! {:modules {:isaac.comm.broken {:local/root root}}} ctx)]
               (should= [] errors)
               (should= :isaac.comm.broken (get-in index [:isaac.comm.broken :manifest :id]))
@@ -225,14 +224,20 @@
                                                               (when (and @classpath-ready?
                                                                          (= id :isaac.comm.pigeon))
                                                                 (str (mod-root :isaac.comm.pigeon) "/resources/isaac-manifest.edn")))
-                      isaac.module.loader/add-module-deps!   (fn [id coord]
-                                                              (swap! calls conj [id coord])
+                      isaac.module.loader/invoke-add-deps!   (fn [deps-map]
+                                                              (swap! calls conj deps-map)
                                                               (reset! classpath-ready? true))]
           (let [first-result  (sut/discover! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}} ctx)
-                second-result (sut/discover! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}} ctx)]
+                second-result (sut/discover! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}} ctx)
+                pigeon-lib  'isaac.comm.pigeon/isaac.comm.pigeon
+                pigeon-coord (mod-coord :isaac.comm.pigeon)]
             (should= [] (:errors first-result))
             (should= [] (:errors second-result))
-            (should= [[:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)]] @calls)))))
+            (should= 1 (count @calls))
+            (let [deps-map (first @calls)]
+              (should= {pigeon-lib (assoc pigeon-coord
+                                          :exclusions '[io.github.slagyr/isaac-foundation])}
+                        deps-map))))))
 
     (it "discovers builtin classpath manifests and ignores unflagged manifests"
       (let [real-resource-urls @#'isaac.module.loader/resource-urls]
@@ -404,10 +409,13 @@
                                                :manifest {:marigold.bridge/comm
                                                           {:stub {:factory 'marigold.comm.stub/make}}}}}
             calls        (atom [])]
-        (with-redefs [isaac.module.loader/add-module-deps! (fn [id coord]
-                                                             (swap! calls conj [id coord]))]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map]
+                                                             (swap! calls conj deps-map))]
           (sut/activate! :marigold.comm.stub module-index)
-            (should= [[:marigold.comm.stub {:local/root stub-dir}]] @calls))))
+          (should= {'marigold.comm.stub/marigold.comm.stub
+                    {:local/root stub-dir
+                     :exclusions '[io.github.slagyr/isaac-foundation]}}
+                   (first @calls)))))
 
     ;; Phase 5 of the berth epic (isaac-8v1n): route registration moved
     ;; out of activate! entirely. The :isaac.server/route berth flows
@@ -430,11 +438,36 @@
                                                 :manifest {:marigold.bridge/comm
                                                            {:stub {:factory 'marigold.comm.stub/make}}}}}
             calls        (atom [])]
-        (with-redefs [isaac.module.loader/add-module-deps! (fn [id coord]
-                                                             (swap! calls conj [id coord]))]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map]
+                                                             (swap! calls conj deps-map))]
           (sut/activate! :marigold.comm.stub module-index)
           (sut/clear-activations!)
           (sut/activate! :marigold.comm.stub module-index)
-          (should= [[:marigold.comm.stub {:local/root stub-dir}]] @calls))))))
+          (should= 1 (count @calls))))))
+
+  (describe "compose-config-modules!"
+
+    #_{:clj-kondo/ignore [:unresolved-symbol]}
+    (around [example]
+      (reset! @#'isaac.module.loader/loaded-module-coords* #{})
+      (example)
+      (reset! @#'isaac.module.loader/loaded-module-coords* #{}))
+
+    (it "resolves all configured modules in one add-deps pass"
+      (let [calls (atom [])
+            mod-a (mod-coord :mod.a)
+            mod-b (mod-coord :mod.b)]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
+          (sut/compose-config-modules! {:modules {:mod.a mod-a :mod.b mod-b}})
+          (should= 1 (count @calls))
+          (should= #{'mod.a/mod.a 'mod.b/mod.b}
+                    (set (keys (first @calls)))))))
+
+    (it "excludes seed foundation from every module coordinate"
+      (let [calls (atom [])]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
+          (sut/compose-config-modules! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}})
+          (should= '[io.github.slagyr/isaac-foundation]
+                    (:exclusions (get (first @calls) 'isaac.comm.pigeon/isaac.comm.pigeon))))))))
 
 
