@@ -923,3 +923,43 @@
                        (concat (cycle-errors index)
                                (duplicate-berth-declaration-errors index)
                                (validate-contributions! index)))}))))
+
+(defn- module-list-error? [id coord errors]
+  (or (not (map? coord))
+      (some #(= (mod-error-key id) (:key %)) errors)))
+
+(defn list-configured-modules
+  "Returns {:modules [{:id :coord :status}]} for each entry in config
+   :modules. Status is :ok when the coordinate resolves, :invalid
+   otherwise. Inspection only — does not load module code."
+  [config context]
+  (let [declared (get config :modules {})]
+    (if (or (nil? declared) (not (map? declared)))
+      {:modules []}
+      (let [{:keys [errors]} (discover! config context)]
+        {:modules
+         (vec
+           (for [[raw-id coord] declared
+                 :let [id (or (->module-id raw-id) raw-id)]]
+             (cond-> {:id     id
+                      :status (if (module-list-error? id coord errors)
+                                :invalid
+                                :ok)}
+               (map? coord) (assoc :coord coord))))}))))
+
+(defn- absolutize-local-root [coord cwd]
+  (if-let [root (:local/root coord)]
+    (assoc coord :local/root (abs-path cwd root))
+    coord))
+
+(defn compose-config-modules!
+  "Adds each valid :modules coordinate to the runtime classpath.
+   :local/root paths are resolved relative to `cwd` (default user.dir)
+   so packaged launchers can live outside the checkout."
+  ([config] (compose-config-modules! config (System/getProperty "user.dir")))
+  ([config cwd]
+   (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
+     (doseq [[raw-id coord] modules]
+       (when-let [id (->module-id raw-id)]
+         (when (map? coord)
+           (ensure-module-deps! id (absolutize-local-root coord cwd))))))))

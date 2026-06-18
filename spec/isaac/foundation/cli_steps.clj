@@ -17,7 +17,8 @@
     [isaac.config.root :as root]
     [isaac.spec-helper :as helper]
     [isaac.nexus :as nexus]
-    [isaac.shell :as shell]))
+    [isaac.shell :as shell]
+    [babashka.process :as process]))
 
 (helper! isaac.foundation.cli-steps)
 
@@ -230,6 +231,27 @@
             :else
             (let [[tok rest-s] (str/split s #"\s+" 2)]
               (recur (or rest-s "") (conj tokens tok)))))))))
+
+(defn- launcher-script []
+  (or (g/get :isaac-launcher)
+      (str (System/getProperty "user.dir") "/libexec/isaac")))
+
+(defn isaac-launcher-run [args]
+  (let [argv       (parse-argv args)
+        root-dir   (g/get :root)
+        script     (launcher-script)
+        cmd        (into [script]
+                       (concat (when root-dir ["--root" root-dir])
+                               argv))
+        {:keys [out err exit]} (apply process/shell
+                                      {:dir      (System/getProperty "user.dir")
+                                       :out      :string
+                                       :err      :string
+                                       :continue true}
+                                      cmd)]
+    (g/assoc! :output (or out ""))
+    (g/assoc! :stderr (or err ""))
+    (g/assoc! :exit-code (long exit))))
 
 (defn isaac-run [args]
   (doseq [preflight @isaac-run-preflights*] (preflight))
@@ -466,6 +488,11 @@
   "Runs 'isaac <args>' in a background thread. Binds a live StringWriter to
    *out* and stores it as :live-output-writer so 'the stdout eventually contains'
    can poll while the command is still running.")
+
+(defwhen "the isaac launcher is run with {args:string}" isaac.foundation.cli-steps/isaac-launcher-run
+  "Shells out to the packaged isaac launcher (libexec/isaac) so each run
+   composes a fresh classpath from config :modules. Passes --root when a
+   scenario root is in scope. Captures :output, :stderr, :exit-code.")
 
 (defwhen "isaac is run with {args:string}" isaac.foundation.cli-steps/isaac-run
    "Runs 'isaac <args>' in-process (not a subprocess). Parses argv with

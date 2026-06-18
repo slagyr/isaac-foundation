@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+LIBEXEC="$(cd "$(dirname "$0")" && pwd)"
+exec bb --config "${LIBEXEC}/bb.edn" "${LIBEXEC}/isaac.bb" "$@"

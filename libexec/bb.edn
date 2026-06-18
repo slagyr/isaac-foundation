@@ -1,0 +1,8 @@
+{:paths ["../src"]
+
+ :deps {babashka/process             {:mvn/version "0.5.22"}
+        cheshire/cheshire            {:mvn/version "5.13.0"}
+        clj-commons/clj-yaml         {:mvn/version "1.0.29"}
+        com.cleancoders.c3kit/apron  {:mvn/version "3.0.0"}
+        org.clojure/tools.cli        {:mvn/version "1.1.230"}
+        org.clojure/tools.deps.alpha {:mvn/version "0.15.1254"}}}

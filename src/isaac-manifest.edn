@@ -55,6 +55,9 @@
              :logs   {:usage     "logs [options]"
                       :summary   "Print Isaac logs in readable colorized format"
                       :namespace isaac.logs.cli}
-             :config {:usage     "config <subcommand> [options]"
-                      :summary   "Inspect and validate Isaac configuration"
-                      :namespace isaac.config.cli.command}}}
+             :config  {:usage     "config <subcommand> [options]"
+                       :summary   "Inspect and validate Isaac configuration"
+                       :namespace isaac.config.cli.command}
+             :modules {:usage     "modules <subcommand> [options]"
+                       :summary   "Inspect and manage configured extension modules"
+                       :namespace isaac.modules.cli}}}

@@ -1,4 +1,3 @@
-@wip
 Feature: isaac modules list
   `isaac modules list` reports the module set the launcher will load: each module
   configured in :modules, with its source coordinate and shape-validity status.
