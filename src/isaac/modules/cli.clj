@@ -76,20 +76,49 @@
   (when (= :invalid status)
     color/red))
 
+(defn- module-id-str [id]
+  (cond
+    (keyword? id) (subs (str id) 1)
+    (symbol? id)  (str id)
+    (string? id)  id
+    :else         (str id)))
+
+(defn- format-coord [coord]
+  (cond
+    (nil? coord) ""
+    (:local/root coord)
+    (str "local " (:local/root coord))
+
+    (:mvn/version coord)
+    (str "mvn " (:mvn/version coord))
+
+    (or (:git/url coord) (:git/tag coord) (:git/sha coord))
+    (let [url  (:git/url coord)
+          slug (when (string? url)
+                 (some-> url
+                         (str/replace #"\.git$" "")
+                         (str/split #"/")
+                         last))
+          rev  (or (:git/sha coord) (:git/tag coord))]
+      (str "git "
+           (or slug url)
+           (when rev (str "@" (subs rev 0 (min 7 (count rev)))))))
+
+    :else (pr-str coord)))
+
 (defn- render-installed-table [modules]
   (table/render
-    {:columns [{:header "ID" :key :id}
+    {:columns [{:header "ID" :key :id :format module-id-str}
                {:header "STATUS" :key :status
                 :format #(name %)
                 :color-fn status-color}
-               {:header "COORD" :key :coord
-                :format #(if % (pr-str %) "")}]
+               {:header "COORD" :key :coord :format format-coord}]
      :rows    modules
      :zebra?  true}))
 
 (defn- render-catalog-table [modules]
   (table/render
-    {:columns [{:header "ID" :key :id}
+    {:columns [{:header "ID" :key :id :format module-id-str}
                {:header "DESCRIPTION" :key :desc}]
      :rows    modules
      :zebra?  true}))
@@ -136,16 +165,6 @@
               :else         (println (render-catalog-table modules)))
             0))))))
 
-(defn- module-id-str [id]
-  (cond
-    (keyword? id) (subs (str id) 1)
-    (symbol? id)  (str id)
-    (string? id)  id
-    :else         (str id)))
-
-(defn- module-config-path [id]
-  (str "modules[\"" (module-id-str id) "\"]"))
-
 (defn- mutate-modules! [root path value]
   (let [result (if (some? value)
                  (mutate/set-config root path value
@@ -158,14 +177,18 @@
           1))))
 
 (defn- run-install [opts arguments _options]
-  (let [module-name (first arguments)
-        root        (:root opts)]
+  (let [names (vec (remove str/blank? arguments))
+        root  (:root opts)]
     (cond
-      (str/blank? module-name)
+      (empty? names)
       (common/print-cli-error! "missing module name")
 
+      (> (count names) 1)
+      (common/print-cli-error! "modules install accepts one module name at a time")
+
       :else
-      (let [config (or (read-root-config root) {})
+      (let [module-name (first names)
+            config      (or (read-root-config root) {})
             {:keys [registry error]} (registry/fetch-registry config root)]
         (cond
           error
@@ -173,11 +196,18 @@
 
           :else
           (let [{:keys [id coord error]} (registry/lookup-entry registry module-name)]
-            (if error
+            (cond
+              error
               (common/print-cli-error! error)
-              (let [exit (mutate-modules! root (module-config-path id) coord)]
+
+              (not (module-loader/valid-module-coord? coord))
+              (common/print-cli-error! (str "Registry entry for " module-name " has invalid coordinate"))
+
+              :else
+              (let [modules (get config :modules {})
+                    exit    (mutate-modules! root "modules" (assoc modules id coord))]
                 (when (zero? exit)
-                  (println (str "Installed " (name id))))
+                  (println (str "Installed " (module-id-str id))))
                 exit))))))))
 
 (defn- run-remove [opts arguments _options]
@@ -239,10 +269,11 @@
     (common/print-cli-error! (str "Unknown modules subcommand: " (first args)))
 
     :else
-    (let [{:keys [errors]} (common/parse-option-map args option-spec :in-order true)]
-      (if (seq errors)
-        (common/print-cli-errors! errors)
-        (print-help!)))))
+    (let [{:keys [errors options]} (common/parse-option-map args structured-option-spec :in-order true)]
+      (cond
+        (seq errors)    (common/print-cli-errors! errors)
+        (:help options) (print-help!)
+        :else           (run-list opts [] options)))))
 
 (defn run-fn [{:keys [_raw-args] :as opts}]
   (run opts (or _raw-args [])))

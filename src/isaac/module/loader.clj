@@ -11,6 +11,8 @@
     [isaac.schema.lexicon :as lexicon]
     [isaac.schema.registered-in :as registered-in]))
 
+(def ^:dynamic *resolve-classpath?* true)
+
 (defonce ^:private activated-modules* (atom #{}))
 (defonce ^:private loaded-module-coords* (atom #{}))
 (defonce ^:private started-modules* (atom []))
@@ -117,6 +119,17 @@
   (when-let [root (:local/root coord)]
     (abs-path (:cwd context) root)))
 
+(defn valid-module-coord? [coord]
+  (and (map? coord)
+       (or (contains? coord :local/root)
+           (contains? coord :mvn/version)
+           (contains? coord :git/url)
+           (contains? coord :git/tag)
+           (contains? coord :git/sha))))
+
+(defn- coord-shape-valid? [coord]
+  (valid-module-coord? coord))
+
 (defn- real-dir? [path]
   (.isDirectory (java.io.File. path)))
 
@@ -197,8 +210,8 @@
     (or (when-let [root (:local/root coord)]
           (when-not (fs/exists? fs* (str root "/deps.edn"))
             (local-manifest-path root fs*)))
-        (do
-          (when (seq coord)
+        (when *resolve-classpath?*
+          (when (and (seq coord) (coord-shape-valid? coord))
             (ensure-module-deps! id coord))
           (manifest-resource id)))))
 
@@ -254,6 +267,9 @@
     (if-let [entry (get (foundation-index) foundation-module-id)]
       {:entry {foundation-module-id entry}}
       {:errors [{:key (mod-error-key id) :value "manifest: could not read"}]})
+
+    (not (coord-shape-valid? coord))
+    {:errors [{:key (mod-error-key id) :value "invalid coordinate"}]}
 
     :else
     (if-let [error (local-root-error context id coord)]
@@ -924,28 +940,28 @@
                                (duplicate-berth-declaration-errors index)
                                (validate-contributions! index)))}))))
 
-(defn- module-list-error? [id coord errors]
-  (or (not (map? coord))
-      (some #(= (mod-error-key id) (:key %)) errors)))
+(defn- inspect-module-status [context id coord]
+  (cond
+    (not (map? coord)) :invalid
+    (not (coord-shape-valid? coord)) :invalid
+    (some? (local-root-error context id coord)) :invalid
+    :else :ok))
 
 (defn list-configured-modules
   "Returns {:modules [{:id :coord :status}]} for each entry in config
-   :modules. Status is :ok when the coordinate resolves, :invalid
-   otherwise. Inspection only — does not load module code."
+   :modules. Status is :ok when the coordinate shape resolves, :invalid
+   otherwise. Inspection only — does not load module code or build classpath."
   [config context]
   (let [declared (get config :modules {})]
     (if (or (nil? declared) (not (map? declared)))
       {:modules []}
-      (let [{:keys [errors]} (discover! config context)]
-        {:modules
-         (vec
-           (for [[raw-id coord] declared
-                 :let [id (or (->module-id raw-id) raw-id)]]
-             (cond-> {:id     id
-                      :status (if (module-list-error? id coord errors)
-                                :invalid
-                                :ok)}
-               (map? coord) (assoc :coord coord))))}))))
+      {:modules
+       (vec
+         (for [[raw-id coord] declared
+               :let [id (or (->module-id raw-id) raw-id)]]
+           (cond-> {:id     id
+                    :status (inspect-module-status context id coord)}
+             (map? coord) (assoc :coord coord))))})))
 
 (defn- absolutize-local-root [coord cwd]
   (if-let [root (:local/root coord)]

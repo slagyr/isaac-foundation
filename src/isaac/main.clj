@@ -44,18 +44,22 @@
    no user config exists. We bracket discover! in -with-nested-nexus
    so it sees mem-fs (when set), but process-manifest-berths! has to
    run AFTER the wrap exits or its side-effects (CLI registry
-   installations) would be inside the wrap's restore scope."
-  [root fs*]
+   installations) would be inside the wrap's restore scope.
+
+   For `isaac modules` (config-only), skip remote classpath resolution
+   so install/list never pull git coordinates onto the classpath."
+  [root fs* cmd]
   (try
     (with-redefs [log/log* (fn [& _])]
-      (let [config  (or (read-user-config root fs*) {})
-            context {:cwd (System/getProperty "user.dir")}
-            {:keys [index]}
-            (nexus/-with-nested-nexus {:fs fs*}
-              (module-loader/discover! config context))]
-        (registry/clear-berth-commands!)
-        (module-loader/reconcile-modules! index)
-        (module-loader/process-manifest-berths! index)))
+      (binding [module-loader/*resolve-classpath?* (not= "modules" cmd)]
+        (let [config  (or (read-user-config root fs*) {})
+              context {:cwd (System/getProperty "user.dir")}
+              {:keys [index]}
+              (nexus/-with-nested-nexus {:fs fs*}
+                (module-loader/discover! config context))]
+          (registry/clear-berth-commands!)
+          (module-loader/reconcile-modules! index)
+          (module-loader/process-manifest-berths! index))))
     (catch Exception _
       nil)))
 
@@ -96,7 +100,7 @@
          extra-opts    (or *extra-opts* {})
          fs*           (startup-fs extra-opts)
          resolved-root (root/resolve-root root (:root extra-opts) fs*)]
-    (register-module-cli-commands! resolved-root fs*)
+    (register-module-cli-commands! resolved-root fs* cmd)
     (cond
       (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
       (do (println (usage)) 0)

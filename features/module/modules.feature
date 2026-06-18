@@ -29,6 +29,24 @@ Feature: isaac modules — compose the assistant via config
       | modules.1.id   | :greeter          |
     And the exit code is 0
 
+  Scenario: Install rejects multiple module names
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
+      """
+      {:modules {} :module-registry "registry.edn"}
+      """
+    And the isaac file "registry.edn" exists with:
+      """
+      {:greeter {:coord {:local/root "modules/marigold.cli.greeter"} :desc "Prints greetings"}
+       :bridge  {:coord {:local/root "modules/marigold.bridge"}      :desc "A bridge module"}}
+      """
+    When isaac is run with "modules install greeter bridge"
+    Then the stderr contains "modules install accepts one module name at a time"
+    And the exit code is 1
+    And the isaac file "config/isaac.edn" EDN contains:
+      | path    | value |
+      | modules | {}    |
+
   Scenario: Install resolves the name and writes the coordinate to config
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -42,9 +60,12 @@ Feature: isaac modules — compose the assistant via config
     When isaac is run with "modules install greeter"
     Then the stdout contains "Installed greeter"
     And the exit code is 0
-    And the isaac file "config/isaac.edn" EDN contains:
-      | path            | value                                        |
-      | modules.greeter | {:local/root "modules/marigold.cli.greeter"} |
+    When isaac is run with "modules list --edn"
+    Then the stdout EDN contains:
+      | path             | value                                        |
+      | modules.0.id     | :greeter                                     |
+      | modules.0.coord  | {:local/root "modules/marigold.cli.greeter"} |
+      | modules.0.status | :ok                                          |
 
   Scenario: Remove deletes a module from config
     Given an empty Isaac root at "/tmp/isaac"

@@ -228,7 +228,7 @@
                                                          :isaac/cli {:greet {:summary "Greets"
                                                                              :usage "greet"
                                                                              :namespace 'isaac.main-spec}}}}}})]
-          (@#'sut/register-module-cli-commands! "/tmp/home/.isaac" mem))
+          (@#'sut/register-module-cli-commands! "/tmp/home/.isaac" mem nil))
         (should-not-be-nil (registry/get-command "greet"))
         (should= "Greets" (:summary (registry/get-command "greet")))))
 

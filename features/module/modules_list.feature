@@ -4,6 +4,32 @@ Feature: isaac modules list
   `--edn` / `--json` emit structured output (for agents, tooling, and tests);
   the default output is a colorized table.
 
+  Scenario: Bare isaac modules defaults to list
+    Given an empty Isaac root at "/tmp/isaac"
+    And the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.bridge {:local/root "modules/marigold.bridge"}}}
+      """
+    When isaac is run with "modules --edn"
+    Then the stdout EDN contains:
+      | path             | value                                   |
+      | modules.0.id     | :marigold.bridge                        |
+      | modules.0.coord  | {:local/root "modules/marigold.bridge"} |
+      | modules.0.status | :ok                                     |
+    And the exit code is 0
+
+  Scenario: List table shows human-readable id and coordinate
+    Given an empty Isaac root at "/tmp/isaac"
+    And the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.bridge {:local/root "modules/marigold.bridge"}}}
+      """
+    When isaac is run with "modules list"
+    Then the stdout contains "marigold.bridge"
+    And the stdout does not contain ":marigold.bridge"
+    And the stdout contains "local modules/marigold.bridge"
+    And the exit code is 0
+
   Scenario: A configured module is listed with its source
     Given an empty Isaac root at "/tmp/isaac"
     And the isaac file "isaac.edn" exists with:
