@@ -20,7 +20,9 @@ tarball `url` + `sha256` — moving a tag breaks installs.
    git push origin v0.1.2
    ```
 
-3. Run the **Release** workflow (`workflow_dispatch`) with that tag. It:
+3. Bump `:version` in `src/isaac-manifest.edn` to match the tag before tagging.
+
+4. Run the **Release** workflow (`workflow_dispatch`) with that tag. It:
    - Publishes a GitHub Release for the tag
    - Dispatches to `slagyr/homebrew-tap` to auto-bump `Formula/isaac.rb`
 
