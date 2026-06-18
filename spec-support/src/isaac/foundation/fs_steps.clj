@@ -213,11 +213,13 @@
         (str/starts-with? value "#"))
     (edn/read-string value)
 
+    (and (= path "session") (re-find #"hail/" file-path))
+    (if (re-matches #"[a-z][a-z-]*" value) (keyword value) value)
+
     (or (contains? #{"defaults.crew" "defaults.model"} path)
         (and (= path "model") (re-find #"/config/crew/" file-path))
         (and (= path "crew") (or (re-find #"/config/cron/" file-path)
                                  (re-find #"hail/" file-path)))
-        (and (= path "session") (re-find #"hail/" file-path))
         (and (= path "provider") (re-find #"/config/models/" file-path))
         (and (= path "api") (re-find #"/config/providers/" file-path))
         (str/ends-with? path ".last-status"))
