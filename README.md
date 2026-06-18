@@ -58,13 +58,14 @@ The spec tree is exported for consumers as
 `io.github.slagyr/isaac-foundation-spec` (`:deps/root "spec"`): step
 definitions, the marigold fixture world, and the marigold fixture modules.
 
-Consumers should depend on a tagged release (not `:local/root`):
+Consumers should depend on a tagged release (not `:local/root`). Published tags
+are immutable — see [RELEASE.md](RELEASE.md).
 
 ```clojure
 io.github.slagyr/isaac-foundation
 {:git/url "https://github.com/slagyr/isaac-foundation.git"
- :git/tag "v0.1.0"
- :git/sha "535ce491e45875ac97bf97a4b2306def7bb82a7c"}
+ :git/tag "v0.1.1"
+ :git/sha "36e4a6f10a02b86008eb81aaa20b057387bb4c7a"}
 ```
 
 Use the `:dev-local` alias in sibling repos to override back to

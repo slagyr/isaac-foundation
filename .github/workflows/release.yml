@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.2)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag exists
+        run: |
+          TAG="${{ inputs.tag }}"
+          if ! git rev-parse "${TAG}^{commit}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} not found on this ref"
+            exit 1
+          fi
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: true
+
+      - name: Bump homebrew tap formula
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN }}
+          repository: slagyr/homebrew-tap
+          event-type: foundation-release
+          client-payload: '{"tag": "${{ inputs.tag }}"}'
