@@ -67,11 +67,11 @@
     (g/assoc! :root test-root)
     (fs/mkdirs (nexus/get :fs) (str test-root "/delivery/pending"))
     (fs/spit (nexus/get :fs) (str test-root "/delivery/pending/7f3a.edn")
-             (pr-str {"status" "pending"
-                      "attempt" 1}))
-    (sut/edn-isaac-file-contains "delivery/pending/7f3a.edn"
+             (pr-str {:status "pending"
+                      :attempt 1}))
+    (sut/isaac-edn-file-exists "delivery/pending/7f3a.edn"
                                  {:headers ["path" "value"]
                                   :rows    [["status" "#delete"]
                                             ["attempt" "2"]]})
-    (should= {"attempt" 2}
+    (should= {:attempt 2}
              (read-string (fs/slurp (nexus/get :fs) (str test-root "/delivery/pending/7f3a.edn"))))))

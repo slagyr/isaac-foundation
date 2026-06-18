@@ -21,7 +21,7 @@ already implemented in `spec/isaac/features/steps/*.clj` and
 
 - Patch/write tables for nested EDN data.
 - Common in `config is updated:`, `the isaac EDN file "..." exists with:`,
-  `the EDN isaac file "..." contains:`, and file/config assertions.
+  `the isaac file "..." EDN contains:`, and file/config assertions.
 - `path` usually means dot-separated map navigation.
 
 Horizontal tables
@@ -75,7 +75,6 @@ Supported in:
 - `config:`
 - `config is updated:`
 - `the isaac EDN file "..." exists with:`
-- `the EDN isaac file "..." contains:` when used in write mode
 
 Behavior:
 
@@ -136,14 +135,11 @@ The same-looking cell is not parsed the same way everywhere.
 - Otherwise values stay strings
 - `#delete` removes the key from the current file
 
-### `the EDN isaac file "..." contains:`
+### `the isaac file "..." EDN contains:`
 
-- In assert mode, rows are expectations against the file on disk
-- In write mode, dotted `path` writes into the file
-- Write-mode values parse more simply than `exists with:`:
-  integers, booleans, and bare lowercase words become typed values;
-  otherwise strings stay strings
-- `#delete` is only meaningful in write mode
+- Assert-only: rows are expectations against the file on disk
+- Dotted `path` navigates keywordized segments
+- Values parse like `exists with:` (integers, booleans, EDN literals, keyword coercion)
 
 ### ACP message builders
 

@@ -42,7 +42,7 @@ Feature: isaac init
   Scenario: isaac init scaffolds each file with the expected content
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"
-    Then the EDN isaac file "config/isaac.edn" contains:
+    Then the isaac file "config/isaac.edn" EDN contains:
       | path                 | value           |
       | defaults.crew        | main            |
       | defaults.model       | llama           |
@@ -56,14 +56,14 @@ Feature: isaac init
 
       You are Isaac, a helpful AI assistant.
       """
-    And the EDN isaac file "config/models/llama.edn" contains:
+    And the isaac file "config/models/llama.edn" EDN contains:
       | path     | value    |
       | model    | llama3.2 |
-      | provider | ollama   |
-    And the EDN isaac file "config/providers/ollama.edn" contains:
+      | provider | :ollama  |
+    And the isaac file "config/providers/ollama.edn" EDN contains:
       | path     | value                  |
       | base-url | http://localhost:11434 |
-      | api      | ollama                 |
+      | api      | :ollama                |
     And the isaac file "config/cron/heartbeat.md" contains:
       """
       ---

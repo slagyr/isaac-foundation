@@ -195,9 +195,6 @@
     (re-matches #"[a-z][a-z-]*" value) (keyword value)
     :else value))
 
-(defn- parse-isaac-state-value [_file-path _path value]
-  (parse-state-value value))
-
 (defn- parse-isaac-value [file-path path value]
   (cond
     (re-matches #"-?\d+" value) (parse-long value)
@@ -219,7 +216,9 @@
     (or (contains? #{"defaults.crew" "defaults.model"} path)
         (and (= path "model") (re-find #"/config/crew/" file-path))
         (and (= path "crew") (re-find #"/config/cron/" file-path))
-    (and (= path "api") (re-find #"/config/providers/" file-path)))
+        (and (= path "provider") (re-find #"/config/models/" file-path))
+        (and (= path "api") (re-find #"/config/providers/" file-path))
+        (str/ends-with? path ".last-status"))
     (keyword value)
 
     :else value))
@@ -291,41 +290,15 @@
           (fs/spit   fs* file-path (pr-str data)))
         (notify-write! file-path)))))
 
-(defn edn-isaac-file-contains [path table]
-  (if (= :assert (g/get :isaac-file-phase))
-    (let [data (with-server-fs #(isaac-file-data path))]
-      (doseq [row (:rows table)]
-        (let [row-map   (zipmap (:headers table) row)
-              value     (get row-map "value")]
-          (when-not (skip-row? value)
-            (let [actual   (get-path data (get row-map "path"))
-                  expected (parse-isaac-state-value path (get row-map "path") value)]
-              (g/should= expected actual))))))
-    (with-server-fs
-      (fn []
-        (let [data (reduce (fn [acc row]
-                             (let [row-map (zipmap (:headers table) row)
-                                   value   (get row-map "value")]
-                               (cond
-                                 (skip-row? value)
-                                 acc
-
-                                 (delete-sentinel? value)
-                                 (dissoc-in acc (str/split (get row-map "path") #"\."))
-
-                                 :else
-                                 (assoc-in acc
-                                           (str/split (get row-map "path") #"\.")
-                                           (parse-isaac-state-value path (get row-map "path") value)))))
-                           (if (some #(delete-sentinel? (get (zipmap (:headers table) %) "value"))
-                                     (:rows table))
-                             (or (isaac-file-data path) {})
-                             {})
-                           (:rows table))
-               path (isaac-file-path path)
-               fs*  (server-fs)]
-          (fs/mkdirs fs* (fs/parent path))
-          (fs/spit   fs* path (pr-str data)))))))
+(defn isaac-file-edn-contains [path table]
+  (let [data (with-server-fs #(isaac-file-data path))]
+    (doseq [row (:rows table)]
+      (let [row-map (zipmap (:headers table) row)
+            value   (get row-map "value")]
+        (when-not (skip-row? value)
+          (let [actual   (get-path data (get row-map "path"))
+                expected (parse-isaac-value path (get row-map "path") value)]
+            (g/should= expected actual)))))))
 
 (defn edn-isaac-file-does-not-exist [path]
   (g/should-not (with-server-fs #(fs/exists? (server-fs) (isaac-file-path path)))))
@@ -360,14 +333,10 @@
    (root/config-relative, or absolute). Fires registered post-write hooks
    (config-change notify for hot reload).")
 
-(defgiven "the EDN isaac file \"{path}\" contains:" isaac.foundation.fs-steps/edn-isaac-file-contains
-  "Dual-mode: when :isaac-file-phase is :assert (after a scheduler or
-     worker tick), reads the on-disk EDN and asserts the table rows match.
-     Otherwise writes the table as EDN to the path. Same phrase, different
-     behavior depending on where it appears in the scenario. In write mode,
-     '#delete' removes that path from the current file before writing.")
-
-(defgiven "the EDN isaac file \"{path}\" exists with:" isaac.foundation.fs-steps/isaac-edn-file-exists)
+(defthen #"the isaac file \"([^\"]+)\" EDN contains:" isaac.foundation.fs-steps/isaac-file-edn-contains
+  "Assert-only structural EDN inspector for isaac files. Table rows are
+   path | value, using dotted-path semantics. Pair with 'the isaac EDN file
+   X exists with:' for the write side.")
 
 (defgiven "the isaac EDN file {path:string} exists with:" isaac.foundation.fs-steps/isaac-edn-file-exists
   "Writes structured EDN to the isaac file at <path>. Table rows are
