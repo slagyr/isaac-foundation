@@ -216,6 +216,54 @@
             (should= [] errors)
             (should= :isaac.comm.runtime (get-in index [:isaac.comm.runtime :manifest :id]))))))
 
+    (it "resolves overlapping explicit and manifest :deps modules in one add-deps pass"
+      (write-local-module! :mod.server {:id :mod.server :version "0.1.0"})
+      (write-local-module! :mod.client {:id :mod.client :version "0.1.0"
+                                        :deps {:mod.server (mod-coord :mod.server)}})
+      (let [calls            (atom [])
+            classpath-ready? (atom #{})]
+        (with-redefs [isaac.module.loader/manifest-resource
+                      (fn [id]
+                        (when (contains? @classpath-ready? id)
+                          (str (mod-root id) "/resources/isaac-manifest.edn")))
+                      isaac.module.loader/invoke-add-deps!
+                      (fn [deps-map]
+                        (swap! calls conj deps-map)
+                        (doseq [[lib-sym _] deps-map]
+                          (when-let [ns (namespace lib-sym)]
+                            (swap! classpath-ready? conj (keyword ns)))))]
+          (let [{:keys [errors index]}
+                (sut/discover! {:modules {:mod.server (mod-coord :mod.server)
+                                          :mod.client (mod-coord :mod.client)}}
+                               ctx)]
+            (should= [] errors)
+            (should= :mod.server (get-in index [:mod.server :manifest :id]))
+            (should= :mod.client (get-in index [:mod.client :manifest :id]))
+            (should= 1 (count @calls))
+            (should= 1 (count (filter #(contains? % 'mod.server/mod.server) @calls)))))))
+
+    (it "adds a manifest-transitive dep once when only the parent is explicit"
+      (write-local-module! :mod.server {:id :mod.server :version "0.1.0"})
+      (write-local-module! :mod.client {:id :mod.client :version "0.1.0"
+                                        :deps {:mod.server (mod-coord :mod.server)}})
+      (let [calls            (atom [])
+            classpath-ready? (atom #{})]
+        (with-redefs [isaac.module.loader/manifest-resource
+                      (fn [id]
+                        (when (contains? @classpath-ready? id)
+                          (str (mod-root id) "/resources/isaac-manifest.edn")))
+                      isaac.module.loader/invoke-add-deps!
+                      (fn [deps-map]
+                        (swap! calls conj deps-map)
+                        (doseq [[lib-sym _] deps-map]
+                          (when-let [ns (namespace lib-sym)]
+                            (swap! classpath-ready? conj (keyword ns)))))]
+          (let [{:keys [errors index]}
+                (sut/discover! {:modules {:mod.client (mod-coord :mod.client)}} ctx)]
+            (should= [] errors)
+            (should= :mod.server (get-in index [:mod.server :manifest :id]))
+            (should= 1 (count (filter #(contains? % 'mod.server/mod.server) @calls)))))))
+
     (it "adds module deps only once per coordinate across repeated discovery"
       (write-local-module! :isaac.comm.pigeon valid-comm-manifest)
       (let [calls            (atom [])

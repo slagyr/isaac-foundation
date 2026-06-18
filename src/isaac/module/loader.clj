@@ -203,15 +203,28 @@
                             id-coord-pairs))]
     (invoke-add-deps! deps-map)))
 
+(defn- trackable-coord [coord]
+  (classpath-coord coord))
+
+(defn- loaded-module-pair? [[id coord]]
+  (contains? @loaded-module-coords* [id (trackable-coord coord)]))
+
 (defn- mark-modules-loaded! [id-coord-pairs]
-  (swap! loaded-module-coords* into (set id-coord-pairs))
+  (swap! loaded-module-coords* into
+         (set (map (fn [[id coord]] [id (trackable-coord coord)]) id-coord-pairs)))
   (invalidate-builtin-index!))
 
 (defn- unload-module-pairs [pairs]
-  (remove (fn [[id coord]] (contains? @loaded-module-coords* [id coord])) pairs))
+  (remove loaded-module-pair? pairs))
+
+(defn- preload-module-pairs! [pairs]
+  (let [unloaded (vec (unload-module-pairs pairs))]
+    (when (seq unloaded)
+      (add-modules-deps! unloaded)
+      (mark-modules-loaded! unloaded))))
 
 (defn- ensure-module-deps! [id coord]
-  (when-not (contains? @loaded-module-coords* [id coord])
+  (when-not (loaded-module-pair? [id coord])
     (add-module-deps! id coord)
     (mark-modules-loaded! [[id coord]])))
 
@@ -261,11 +274,8 @@
                                    (when (and (needs-classpath-preload? abs-coord)
                                               (not (local-root-error ctx id abs-coord)))
                                      [id abs-coord])))))
-                           raw-modules))
-          unloaded (vec (unload-module-pairs pairs))]
-      (when (seq unloaded)
-        (add-modules-deps! unloaded)
-        (mark-modules-loaded! unloaded)))))
+                           raw-modules))]
+      (preload-module-pairs! pairs))))
 
 (defn- resource-urls [resource-name]
   (let [loader (or (.getContextClassLoader (Thread/currentThread))
@@ -383,8 +393,6 @@
           (when-not (fs/exists? fs* (str root "/deps.edn"))
             (local-manifest-path root fs*)))
         (when *resolve-classpath?*
-          (when (and (seq coord) (coord-shape-valid? coord))
-            (ensure-module-deps! id coord))
           (manifest-resource id)))))
 
 (defn- discover-resolved [id coord path]
@@ -439,11 +447,20 @@
               (get entry target-id))))
         explicit-modules))
 
+(defn- implied-module-pairs [explicit-modules context implied-ids]
+  (vec (keep (fn [id]
+               (some (fn [[_ coord]]
+                       (when-let [dep-coord (find-dep-coord-for-module id coord context)]
+                         [id (loadable-coord context dep-coord)]))
+                     explicit-modules))
+             implied-ids)))
+
 (defn- merge-resolved-classpath-modules [index explicit-modules context]
   (if-not *resolve-classpath?*
     index
     (let [allowed-ids (resolved-module-ids explicit-modules context)
           implied-ids (set/difference allowed-ids (set (keys index)))
+          _           (preload-module-pairs! (implied-module-pairs explicit-modules context implied-ids))
           implied     (into {}
                             (keep (fn [id]
                                     (when-let [entry (discover-implied-entry id explicit-modules context)]
@@ -1022,9 +1039,9 @@
 
 (defn- resolve-deps!
   "Iteratively walks each loaded manifest's `:deps` and resolves any
-   modules not already in `index` (delegating to discover-one, which
-   routes through `tools.deps`/bb internals for non-local-root coords).
-   Closes over the transitive set; reports each failed resolution as
+   modules not already in `index`. Each pass batches every pending dep
+   onto the classpath in one tools.deps resolution before reading
+   manifests. Reports each failed resolution as
    `module-index[\"<consumer>\"].deps[<dep-id>]` so the user can see
    which consumer dragged the offending dep in. Index membership
    doubles as a cycle guard — A → B → A stops when B sees A already
@@ -1035,7 +1052,14 @@
     (let [pending (pending-deps index)]
       (if (empty? pending)
         {:index index :errors errors}
-        (let [{:keys [new-entries new-errors]}
+        (let [preload-pairs
+              (vec (keep (fn [[consumer-id dep-id coord]]
+                            (when (and (not (contains? index dep-id))
+                                       (map? coord))
+                              [dep-id (loadable-coord context coord)]))
+                          pending))
+              _ (preload-module-pairs! preload-pairs)
+              {:keys [new-entries new-errors]}
               (reduce
                 (fn [{:keys [new-entries new-errors]} [consumer-id dep-id coord]]
                   (cond
