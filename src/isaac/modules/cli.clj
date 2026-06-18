@@ -136,6 +136,16 @@
               :else         (println (render-catalog-table modules)))
             0))))))
 
+(defn- module-id-str [id]
+  (cond
+    (keyword? id) (subs (str id) 1)
+    (symbol? id)  (str id)
+    (string? id)  id
+    :else         (str id)))
+
+(defn- module-config-path [id]
+  (str "modules[\"" (module-id-str id) "\"]"))
+
 (defn- mutate-modules! [root path value]
   (let [result (if (some? value)
                  (mutate/set-config root path value
@@ -165,7 +175,7 @@
           (let [{:keys [id coord error]} (registry/lookup-entry registry module-name)]
             (if error
               (common/print-cli-error! error)
-              (let [exit (mutate-modules! root (str "modules." (name id)) coord)]
+              (let [exit (mutate-modules! root (module-config-path id) coord)]
                 (when (zero? exit)
                   (println (str "Installed " (name id))))
                 exit))))))))
