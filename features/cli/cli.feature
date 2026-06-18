@@ -30,3 +30,17 @@ Feature: CLI
     Then the stdout contains "Usage: isaac [options] <command> [args]"
     And the stdout contains "Commands:"
     And the exit code is 0
+
+  Scenario: Top-level usage omits root pointer precedence
+    When isaac is run with "--help"
+    Then the stdout does not contain "May also be set"
+    And the stdout contains "--root <dir>    Isaac root directory (default: ~/.isaac)"
+
+  Scenario: Config sources documents root resolution precedence
+    When isaac is run with "config sources"
+    Then the stdout contains "--root"
+    And the stdout contains "ISAAC_ROOT"
+    And the stdout contains "~/.config/isaac.edn"
+    And the stdout contains "~/.isaac.edn"
+    And the stdout contains "~/.isaac"
+    And the exit code is 0

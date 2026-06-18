@@ -26,10 +26,13 @@
     (support/with-cli-env #(do (reset! c3env/-overrides {})
                                (example))))
 
-  (it "lists the config files that contributed"
+  (it "lists root resolution precedence and contributing config files"
     (write-config! (str test-root "/config/isaac.edn") {:berths {(keyword marigold/captain) {}}})
     (write-config! (str test-root "/config/berths/" marigold/first-mate ".edn")
                    {:gauge (keyword marigold/helm-mark-iii)})
     (should= 0 (sut/run {:root test-root} ["sources"]))
+    (should-contain "--root" (str *out*))
+    (should-contain "ISAAC_ROOT" (str *out*))
+    (should-contain "~/.config/isaac.edn" (str *out*))
     (should-contain "config/isaac.edn" (str *out*))
     (should-contain (str "config/berths/" marigold/first-mate ".edn") (str *out*))))

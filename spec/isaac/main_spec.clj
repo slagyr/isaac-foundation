@@ -138,8 +138,9 @@
       (let [output (with-out-str (should= 0 (sut/run ["--help"])))]
         (should-contain "Usage: isaac [options] <command> [args]" output)
         (should-contain "Global Options:" output)
-        (should-contain "--root <dir>" output)
-        (should-contain "~/.config/isaac.edn" output)
+        (should-contain "--root <dir>    Isaac root directory (default: ~/.isaac)" output)
+        (should-not-contain "May also be set" output)
+        (should-not-contain "~/.config/isaac.edn" output)
         (should-contain "--help, -h" output)
         (should-contain "Commands:" output))))
 

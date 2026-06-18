@@ -92,3 +92,11 @@
           (pointer-root fs*)
           (default-root))
       absolute-path))
+
+(def root-lookup-precedence
+  "Human-readable lines for the root resolution chain (first hit wins)."
+  ["1. --root <dir>            CLI flag"
+   "2. ISAAC_ROOT              environment variable"
+   "3. ~/.config/isaac.edn     {:root \"/path\"}"
+   "4. ~/.isaac.edn            {:root \"/path\"}"
+   "5. ~/.isaac                default"])

@@ -68,8 +68,7 @@
         max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
     (str "Usage: isaac [options] <command> [args]\n\n"
          "Global Options:\n"
-         "  --root <dir>    Override Isaac's root directory (default: ~/.isaac)\n"
-         "                  May also be set via ISAAC_ROOT, ~/.config/isaac.edn, or ~/.isaac.edn\n"
+         "  --root <dir>    Isaac root directory (default: ~/.isaac)\n"
          "  --help, -h      Show this message\n\n"
          "Commands:\n"
          (str/join "\n" (map (fn [cmd]
