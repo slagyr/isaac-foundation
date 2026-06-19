@@ -520,6 +520,20 @@
         (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
           (sut/compose-config-modules! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}})
           (should= '[io.github.slagyr/isaac-foundation]
-                    (:exclusions (get (first @calls) 'isaac.comm.pigeon/isaac.comm.pigeon))))))))
+                    (:exclusions (get (first @calls) 'isaac.comm.pigeon/isaac.comm.pigeon))))))
+
+    (it "excludes split-repo lib aliases for sibling modules in one batch"
+      (let [calls (atom [])
+            server-coord {:git/url "https://github.com/slagyr/isaac-server.git"
+                          :git/sha "ba30caa2c2dc4564a352ae82742d39739fad9744"}
+            acp-coord {:git/url "https://github.com/slagyr/isaac-acp.git"
+                       :git/sha "d10856296e9b35378c3dfd009e67a50fad2f25af"}]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
+          (sut/compose-config-modules! {:modules {:isaac.server server-coord
+                                                  :isaac.comm.acp acp-coord}})
+          (should= 1 (count @calls))
+          (let [acp-exclusions (:exclusions (get (first @calls) 'isaac.comm.acp/isaac.comm.acp))]
+            (should-contain 'io.github.slagyr/isaac-server acp-exclusions)
+            (should-contain 'isaac.server/isaac.server acp-exclusions)))))))
 
 

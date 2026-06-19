@@ -95,6 +95,23 @@
       (symbol s)
       (symbol s s))))
 
+(defn- split-repo-lib-sym
+  "Lib symbol split platform repos declare in deps.edn (e.g.
+   io.github.slagyr/isaac-server for :isaac.server). Configured modules use
+   ->lib-sym instead; sibling exclusions must cover both or transitive deps
+   re-append the same manifest under a second lib."
+  [id]
+  (let [s (id-str id)]
+    (when (str/starts-with? s "isaac.")
+      (symbol "io.github.slagyr"
+              (if (str/starts-with? s "isaac.comm.")
+                (str "isaac-" (nth (str/split s #"\.") 2))
+                (str "isaac-" (str/replace (subs s (count "isaac.")) "." "-")))))))
+
+(defn- module-lib-syms [id]
+  (cond-> #{(->lib-sym id)}
+    (split-repo-lib-sym id) (conj (split-repo-lib-sym id))))
+
 (defn- mod-error-key [id]
   (str "modules[\"" (id-str id) "\"]"))
 
@@ -199,10 +216,14 @@
   (invoke-add-deps! {(->lib-sym id) (classpath-coord coord)}))
 
 (defn- add-modules-deps! [id-coord-pairs]
-  (let [all-libs (set (map (fn [[id _]] (->lib-sym id)) id-coord-pairs))
+  (let [id->libs (into {} (map (fn [[id _]] [id (module-lib-syms id)]) id-coord-pairs))
         deps-map (into {}
                        (map (fn [[id coord]]
-                              (let [sibling-exclusions (disj all-libs (->lib-sym id))]
+                              (let [sibling-exclusions
+                                    (into #{}
+                                          (mapcat (fn [[other-id libs]]
+                                                    (when (not= other-id id) libs))
+                                                  id->libs))]
                                 [(->lib-sym id) (classpath-coord coord sibling-exclusions)]))
                             id-coord-pairs))]
     (invoke-add-deps! deps-map)))
