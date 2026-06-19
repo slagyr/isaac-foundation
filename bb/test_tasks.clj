@@ -35,6 +35,16 @@
 (defn run-features! [& args]
   (tt/with-timeout! "features" #(apply run-features* args)))
 
+(defn- run-features-slow* [& args]
+  (clean!)
+  (apply gherclj/-main
+    (concat ["-f" "features"]
+            ["-s" "isaac.**-steps" "-t" "slow" "-t" "~wip"]
+            args)))
+
+(defn run-features-slow! [& args]
+  (tt/with-timeout! "features-slow" #(apply run-features-slow* args)))
+
 (defn- check-exit! [{:keys [exit]}]
   (when (pos? exit)
     (System/exit exit)))

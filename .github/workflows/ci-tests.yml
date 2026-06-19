@@ -4,7 +4,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
 
 permissions:
   contents: read
@@ -44,3 +47,39 @@ jobs:
 
       - name: Run bb ci
         run: bb ci
+
+  slow-features:
+    name: Slow features (@slow launcher lane)
+    runs-on: ubuntu-latest
+    env:
+      NO_COLOR: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Clojure and Babashka
+        uses: DeLaGuardo/setup-clojure@13.2
+        with:
+          bb: latest
+          cli: latest
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+            .cpcache
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn', '**/bb.edn', 'modules/**/deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-clojure-
+
+      - name: Run @slow feature tests
+        run: bb features-slow

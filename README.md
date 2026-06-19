@@ -40,8 +40,9 @@ Babashka-first. Run things with:
 ```sh
 bb isaac --help    # the CLI
 bb spec            # speclj specs (60s timeout)
-bb features        # gherclj acceptance tests (60s timeout)
-bb ci              # both (60s timeout)
+bb features        # gherclj acceptance tests (60s timeout; skips @slow, @wip)
+bb features-slow   # launcher/subprocess @slow features only (60s timeout)
+bb ci              # spec + fast features (60s timeout)
 ```
 
 From the JVM, compose `:test` with a runner alias (shared test deps live in
