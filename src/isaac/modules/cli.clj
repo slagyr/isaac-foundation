@@ -31,6 +31,7 @@
                      (str "  available [search]  Browse the installable module catalog\n"
                           "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
+                          "  show <name>         Full detail for one module (coordinate, source, required-by)\n"
                           "  remove <name>       Remove a module from config :modules\n"
                           "  upgrade [name] ...  Refresh registry-sourced modules to latest coords\n"
                           "  help <subcommand>   Print usage for a subcommand")]]
@@ -56,6 +57,14 @@
      :params      "<name> [<name> ...]"
      :description "Resolve registry module names to coordinates and add them to config :modules."
      :option-spec option-spec}))
+
+(defn- show-help []
+  (common/render-help
+    {:command     "isaac modules show"
+     :params      "<name> [options]"
+     :description (str "Show full detail for one module: coordinate, source,\n"
+                       "and required-by. Structured output via --edn / --json.")
+     :option-spec structured-option-spec}))
 
 (defn- remove-help []
   (common/render-help
@@ -115,6 +124,60 @@
            (when rev (str "@" (subs rev 0 (min 7 (count rev)))))))
 
     :else (pr-str coord)))
+
+(defn- format-full-coord-lines [coord]
+  (cond
+    (nil? coord) ["(none)"]
+
+    (:local/root coord)
+    [(str ":local/root " (:local/root coord))]
+
+    (:mvn/version coord)
+    [(str ":mvn/version " (:mvn/version coord))]
+
+    (or (:git/url coord) (:git/tag coord) (:git/sha coord))
+    (remove nil?
+            [(when (:git/url coord) (str ":git/url " (:git/url coord)))
+             (when (:git/sha coord) (str ":git/sha " (:git/sha coord)))
+             (when (:git/tag coord) (str ":git/tag " (:git/tag coord)))
+             (when (:deps/root coord) (str ":deps/root " (:deps/root coord)))])
+
+    :else [(pr-str coord)]))
+
+(defn- format-required-by-detail [required-by]
+  (let [rb (cond
+             (vector? required-by) required-by
+             (map? required-by)    (or (:required-by required-by) [])
+             :else                 [])]
+    (if (empty? rb)
+      "—"
+      (str/join ", " (map module-id-str rb)))))
+
+(defn- infer-module-source [config registry explicit-ids {:keys [id coord]}]
+  (cond
+    (not (contains? explicit-ids id)) :transitive
+    (:local/root coord)                 :local
+    (and registry (= coord (get-in registry [id :coord]))) :registry
+    :else                               :hand-pinned))
+
+(defn- find-module-by-name [modules name]
+  (let [id (keyword name)]
+    (first (filter #(= (:id %) id) modules))))
+
+(defn- enrich-module [config registry explicit-ids module]
+  (assoc module :source (infer-module-source config registry explicit-ids module)))
+
+(defn- render-module-detail [{:keys [id version status coord source required-by]}]
+  (let [coord-lines (format-full-coord-lines coord)
+        indent      "            "]
+    (str (module-id-str id) "\n"
+         (when version (str "Version:     " version "\n"))
+         "Status:      " (name status) "\n"
+         "Coordinate:  " (first coord-lines) "\n"
+         (when (> (count coord-lines) 1)
+           (str indent (str/join (str "\n" indent) (rest coord-lines)) "\n"))
+         "Source:      " (name source) "\n"
+         "Required by: " (format-required-by-detail required-by))))
 
 (defn- format-required-by [required-by]
   (let [rb (cond
@@ -345,6 +408,33 @@
                                   (coord-revision old) " -> " (coord-revision new)))))
               exit)))))))
 
+(defn- run-show [opts arguments options]
+  (let [{:keys [edn json]} options
+        module-name (first arguments)]
+    (cond
+      (and edn json)
+      (common/print-cli-error! "choose one of --edn or --json")
+
+      (str/blank? module-name)
+      (common/print-cli-error! "missing module name")
+
+      :else
+      (let [root     (:root opts)
+            config   (or (read-root-config root) {})
+            context  {:cwd (System/getProperty "user.dir")}
+            {:keys [modules]}
+            (module-loader/list-configured-modules config context)
+            module   (find-module-by-name modules module-name)]
+        (if-not module
+          (common/print-cli-error! (str "Unknown module: " module-name))
+          (let [{:keys [registry]} (registry/fetch-registry config root)
+                explicit-ids       (set (keys (:modules config)))
+                detail             (enrich-module config registry explicit-ids module)]
+            (cond
+              (or edn json) (print-structured! edn json detail)
+              :else         (println (render-module-detail detail)))
+            0))))))
+
 (defn- run-remove [opts arguments _options]
   (let [module-name (first arguments)
         root        (:root opts)]
@@ -373,6 +463,9 @@
    "list"      {:option-spec structured-option-spec
                 :runner      run-list
                 :help-text   list-help}
+   "show"      {:option-spec structured-option-spec
+                :runner      run-show
+                :help-text   show-help}
    "remove"    {:option-spec option-spec
                 :runner      run-remove
                 :help-text   remove-help}
