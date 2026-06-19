@@ -38,6 +38,20 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
       | conflicts.0.chosen | "1.0.0"          |
     And the exit code is 0
 
+  Scenario: isaac.server version conflicts surface when platform filter is removed
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
+      """
+      {:modules {:marigold.app.server.conflict  {:local/root "modules/marigold.app.server.conflict"}
+                 :marigold.app2.server.conflict {:local/root "modules/marigold.app2.server.conflict"}}}
+      """
+    When isaac is run with "modules list --edn"
+    Then the stdout EDN contains:
+      | path               | value           |
+      | conflicts.0.id     | :isaac.server   |
+      | conflicts.0.chosen | "0.1.0"         |
+    And the exit code is 0
+
   Scenario: No conflict produces no conflicts table
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:

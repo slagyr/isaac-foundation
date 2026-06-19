@@ -64,7 +64,7 @@
 (def ^:private seed-foundation-lib 'io.github.slagyr/isaac-foundation)
 
 (def ^:private platform-module-ids
-  #{:isaac.foundation :isaac.server})
+  #{:isaac.foundation})
 
 (defn- runtime-fs []
   (or (fs/instance) (throw (ex-info "module.loader requires :fs in system" {}))))

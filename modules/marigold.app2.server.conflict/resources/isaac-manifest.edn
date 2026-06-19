@@ -1,0 +1,4 @@
+{:id          :marigold.app2.server.conflict
+ :version     "0.1.0"
+ :factory     isaac.module.protocol/module
+ :description "Marigold fixture: pulls isaac.server 0.1.4 (conflict scenario)"}

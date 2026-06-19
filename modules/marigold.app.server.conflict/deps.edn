@@ -1,0 +1,3 @@
+{:paths ["resources"]
+ :deps  {io.github.slagyr/isaac-foundation {:local/root "../.."}
+         marigold.server.v100/marigold.server.v100 {:local/root "../marigold.server.v100"}}}
