@@ -7,7 +7,8 @@
     [isaac.config.paths :as paths]
     [isaac.config.root :as root]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.loader :as module-loader]
+    [isaac.nexus :as nexus]))
 
 (defn- read-user-config [root fs*]
   (when root
@@ -20,7 +21,8 @@
 (defn compose-classpath!
   "Add every valid config :modules coordinate to the runtime classpath."
   [config]
-  (module-loader/compose-config-modules! config))
+  (nexus/-with-nexus {:fs (fs/real-fs)}
+    (module-loader/compose-config-modules! config)))
 
 (defn -main
   "Launcher entrypoint: resolve --root, compose classpath from :modules,

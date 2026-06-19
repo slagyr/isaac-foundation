@@ -497,11 +497,14 @@
 
     #_{:clj-kondo/ignore [:unresolved-symbol]}
     (around [example]
-      (reset! @#'isaac.module.loader/loaded-module-coords* #{})
-      (example)
-      (reset! @#'isaac.module.loader/loaded-module-coords* #{}))
+      (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
+        (reset! @#'isaac.module.loader/loaded-module-coords* #{})
+        (example)
+        (reset! @#'isaac.module.loader/loaded-module-coords* #{})))
 
     (it "resolves all configured modules in one add-deps pass"
+      (write-local-module! :mod.a {:id :mod.a :version "1"})
+      (write-local-module! :mod.b {:id :mod.b :version "1"})
       (let [calls (atom [])
             mod-a (mod-coord :mod.a)
             mod-b (mod-coord :mod.b)]
@@ -512,6 +515,7 @@
                     (set (keys (first @calls)))))))
 
     (it "excludes seed foundation from every module coordinate"
+      (write-local-module! :isaac.comm.pigeon valid-comm-manifest)
       (let [calls (atom [])]
         (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
           (sut/compose-config-modules! {:modules {:isaac.comm.pigeon (mod-coord :isaac.comm.pigeon)}})

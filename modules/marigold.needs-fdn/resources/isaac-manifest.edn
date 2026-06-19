@@ -1,0 +1,4 @@
+{:id          :marigold.needs-fdn
+ :version     "0.1.0"
+ :factory     isaac.module.protocol/module
+ :description "Marigold fixture: depends on a fake foundation manifest (9.9.9) via deps.edn"}

@@ -1,4 +1,3 @@
-@wip
 Feature: isaac launcher — exactly one version of any module (92p3)
   The composed classpath must never contain two versions of the same module
   (or foundation). Resolution is a single unified tools.deps basis (one version
@@ -6,7 +5,7 @@ Feature: isaac launcher — exactly one version of any module (92p3)
   tree carries each module's :version so conflicts are observable.
 
   # Fixtures (must really load):
-  #   marigold.needs-fdn — deps.edn pulls a fixture foundation manifest
+  #   marigold.needs-fdn — deps.edn pulls marigold.fixture.foundation.v999 manifest
   #                        {:id :isaac.foundation :version "9.9.9"}
   #   marigold.app  / marigold.app2 — deps.edn each pull marigold.shared, at
   #                        DIFFERENT versions (1.0.0 vs 9.9.9)
@@ -27,8 +26,8 @@ Feature: isaac launcher — exactly one version of any module (92p3)
   Scenario: A module required at two versions loads as exactly one
     Given Isaac root "/tmp/isaac" contains config:
       """
-      {:modules {:marigold.app  {:local/root "modules/marigold.app"}
-                 :marigold.app2 {:local/root "modules/marigold.app2"}}}
+      {:modules {:marigold.app.conflict  {:local/root "modules/marigold.app.conflict"}
+                 :marigold.app2.conflict {:local/root "modules/marigold.app2.conflict"}}}
       """
     # app's deps.edn pulls marigold.shared 1.0.0; app2's pulls 9.9.9 — same id,
     # two versions. Fixtures are pinned so resolution deterministically keeps 1.0.0.

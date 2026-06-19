@@ -116,6 +116,7 @@
 (defn- render-installed-table [modules]
   (table/render
     {:columns [{:header "ID" :key :id :format module-id-str}
+               {:header "VERSION" :key :version}
                {:header "STATUS" :key :status
                 :format #(name %)
                 :color-fn status-color}

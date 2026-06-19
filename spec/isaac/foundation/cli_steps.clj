@@ -408,6 +408,13 @@
   (assert-stdout-contains "EDN" parse-edn-text parse-edn-literal table)
   (g/should true))
 
+(defn modules-list-entry-count [n]
+  (let [expected (if (string? n) (parse-long n) n)
+        value    (parse-edn-text (or (current-output) ""))
+        actual   (count (:modules value))]
+    (when-not (= expected actual)
+      (throw (ex-info (str "isaac modules list has " actual " entries, expected " expected) {})))))
+
 (defn stdout-does-not-match [table]
   (let [output   (or (current-output) "")
         patterns (extract-patterns table)]
@@ -534,6 +541,8 @@
 (defthen "the stdout JSON contains:" isaac.foundation.cli-steps/stdout-json-contains)
 
 (defthen "the stdout EDN contains:" isaac.foundation.cli-steps/stdout-edn-contains)
+
+(defthen "the isaac modules list has {int} entries" isaac.foundation.cli-steps/modules-list-entry-count)
 
 (defthen "the stdout does not match:" isaac.foundation.cli-steps/stdout-does-not-match
   "Each row's 'pattern' cell is compiled as a regex and asserts it is NOT found anywhere in stdout.")

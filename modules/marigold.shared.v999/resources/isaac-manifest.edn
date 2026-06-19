@@ -1,0 +1,4 @@
+{:id          :marigold.shared
+ :version     "9.9.9"
+ :factory     isaac.module.protocol/module
+ :description "Marigold fixture: same module id as marigold.shared at version 9.9.9"}

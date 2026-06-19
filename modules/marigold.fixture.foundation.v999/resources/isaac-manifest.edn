@@ -1,0 +1,5 @@
+{:id       :isaac.foundation
+ :version  "9.9.9"
+ :builtin? true
+ :factory  isaac.module.protocol/module
+ :description "Fixture foundation manifest — must never shadow the seed on the launcher classpath"}

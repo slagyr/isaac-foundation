@@ -1,0 +1,2 @@
+{:paths ["resources"]
+ :deps  {io.github.slagyr/isaac-foundation {:local/root "../marigold.fixture.foundation.v999"}}}

@@ -167,10 +167,12 @@
     (when-not (instance? clojure.lang.DynamicClassLoader cl)
       (.setContextClassLoader thread (clojure.lang.DynamicClassLoader. cl)))))
 
-(defn- classpath-coord [coord]
-  (update coord :exclusions
-          (fn [xs]
-            (vec (set/union (set xs) #{seed-foundation-lib})))))
+(defn- classpath-coord
+  ([coord] (classpath-coord coord #{}))
+  ([coord extra-exclusions]
+   (update coord :exclusions
+           (fn [xs]
+             (vec (set/union (set xs) #{seed-foundation-lib} extra-exclusions))))))
 
 (defn- invoke-add-deps! [deps-map]
   (when (seq deps-map)
@@ -197,9 +199,11 @@
   (invoke-add-deps! {(->lib-sym id) (classpath-coord coord)}))
 
 (defn- add-modules-deps! [id-coord-pairs]
-  (let [deps-map (into {}
+  (let [all-libs (set (map (fn [[id _]] (->lib-sym id)) id-coord-pairs))
+        deps-map (into {}
                        (map (fn [[id coord]]
-                              [(->lib-sym id) (classpath-coord coord)])
+                              (let [sibling-exclusions (disj all-libs (->lib-sym id))]
+                                [(->lib-sym id) (classpath-coord coord sibling-exclusions)]))
                             id-coord-pairs))]
     (invoke-add-deps! deps-map)))
 
@@ -217,8 +221,23 @@
 (defn- unload-module-pairs [pairs]
   (remove loaded-module-pair? pairs))
 
+(defn- coord-sort-key [coord]
+  (or (:local/root coord)
+      (str (:git/sha coord) (:git/tag coord) (:mvn/version coord))
+      (pr-str coord)))
+
+(defn- prefer-module-coord [a b]
+  (if (neg? (compare (coord-sort-key a) (coord-sort-key b))) a b))
+
+(defn- dedupe-module-pairs [pairs]
+  (let [by-id (reduce (fn [m [id coord]]
+                        (update m id #(if % (prefer-module-coord % coord) coord)))
+                      {}
+                      pairs)]
+    (vec (map (fn [[id coord]] [id coord]) by-id))))
+
 (defn- preload-module-pairs! [pairs]
-  (let [unloaded (vec (unload-module-pairs pairs))]
+  (let [unloaded (vec (unload-module-pairs (dedupe-module-pairs pairs)))]
     (when (seq unloaded)
       (add-modules-deps! unloaded)
       (mark-modules-loaded! unloaded))))
@@ -263,19 +282,6 @@
           (contains? coord :git/url)
           (contains? coord :git/tag)
           (contains? coord :git/sha)))))
-
-(defn- preload-explicit-module-deps! [raw-modules cwd]
-  (when (and *resolve-classpath?* (seq raw-modules))
-    (let [ctx   {:cwd cwd}
-          pairs (vec (keep (fn [[raw-id coord]]
-                             (when-let [id (->module-id raw-id)]
-                               (when (map? coord)
-                                 (let [abs-coord (absolutize-local-root coord cwd)]
-                                   (when (and (needs-classpath-preload? abs-coord)
-                                              (not (local-root-error ctx id abs-coord)))
-                                     [id abs-coord])))))
-                           raw-modules))]
-      (preload-module-pairs! pairs))))
 
 (defn- resource-urls [resource-name]
   (let [loader (or (.getContextClassLoader (Thread/currentThread))
@@ -455,12 +461,47 @@
                      explicit-modules))
              implied-ids)))
 
+(defn- explicit-preload-pairs [raw-modules cwd]
+  (let [ctx {:cwd cwd}]
+    (vec (keep (fn [[raw-id coord]]
+                 (when-let [id (->module-id raw-id)]
+                   (when (map? coord)
+                     (let [abs-coord (absolutize-local-root coord cwd)]
+                       (when (and (needs-classpath-preload? abs-coord)
+                                  (not (local-root-error ctx id abs-coord)))
+                         [id abs-coord])))))
+               raw-modules))))
+
+(defn- classpath-preload-pairs [pairs ctx]
+  (vec (keep (fn [[id coord]]
+               (when (and (needs-classpath-preload? coord)
+                          (not (local-root-error ctx id coord)))
+                 [id coord]))
+             pairs)))
+
+(defn- plan-module-classpath-pairs
+  "Every explicit :modules entry plus deps.edn-implied module coords, deduped
+   to one coordinate per module id before the single tools.deps pass."
+  [raw-modules cwd]
+  (when (seq raw-modules)
+    (let [ctx              {:cwd cwd}
+          explicit-modules (explicit-module-map raw-modules ctx)
+          explicit-pairs   (explicit-preload-pairs raw-modules cwd)
+          implied-ids      (set/difference (resolved-module-ids explicit-modules ctx)
+                                           (set (keys explicit-modules)))
+          implied-pairs    (implied-module-pairs explicit-modules ctx implied-ids)]
+      (classpath-preload-pairs (dedupe-module-pairs (vec (concat explicit-pairs implied-pairs)))
+                               ctx))))
+
+(defn- preload-planned-module-deps! [raw-modules cwd]
+  (when *resolve-classpath?*
+    (preload-module-pairs! (or (plan-module-classpath-pairs raw-modules cwd) []))))
+
 (defn- merge-resolved-classpath-modules [index explicit-modules context]
   (if-not *resolve-classpath?*
     index
     (let [allowed-ids (resolved-module-ids explicit-modules context)
           implied-ids (set/difference allowed-ids (set (keys index)))
-          _           (preload-module-pairs! (implied-module-pairs explicit-modules context implied-ids))
           implied     (into {}
                             (keep (fn [id]
                                     (when-let [entry (discover-implied-entry id explicit-modules context)]
@@ -1108,7 +1149,7 @@
   [config context]
   (let [declared    (get config :modules {})
         raw-modules (when (map? declared) declared)]
-    (preload-explicit-module-deps! raw-modules (or (:cwd context) (System/getProperty "user.dir")))
+    (preload-planned-module-deps! raw-modules (or (:cwd context) (System/getProperty "user.dir")))
     (if (and (some? declared) (not (map? declared)))
       {:index  (builtin-index)
        :errors [{:key "modules"
@@ -1147,9 +1188,10 @@
     :else :ok))
 
 (defn list-configured-modules
-  "Returns {:modules [{:id :coord :status :required-by}]} for explicit config
-   entries plus transitive module deps (deps.edn-native). Resolves classpath
-   for implied modules; :required-by is [] for explicit, requirer ids for implied."
+  "Returns {:modules [{:id :coord :status :version :required-by}]} for explicit
+   config entries plus transitive module deps (deps.edn-native). Resolves the
+   unified classpath via discover! so :version reflects the manifest that won
+   resolution; explicit :coord values are echoed from config as written."
   [config context]
   (binding [*resolve-classpath?* true]
     (let [declared (get config :modules {})]
@@ -1158,39 +1200,38 @@
         (let [explicit-modules (explicit-module-map declared context)
               explicit-ids     (set (keys explicit-modules))
               requirers        (required-by-map explicit-modules context)
+              {:keys [index]}  (discover! config context)
               allowed-ids      (resolved-module-ids explicit-modules context)
-              implied-ids      (sort (set/difference allowed-ids explicit-ids))
+              implied-ids      (sort-by id-str (set/difference allowed-ids explicit-ids))
               explicit-rows
               (vec
                 (for [[raw-id coord] (sort-by (fn [[k _]] (id-str (or (->module-id k) k))) declared)
-                      :let [id (or (->module-id raw-id) raw-id)]]
-                  (cond-> {:id           id
-                           :status       (inspect-module-status context id coord)
-                           :required-by  []}
-                    (map? coord) (assoc :coord coord))))
+                      :let [id (or (->module-id raw-id) raw-id)
+                            manifest (get-in index [id :manifest])]]
+                  (cond-> {:id          id
+                           :status      (inspect-module-status context id (if (map? coord) coord nil))
+                           :required-by []}
+                    (map? coord) (assoc :coord coord)
+                    (:version manifest) (assoc :version (:version manifest)))))
               implied-rows
               (vec
-                (for [id implied-ids]
-                  {:id          id
-                   :status      :ok
-                   :required-by (vec (sort (get requirers id #{})))}))]
+                (for [id implied-ids
+                      :let [entry (get index id)
+                            manifest (:manifest entry)]]
+                  (cond-> {:id          id
+                           :status      :ok
+                           :required-by (vec (sort (get requirers id #{})))}
+                    (:version manifest) (assoc :version (:version manifest))
+                    (:coord entry) (assoc :coord (:coord entry)))))]
           {:modules (vec (concat explicit-rows implied-rows))})))))
 
 (defn compose-config-modules!
-  "Adds every valid :modules coordinate to the runtime classpath in one
-   tools.deps resolution pass. :local/root paths are resolved relative to
-   `cwd` (default user.dir) so packaged launchers can live outside the
-   checkout. Foundation is excluded from module transitive deps — the seed
-   on the classpath is authoritative."
+  "Adds every valid :modules coordinate plus deps.edn-implied module deps to
+   the runtime classpath in one tools.deps resolution pass. :local/root paths
+   are resolved relative to `cwd` (default user.dir) so packaged launchers can
+   live outside the checkout. Foundation is excluded from module transitive
+   deps — the seed on the classpath is authoritative."
   ([config] (compose-config-modules! config (System/getProperty "user.dir")))
   ([config cwd]
    (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
-     (let [pairs (vec (keep (fn [[raw-id coord]]
-                              (when-let [id (->module-id raw-id)]
-                                (when (map? coord)
-                                  [id (absolutize-local-root coord cwd)])))
-                            modules))
-           unloaded (vec (unload-module-pairs pairs))]
-       (when (seq unloaded)
-         (add-modules-deps! unloaded)
-         (mark-modules-loaded! unloaded))))))
+     (preload-planned-module-deps! modules cwd))))
