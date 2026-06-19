@@ -24,19 +24,23 @@ Feature: isaac launcher — exactly one version of any module (92p3)
 
   @slow
   Scenario: A module required at two versions loads as exactly one
-    Given Isaac root "/tmp/isaac" contains config:
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:marigold.app.conflict  {:local/root "modules/marigold.app.conflict"}
                  :marigold.app2.conflict {:local/root "modules/marigold.app2.conflict"}}}
       """
     # app's deps.edn pulls marigold.shared 1.0.0; app2's pulls 9.9.9 — same id,
     # two versions. Fixtures are pinned so resolution deterministically keeps 1.0.0.
+    # yi82 surfaces 9.9.9 in :conflicts; :modules still carries one loaded row.
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
-      | path              | value            |
-      | modules.2.id      | :marigold.shared |
-      | modules.2.version | "1.0.0"          |
-    And the stdout does not contain "9.9.9"
+      | path               | value            |
+      | modules.2.id       | :marigold.shared |
+      | modules.2.version  | "1.0.0"          |
+      | conflicts.0.id     | :marigold.shared |
+      | conflicts.0.chosen | "1.0.0"        |
+    And the isaac modules list has 3 entries
     And the exit code is 0
 
   Scenario: A module that is both installed and required appears once
