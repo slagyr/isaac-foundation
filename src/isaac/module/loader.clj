@@ -1208,6 +1208,76 @@
     (some? (local-root-error context id coord)) :invalid
     :else :ok))
 
+(defn- manifest-version-at-coord [coord context]
+  (when (map? coord)
+    (let [fs* (runtime-fs)]
+      (when-let [path (coord-directory coord context)]
+        (when-let [manifest-path (local-manifest-path path fs*)]
+          (try
+            (:version (manifest/read-manifest manifest-path fs*))
+            (catch Exception _ nil)))))))
+
+(defn- collect-module-version-requests
+  "Every module dep edge in each explicit module's deps.edn tree, tagged with
+   the configuring module that introduced the requirement."
+  [explicit-modules context]
+  (vec
+    (mapcat
+      (fn [[explicit-id coord]]
+        (loop [pending [[coord explicit-id]]
+               seen    #{}
+               found   []]
+          (if (empty? pending)
+            found
+            (let [[c requirer] (first pending)]
+              (if (contains? seen c)
+                (recur (rest pending) seen found)
+                (let [seen*      (conj seen c)
+                      parent-dir (coord-directory c context)
+                      platform?  (when-let [mid (module-id-from-dep-coord c context)]
+                                   (contains? platform-module-ids mid))
+                      child-deps (if platform?
+                                   []
+                                   (->> (vals (or (read-module-deps-edn c context) {}))
+                                        (map #(resolve-nested-dep-coord parent-dir %))))
+                      records    (keep (fn [dep-coord]
+                                         (let [module-id (module-id-from-dep-coord dep-coord context)
+                                               version   (manifest-version-at-coord dep-coord context)]
+                                           (when (and module-id
+                                                      (not (contains? platform-module-ids module-id))
+                                                      version)
+                                             {:module-id   module-id
+                                              :version     version
+                                              :required-by requirer
+                                              :coord       dep-coord})))
+                                       child-deps)
+                      found*     (into found records)]
+                  (recur (into (vec (rest pending))
+                                (map (fn [dep] [dep requirer]) child-deps))
+                         seen*
+                         found*)))))))
+      explicit-modules)))
+
+(defn- module-version-conflicts
+  "Version mediation rows for modules requested at multiple versions across the
+   configured set. :chosen matches prefer-module-coord / unified resolution."
+  [explicit-modules context]
+  (let [requests (distinct (collect-module-version-requests explicit-modules context))
+        by-id    (group-by :module-id requests)]
+    (->> by-id
+         (keep (fn [[module-id reqs]]
+                 (let [versions (distinct (map :version reqs))]
+                   (when (> (count versions) 1)
+                     (let [winner-coord (reduce prefer-module-coord (map :coord reqs))
+                           chosen       (manifest-version-at-coord winner-coord context)
+                           requested    (vec (for [v (sort versions)]
+                                               {:version     v
+                                                :required-by (vec (sort (map :required-by
+                                                                             (filter #(= (:version %) v) reqs))))}))]
+                       {:id module-id :chosen chosen :requested requested})))))
+         (sort-by (comp id-str :id))
+         vec)))
+
 (defn list-configured-modules
   "Returns {:modules [{:id :coord :status :version :required-by}]} for explicit
    config entries plus transitive module deps (deps.edn-native). Resolves the
@@ -1217,7 +1287,7 @@
   (binding [*resolve-classpath?* true]
     (let [declared (get config :modules {})]
       (if (or (nil? declared) (not (map? declared)))
-        {:modules []}
+        {:modules [] :conflicts []}
         (let [explicit-modules (explicit-module-map declared context)
               explicit-ids     (set (keys explicit-modules))
               requirers        (required-by-map explicit-modules context)
@@ -1244,7 +1314,8 @@
                            :required-by (vec (sort (get requirers id #{})))}
                     (:version manifest) (assoc :version (:version manifest))
                     (:coord entry) (assoc :coord (:coord entry)))))]
-          {:modules (vec (concat explicit-rows implied-rows))})))))
+          {:modules   (vec (concat explicit-rows implied-rows))
+           :conflicts (module-version-conflicts explicit-modules context)})))))
 
 (defn compose-config-modules!
   "Adds every valid :modules coordinate plus deps.edn-implied module deps to

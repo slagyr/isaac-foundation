@@ -106,8 +106,11 @@
 
     :else (pr-str coord)))
 
-(defn- format-required-by [{:keys [required-by]}]
-  (let [rb (or required-by [])]
+(defn- format-required-by [required-by]
+  (let [rb (cond
+             (vector? required-by) required-by
+             (map? required-by)      (or (:required-by required-by) [])
+             :else                   [])]
     (case (count rb)
       0 ""
       1 (module-id-str (first rb))
@@ -124,6 +127,36 @@
                {:header "REQUIRED BY" :key :required-by :format format-required-by}]
      :rows    modules
      :zebra?  true}))
+
+(defn- conflict-table-rows [conflicts]
+  (mapcat (fn [{:keys [id chosen requested]}]
+            (map (fn [{:keys [version required-by]}]
+                   {:module      id
+                    :version     version
+                    :required-by (vec required-by)
+                    :loaded      (when (= version chosen) "✓")})
+                 requested))
+          conflicts))
+
+(defn- render-conflicts-block [conflicts]
+  (when (seq conflicts)
+    (let [n    (count conflicts)
+          rows (conflict-table-rows conflicts)]
+      (str "\n"
+           color/yellow "⚠  " color/reset
+           n " version conflict"
+           (when (> n 1) "s")
+           " — one version loaded; the rest dropped\n"
+           (table/render
+             {:columns [{:header "MODULE" :key :module :format module-id-str}
+                        {:header "VERSION" :key :version}
+                        {:header "REQUIRED BY" :key :required-by :format format-required-by}
+                        {:header "LOADED" :key :loaded}]
+              :rows    rows
+              :zebra?  true})))))
+
+(defn- render-installed-list [modules conflicts]
+  (str (render-installed-table modules) (render-conflicts-block conflicts)))
 
 (defn- render-catalog-table [modules]
   (table/render
@@ -149,10 +182,11 @@
       (common/print-cli-error! "choose one of --edn or --json")
       (let [config  (or (read-root-config (:root opts)) {})
             context {:cwd (System/getProperty "user.dir")}
-            {:keys [modules]} (module-loader/list-configured-modules config context)]
+            {:keys [modules conflicts]}
+            (module-loader/list-configured-modules config context)]
         (cond
-          (or edn json) (print-structured! edn json {:modules modules})
-          :else         (println (render-installed-table modules)))
+          (or edn json) (print-structured! edn json {:modules modules :conflicts conflicts})
+          :else         (println (render-installed-list modules conflicts)))
         0))))
 
 (defn- run-available [opts arguments options]
