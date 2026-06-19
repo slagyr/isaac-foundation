@@ -29,7 +29,7 @@
      :description "Inspect and manage Isaac extension modules declared in config."
      :pre-sections [["Subcommands"
                      (str "  available [search]  Browse the installable module catalog\n"
-                          "  install <name>      Add a module coordinate to config :modules\n"
+                          "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
                           "  remove <name>       Remove a module from config :modules\n"
                           "  help <subcommand>   Print usage for a subcommand")]]
@@ -52,8 +52,8 @@
 (defn- install-help []
   (common/render-help
     {:command     "isaac modules install"
-     :params      "<name>"
-     :description "Resolve a registry module name to its coordinate and add it to config :modules."
+     :params      "<name> [<name> ...]"
+     :description "Resolve registry module names to coordinates and add them to config :modules."
      :option-spec option-spec}))
 
 (defn- remove-help []
@@ -219,6 +219,24 @@
       (do (common/print-errors! (:errors result) "error")
           1))))
 
+(defn- resolve-install-entries [registry names]
+  (reduce
+    (fn [result name]
+      (if (:error result)
+        result
+        (let [{:keys [id coord error]} (registry/lookup-entry registry name)]
+          (cond
+            error
+            {:error error}
+
+            (not (module-loader/valid-module-coord? coord))
+            {:error (str "Registry entry for " name " has invalid coordinate")}
+
+            :else
+            (update result :entries conj {:id id :coord coord :name name})))))
+    {:entries []}
+    names))
+
 (defn- run-install [opts arguments _options]
   (let [names (vec (remove str/blank? arguments))
         root  (:root opts)]
@@ -226,31 +244,28 @@
       (empty? names)
       (common/print-cli-error! "missing module name")
 
-      (> (count names) 1)
-      (common/print-cli-error! "modules install accepts one module name at a time")
-
       :else
-      (let [module-name (first names)
-            config      (or (read-root-config root) {})
+      (let [config                   (or (read-root-config root) {})
             {:keys [registry error]} (registry/fetch-registry config root)]
         (cond
           error
           (common/print-cli-error! error)
 
           :else
-          (let [{:keys [id coord error]} (registry/lookup-entry registry module-name)]
+          (let [{:keys [entries error]} (resolve-install-entries registry names)]
             (cond
               error
               (common/print-cli-error! error)
 
-              (not (module-loader/valid-module-coord? coord))
-              (common/print-cli-error! (str "Registry entry for " module-name " has invalid coordinate"))
-
               :else
               (let [modules (get config :modules {})
-                    exit    (mutate-modules! root "modules" (assoc modules id coord))]
+                    merged  (reduce (fn [m {:keys [id coord]}] (assoc m id coord))
+                                    modules
+                                    entries)
+                    exit    (mutate-modules! root "modules" merged)]
                 (when (zero? exit)
-                  (println (str "Installed " (module-id-str id))))
+                  (doseq [{:keys [id]} entries]
+                    (println (str "Installed " (module-id-str id)))))
                 exit))))))))
 
 (defn- run-remove [opts arguments _options]

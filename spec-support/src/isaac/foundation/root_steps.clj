@@ -15,6 +15,7 @@
     [isaac.fs :as fs]
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
+    [isaac.modules.registry :as modules-registry]
     [isaac.nexus :as nexus]))
 
 (helper! isaac.foundation.root-steps)
@@ -107,6 +108,7 @@
         abs-dir  (->root dir virtual?)
         mem      (when virtual? (fs/mem-fs))]
     (g/reset!)
+    (modules-registry/clear-cache!)
     (reset! c3env/-overrides {})
     (config/clear-env-overrides!)
     (nexus/reset!)

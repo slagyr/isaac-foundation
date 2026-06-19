@@ -29,7 +29,27 @@ Feature: isaac modules — compose the assistant via config
       | modules.1.id   | :greeter          |
     And the exit code is 0
 
-  Scenario: Install rejects multiple module names
+  Scenario: install adds every named module
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
+      """
+      {:module-registry "registry.edn"}
+      """
+    And the isaac file "registry.edn" exists with:
+      """
+      {:alpha {:coord {:local/root "modules/alpha"} :desc "A"}
+       :beta  {:coord {:local/root "modules/beta"}  :desc "B"}}
+      """
+    When isaac is run with "modules install alpha beta"
+    Then the stdout contains "Installed alpha"
+    And the stdout contains "Installed beta"
+    And the exit code is 0
+    And the isaac file "config/isaac.edn" EDN contains:
+      | path          | value                         |
+      | modules.alpha | {:local/root "modules/alpha"} |
+      | modules.beta  | {:local/root "modules/beta"}  |
+
+  Scenario: a list with an unknown module writes nothing (all-or-nothing)
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """
@@ -37,11 +57,10 @@ Feature: isaac modules — compose the assistant via config
       """
     And the isaac file "registry.edn" exists with:
       """
-      {:greeter {:coord {:local/root "modules/marigold.cli.greeter"} :desc "Prints greetings"}
-       :bridge  {:coord {:local/root "modules/marigold.bridge"}      :desc "A bridge module"}}
+      {:alpha {:coord {:local/root "modules/alpha"} :desc "A"}}
       """
-    When isaac is run with "modules install greeter bridge"
-    Then the stderr contains "modules install accepts one module name at a time"
+    When isaac is run with "modules install alpha nope"
+    Then the stderr contains "Unknown module: nope"
     And the exit code is 1
     And the isaac file "config/isaac.edn" EDN contains:
       | path    | value |
