@@ -547,14 +547,16 @@
 (defn- merge-resolved-classpath-modules [index explicit-modules context]
   (if-not *resolve-classpath?*
     index
-    (let [allowed-ids (resolved-module-ids explicit-modules context)
-          implied-ids (set/difference allowed-ids (set (keys index)))
-          implied     (into {}
-                            (keep (fn [id]
-                                    (when-let [entry (discover-implied-entry id explicit-modules context)]
-                                      [id entry]))
-                                  implied-ids))]
-      (merge index implied))))
+    (let [explicit-ids (set (keys explicit-modules))
+          implied-ids  (set/difference (resolved-module-ids explicit-modules context)
+                                       explicit-ids)]
+      (reduce
+        (fn [idx id]
+          (if-let [entry (discover-implied-entry id explicit-modules context)]
+            (assoc idx id (merge (get idx id {}) entry))
+            idx))
+        index
+        implied-ids))))
 
 (defn- cycle-errors [index]
   (let [id->requires (into {} (map (fn [[id e]] [id (keys (get-in e [:manifest :deps] {}))]) index))

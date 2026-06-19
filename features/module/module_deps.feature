@@ -53,6 +53,7 @@ Feature: isaac modules — transitive module dependencies (deps.edn-native)
       | modules.0.required-by | []                    |
       | modules.1.id          | :marigold.cli.greeter |
       | modules.1.required-by | [:marigold.app]       |
+    And the stdout contains "modules/marigold.cli.greeter"
     And the exit code is 0
 
   Scenario: A module required by several installed modules lists all requirers
