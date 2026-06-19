@@ -143,11 +143,37 @@
   (or (str/starts-with? path "/")
       (re-matches #"[A-Za-z]:.*" path)))
 
+(def ^:private gitlibs-root
+  (str (System/getProperty "user.home") "/.gitlibs/libs"))
+
+(defn- apply-deps-root [dir coord]
+  (if-let [root (:deps/root coord)]
+    (.getCanonicalPath (java.io.File. dir root))
+    dir))
+
+(defn- find-gitlib-directory [sha]
+  (when (and (string? sha) (seq sha))
+    (let [libs (java.io.File. gitlibs-root)]
+      (when (.isDirectory libs)
+        (some (fn [^java.io.File ns-dir]
+                (when (.isDirectory ns-dir)
+                  (some (fn [^java.io.File name-dir]
+                          (when (.isDirectory name-dir)
+                            (let [sha-dir (java.io.File. name-dir sha)]
+                              (when (.isDirectory sha-dir)
+                                (.getPath sha-dir)))))
+                        (.listFiles ns-dir))))
+              (.listFiles libs))))))
+
 (defn- coord-directory [coord context]
-  (when-let [root (:local/root coord)]
-    (if (absolute-path? root)
-      root
-      (abs-path (:cwd context) root))))
+  (when (map? coord)
+    (or (when-let [root (:local/root coord)]
+          (if (absolute-path? root)
+            root
+            (abs-path (:cwd context) root)))
+        (when-let [sha (:git/sha coord)]
+          (when-let [dir (find-gitlib-directory sha)]
+            (apply-deps-root dir coord))))))
 
 (defn- resolve-nested-dep-coord [parent-dir dep-coord]
   (if-let [root (:local/root dep-coord)]
@@ -1288,7 +1314,9 @@
     (let [declared (get config :modules {})]
       (if (or (nil? declared) (not (map? declared)))
         {:modules [] :conflicts []}
-        (let [explicit-modules (explicit-module-map declared context)
+        (let [cwd              (or (:cwd context) (System/getProperty "user.dir"))
+              _                (preload-planned-module-deps! declared cwd)
+              explicit-modules (explicit-module-map declared context)
               explicit-ids     (set (keys explicit-modules))
               requirers        (required-by-map explicit-modules context)
               {:keys [index]}  (discover! config context)
