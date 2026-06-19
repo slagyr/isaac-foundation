@@ -56,22 +56,25 @@
 
 (defn fetch-registry
   "Load the registry for `config` at `root`. Returns
-   {:registry <map>} or {:error <message>}."
-  [config root]
+   {:registry <map>} or {:error <message>}. Pass `refresh?` true to bypass
+   the in-memory cache (e.g. modules upgrade)."
+  ([config root] (fetch-registry config root false))
+  ([config root refresh?]
   (let [source (registry-source config)
         fs*    (or (fs/instance) (fs/real-fs))]
-    (when (and (not (url? source))
-              (not (fs/exists? fs* (registry-path root source))))
+    (when (or refresh?
+              (and (not (url? source))
+                   (not (fs/exists? fs* (registry-path root source)))))
       (swap! cache* dissoc [root source]))
     (try
-      (if-let [cached (get @cache* [root source])]
+      (if-let [cached (and (not refresh?) (get @cache* [root source]))]
         {:registry cached}
         (let [text     (read-registry-text source root fs*)
               registry (parse-registry text)]
           (swap! cache* assoc [root source] registry)
           {:registry registry}))
       (catch Exception _
-        {:error "Could not reach the module registry"}))))
+        {:error "Could not reach the module registry"})))))
 
 (defn lookup-entry
   "Resolve a user-facing module `name` in `registry`. Returns

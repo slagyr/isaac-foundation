@@ -1,41 +1,45 @@
-@wip
-Feature: isaac modules upgrade — refresh installed modules to the latest registry coords
-  `isaac modules upgrade [name...]` re-fetches the registry and rewrites each
-  REGISTRY-SOURCED module in :modules to the latest coord, reporting old -> new.
-  :local/root and non-registry coords are left untouched. No args = all; names =
-  selective. (This is the fix for stale config coords after a registry bump.)
+Feature: isaac modules upgrade — refresh installed modules to registry coords
+  Config snapshots :modules coords when install runs; the registry can move on
+  without updating installed roots. `modules upgrade` re-fetches the catalog and
+  rewrites registry-sourced git coords to the latest entry, like brew upgrade.
 
-  Scenario: upgrade rewrites a stale module to the latest registry coord
-    Given Isaac root "/tmp/isaac" contains config:
+  Scenario: A stale registry-sourced module is rewritten to the latest coord
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:module-registry "registry.edn"
-       :modules {:greeter {:git/url "https://github.com/slagyr/isaac-greeter.git" :git/sha "0000000"}}}
+       :modules {:stale {:git/url "https://github.com/slagyr/isaac-server.git"
+                         :git/sha "6960803d2a0f90431051fe98359e6e16ff6fd29c"}}}
       """
     And the isaac file "registry.edn" exists with:
       """
-      {:greeter {:coord {:git/url "https://github.com/slagyr/isaac-greeter.git" :git/sha "abc1234"} :desc "G"}}
+      {:stale {:coord {:git/url "https://github.com/slagyr/isaac-server.git"
+                       :git/sha "817a5242b3c85bdcadbc4225c5d75f8fafc64c18"}
+               :desc "Stale server module"}}
       """
     When isaac is run with "modules upgrade"
-    Then the stdout contains "greeter"
-    And the stdout contains "abc1234"
+    Then the stdout contains "Upgraded stale: 6960803 -> 817a524"
+    And the exit code is 0
     And the isaac file "config/isaac.edn" EDN contains:
-      | path                    | value     |
-      | modules.greeter.git/sha | "abc1234" |
-    And the exit code is 0
+      | path          | value                                                                                      |
+      | modules.stale | {:git/url "https://github.com/slagyr/isaac-server.git" :git/sha "817a5242b3c85bdcadbc4225c5d75f8fafc64c18"} |
 
-  Scenario: upgrade leaves :local/root and non-registry modules untouched
-    Given Isaac root "/tmp/isaac" contains config:
+  Scenario: Local and non-registry modules are left untouched
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
       """
       {:module-registry "registry.edn"
-       :modules {:dev {:local/root "modules/dev"}}}
+       :modules {:local  {:local/root "modules/local"}
+                 :orphan {:mvn/version "9.9.9"}}}
       """
     And the isaac file "registry.edn" exists with:
       """
-      {:greeter {:coord {:local/root "modules/greeter"} :desc "G"}}
+      {:other {:coord {:local/root "modules/other"} :desc "Unrelated"}}
       """
     When isaac is run with "modules upgrade"
-    Then the isaac file "config/isaac.edn" EDN contains:
-      | path        | value                       |
-      | modules.dev | {:local/root "modules/dev"} |
-    And the stdout contains "up to date"
+    Then the stdout contains "up to date"
     And the exit code is 0
+    And the isaac file "config/isaac.edn" EDN contains:
+      | path           | value                                              |
+      | modules.local  | {:local/root "modules/local"}                      |
+      | modules.orphan | {:mvn/version "9.9.9"} |

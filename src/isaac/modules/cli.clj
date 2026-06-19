@@ -32,6 +32,7 @@
                           "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
                           "  remove <name>       Remove a module from config :modules\n"
+                          "  upgrade [name] ...  Refresh registry-sourced modules to latest coords\n"
                           "  help <subcommand>   Print usage for a subcommand")]]
      :option-spec option-spec}))
 
@@ -61,6 +62,15 @@
     {:command     "isaac modules remove"
      :params      "<name>"
      :description "Remove a module from config :modules."
+     :option-spec option-spec}))
+
+(defn- upgrade-help []
+  (common/render-help
+    {:command     "isaac modules upgrade"
+     :params      "[name] [<name> ...]"
+     :description (str "Re-fetch the registry and rewrite registry-sourced :modules\n"
+                       "coordinates to the latest catalog coords. Local paths and ids\n"
+                       "not in the registry are left unchanged.")
      :option-spec option-spec}))
 
 (defn- read-root-config [root]
@@ -268,6 +278,73 @@
                     (println (str "Installed " (module-id-str id)))))
                 exit))))))))
 
+(defn- coord-revision [coord]
+  (let [rev (or (:git/sha coord) (:git/tag coord) (:mvn/version coord))]
+    (when rev (subs rev 0 (min 7 (count rev))))))
+
+(defn- registry-upgradeable? [id coord registry]
+  (and (map? coord)
+       (not (:local/root coord))
+       (contains? registry id)))
+
+(defn- plan-upgrades [modules registry names]
+  (let [selective? (seq names)
+        ids        (if selective?
+                     (mapv keyword names)
+                     (vec (keys modules)))]
+    (reduce
+      (fn [result id]
+        (if (:error result)
+          result
+          (cond
+            (not (contains? modules id))
+            (if selective?
+              (assoc result :error (str "Unknown module: " (module-id-str id)))
+              result)
+
+            :else
+            (let [coord (get modules id)]
+              (cond
+                (not (registry-upgradeable? id coord registry))
+                result
+
+                :else
+                (let [new-coord (:coord (get registry id))]
+                  (if (= coord new-coord)
+                    result
+                    (update result :upgrades conj {:id id :old coord :new new-coord}))))))))
+      {:upgrades []}
+      ids)))
+
+(defn- run-upgrade [opts arguments _options]
+  (let [names (vec (remove str/blank? arguments))
+        root  (:root opts)
+        config (or (read-root-config root) {})]
+    (let [{:keys [registry error]} (registry/fetch-registry config root true)]
+      (cond
+        error
+        (common/print-cli-error! error)
+
+        :else
+        (let [{:keys [upgrades error]} (plan-upgrades (get config :modules {}) registry names)]
+          (cond
+            error
+            (common/print-cli-error! error)
+
+            (empty? upgrades)
+            (do (println "up to date") 0)
+
+            :else
+            (let [merged (reduce (fn [m {:keys [id new]}] (assoc m id new))
+                                 (get config :modules {})
+                                 upgrades)
+                  exit   (mutate-modules! root "modules" merged)]
+              (when (zero? exit)
+                (doseq [{:keys [id old new]} upgrades]
+                  (println (str "Upgraded " (module-id-str id) ": "
+                                  (coord-revision old) " -> " (coord-revision new)))))
+              exit)))))))
+
 (defn- run-remove [opts arguments _options]
   (let [module-name (first arguments)
         root        (:root opts)]
@@ -298,7 +375,10 @@
                 :help-text   list-help}
    "remove"    {:option-spec option-spec
                 :runner      run-remove
-                :help-text   remove-help}})
+                :help-text   remove-help}
+   "upgrade"   {:option-spec option-spec
+                :runner      run-upgrade
+                :help-text   upgrade-help}})
 
 (defn- print-help! []
   (println (modules-help))
