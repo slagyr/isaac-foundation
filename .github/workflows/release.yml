@@ -33,16 +33,15 @@ jobs:
           generate_release_notes: true
 
       - name: Bump homebrew tap formula
-        if: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN != '' }}
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN }}
-          repository: slagyr/homebrew-tap
-          event-type: foundation-release
-          client-payload: '{"tag": "${{ inputs.tag }}"}'
-
-      - name: Note manual tap bump when token unset
-        if: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN == '' }}
+        env:
+          HOMEBREW_TAP_BUMP_TOKEN: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN }}
+          TAG: ${{ inputs.tag }}
         run: |
-          echo "::warning::HOMEBREW_TAP_BUMP_TOKEN not set — bump slagyr/homebrew-tap manually:"
-          echo "  ./scripts/bump-isaac-formula.sh ${{ inputs.tag }}"
+          if [ -z "${HOMEBREW_TAP_BUMP_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_TAP_BUMP_TOKEN not set — bump slagyr/homebrew-tap manually:"
+            echo "  ./scripts/bump-isaac-formula.sh ${TAG}"
+            exit 0
+          fi
+          gh api repos/slagyr/homebrew-tap/dispatches \
+            -f event_type=foundation-release \
+            -f "client_payload={\"tag\": \"${TAG}\"}"
