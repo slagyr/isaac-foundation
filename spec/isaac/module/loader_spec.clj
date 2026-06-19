@@ -493,6 +493,28 @@
           (sut/activate! :marigold.comm.stub module-index)
           (should= 1 (count @calls))))))
 
+  (describe "activate-modules!"
+
+    #_{:clj-kondo/ignore [:unresolved-symbol]}
+    (around [example]
+      (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
+        (reset! @#'isaac.module.loader/loaded-module-coords* #{})
+        (reset-cli-registry!)
+        (sut/clear-activations!)
+        (example)
+        (reset! @#'isaac.module.loader/loaded-module-coords* #{})
+        (sut/clear-activations!)
+        (reset-cli-registry!)))
+
+    (it "activates every module in dependency order"
+      (log/capture-logs
+        (sut/activate-modules! {:marigold.longwave {:manifest {:deps {:marigold.bridge {}}}}
+                                :marigold.bridge   {:manifest {}}})
+        (let [events (filter #(= :module/activated (:event %)) @log/captured-logs)]
+          (should= 2 (count events))
+          (should= ["marigold.bridge" "marigold.longwave"]
+                   (mapv :module events))))))
+
   (describe "compose-config-modules!"
 
     #_{:clj-kondo/ignore [:unresolved-symbol]}

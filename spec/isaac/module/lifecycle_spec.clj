@@ -1,7 +1,9 @@
 (ns isaac.module.lifecycle-spec
   (:require
+    [isaac.logger :as log]
     [isaac.module.protocol :as module]
     [isaac.module.loader :as sut]
+    [isaac.spec-helper :as helper]
     [speclj.core :refer :all]))
 
 (declare *calls)
@@ -44,6 +46,8 @@
 
 (describe "module lifecycle"
 
+  (helper/with-captured-logs)
+
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]
     (binding [*calls (atom [])]
@@ -65,6 +69,15 @@
     (should= [[:load :marigold.bridge]
               [:load :marigold.longwave]]
              @*calls))
+
+  (it "logs module/loaded once per module in dependency order"
+    (sut/load-modules!
+      {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
+       :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
+    (let [events (filter #(= :module/loaded (:event %)) @log/captured-logs)]
+      (should= 2 (count events))
+      (should= ["marigold.bridge" "marigold.longwave"]
+               (mapv :module events))))
 
   (it "unloads modules in reverse topological order"
     (sut/load-modules!

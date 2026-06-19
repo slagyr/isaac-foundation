@@ -871,6 +871,14 @@
         (visit module-id []))
       @order)))
 
+(defn activate-modules!
+  "Activate every module in `module-index` in topological order. Idempotent —
+   already-active modules are skipped without re-logging."
+  [module-index]
+  (doseq [module-id (topological-order module-index)]
+    (activate! module-id module-index))
+  :activated)
+
 (defn- resolve-module-factory! [module-id factory-sym]
   (try
     (resolve-symbol! factory-sym)
@@ -907,6 +915,7 @@
 (defn- eager-load? [module-id {:keys [path coord manifest]}]
   (and (:factory manifest)
        (or (contains? platform-module-ids module-id)
+           (:builtin? manifest)
            (some? path)
            (:local/root coord))))
 
@@ -953,6 +962,7 @@
           (doseq [{:keys [id instance] :as loaded-module} instances]
             (try
               (module/run-load! instance)
+              (log/info :module/loaded :module (id-str id))
               (swap! started conj loaded-module)
               (catch Exception e
                 (throw (lifecycle-error (str "module load failed for " (id-str id))
@@ -964,6 +974,16 @@
           (catch Exception e
             (rollback-loaded-modules! @started)
             (throw e)))))))
+
+(defn boot-stats
+  "Snapshot of module boot progress for summary logging — :modules in the
+   index, :loaded via factory on-load, :activated via activate!, :failed
+   reserved for callers (defaults 0 on a clean boot)."
+  [module-index]
+  {:modules   (count module-index)
+   :loaded    (count (loaded-module-ids))
+   :activated (count @activated-modules*)
+   :failed    0})
 
 (defn reconcile-modules!
   "Unload eager-load modules removed from `module-index`, then load any
