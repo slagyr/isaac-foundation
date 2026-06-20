@@ -698,11 +698,11 @@
                             (when-let [e (get-in mod-entry [:manifest berth-id entry-kw])]
                               [mod-id e]))
                           builtin)]
-    (when-let [[consumer-id entry] (and pair factory-sym)]
-      (let [berth-decl (some (fn [[_ mod-entry]]
-                               (get-in mod-entry [:manifest :berths berth-id]))
-                             builtin)
-            berth-schema (:schema berth-decl)]
+    (when (and pair factory-sym)
+      (let [[consumer-id entry] pair
+            _berth-schema (:schema (some (fn [[_ mod-entry]]
+                                           (get-in mod-entry [:manifest :berths berth-id]))
+                                         builtin))]
         (binding [registered-in/*module-index* builtin]
           ((resolve-symbol! factory-sym) [entry-kw entry])
           (log-berth-registered! berth-id entry-kw consumer-id)
