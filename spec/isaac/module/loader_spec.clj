@@ -377,7 +377,32 @@
                  (:key (first errors)))
         (should= "could not resolve factory symbol: isaac.module.loader-spec.nope/missing-factory!"
                  (:value (first errors)))
-        (should= [] @*factory-calls*))))
+        (should= [] @*factory-calls*)))
+
+    (it "logs :berth/registered for each installed entry"
+      (let [module-index (index-with-berth+contributions
+                           :provider/routes
+                           'isaac.module.loader-spec/record-route!
+                           {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]})]
+        (log/capture-logs
+          (sut/process-manifest-berths! module-index)
+          (should= [{:level :info :event :berth/registered :berth :provider/routes
+                     :entry :a :module "consumer-a"}]
+                   (->> @log/captured-logs
+                        (filter #(= :berth/registered (:event %)))
+                        (mapv #(select-keys % [:level :event :berth :entry :module])))))))
+
+    (it "logs :berth/registration-summary with per-berth counts"
+      (let [module-index (index-with-berth+contributions
+                           :provider/routes
+                           'isaac.module.loader-spec/record-route!
+                           {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]
+                            :consumer-b [{:method :post :path "/b" :handler 'consumer-b/b-handler}]})]
+        (log/capture-logs
+          (sut/process-manifest-berths! module-index)
+          (should= {:provider/routes 2}
+                   (:counts (first (filter #(= :berth/registration-summary (:event %))
+                                           @log/captured-logs))))))))
 
   (describe "clear-activations!"
 

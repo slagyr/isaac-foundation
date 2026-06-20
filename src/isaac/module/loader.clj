@@ -659,6 +659,32 @@
           (get-in entry [:manifest :berths berth-id :schema :value-spec :factory]))
         module-index))
 
+(def ^:dynamic *berth-registration-counts* nil)
+
+(defn- berth-entry-id
+  [berth-schema entry]
+  (cond
+    (instance? clojure.lang.MapEntry entry) (key entry)
+    (and (map? entry) (:name entry))      (keyword (:name entry))
+    (and (map? entry) (:path entry))
+    (let [path (str/replace (:path entry) #"^/" "")]
+      (keyword (str/replace path #"/" "-")))
+    (= :map (:type berth-schema))         (some-> entry key)
+    :else                                 nil))
+
+(defn- log-berth-registered!
+  [berth-id entry-id module-id]
+  (when entry-id
+    (log/info :berth/registered
+              :berth  berth-id
+              :entry  entry-id
+              :module (id-str module-id))))
+
+(defn- record-berth-registration!
+  [berth-id]
+  (when *berth-registration-counts*
+    (swap! *berth-registration-counts* update berth-id (fnil inc 0))))
+
 (defn register-builtin-berth-entry!
   "Look up `entry-id` in `berth-id` across builtin manifests and install
    it via the berth's per-entry factory. Called by isaac.tool.builtin to
@@ -668,12 +694,19 @@
   (let [entry-kw    (keyword entry-id)
         builtin     (builtin-index)
         factory-sym (berth-entry-factory-sym builtin berth-id)
-        entry       (some (fn [[_ mod-entry]]
-                            (get-in mod-entry [:manifest berth-id entry-kw]))
+        pair        (some (fn [[mod-id mod-entry]]
+                            (when-let [e (get-in mod-entry [:manifest berth-id entry-kw])]
+                              [mod-id e]))
                           builtin)]
-    (when (and entry factory-sym)
-      (binding [registered-in/*module-index* builtin]
-        ((resolve-symbol! factory-sym) [entry-kw entry])))))
+    (when-let [[consumer-id entry] (and pair factory-sym)]
+      (let [berth-decl (some (fn [[_ mod-entry]]
+                               (get-in mod-entry [:manifest :berths berth-id]))
+                             builtin)
+            berth-schema (:schema berth-decl)]
+        (binding [registered-in/*module-index* builtin]
+          ((resolve-symbol! factory-sym) [entry-kw entry])
+          (log-berth-registered! berth-id entry-kw consumer-id)
+          (record-berth-registration! berth-id))))))
 
 (defn- resolve-symbol! [sym]
   (requiring-resolve sym))
@@ -1094,6 +1127,9 @@
                         (swap! seen conj id)))
                     (try
                       (factory entry)
+                      (log-berth-registered! berth-id (berth-entry-id berth-schema entry)
+                                             consumer-id)
+                      (record-berth-registration! berth-id)
                       nil
                       (catch Throwable t
                         ;; Don't let one consumer's broken factory abort
@@ -1124,11 +1160,16 @@
    back any new top-level keys the factories register. Returns a vec
    of error rows (empty on success)."
   [module-index]
-  (binding [registered-in/*module-index* module-index]
-    (vec (mapcat (fn [[berth-id berth-decl]]
-                   (when (manifest-only-berth? berth-decl)
-                     (process-manifest-berth! module-index berth-id berth-decl)))
-                 (collect-berth-declarations module-index)))))
+  (let [counts (atom {})]
+    (binding [registered-in/*module-index* module-index
+              *berth-registration-counts* counts]
+      (let [errors (vec (mapcat (fn [[berth-id berth-decl]]
+                                   (when (manifest-only-berth? berth-decl)
+                                     (process-manifest-berth! module-index berth-id berth-decl)))
+                                 (collect-berth-declarations module-index)))]
+        (when (seq @counts)
+          (log/info :berth/registration-summary :counts @counts))
+        errors))))
 
 (defn- pending-deps
   "Pairs of [consumer-id dep-id coord] for deps not yet in `index`."
