@@ -22,6 +22,13 @@
                    {:level :info :event :telly/started :module "bert"}]]
       (should= [] (:failures (#'sut/log-match-result table entries)))))
 
+  (it "does not treat boot-phase entries as a failed single-row match when the target is later"
+    (let [table   {:headers ["level" "event" "path" "impl"]
+                   :rows    [[":info" ":lifecycle/started" "comms.bert" "telly"]]}
+          entries [{:level :info :event :server/boot-phase :phase :start}
+                   {:level :info :event :lifecycle/started :path "comms.bert" :impl "telly"}]]
+      (should= [] (:failures (#'sut/log-match-result table entries)))))
+
   (it "matches existing logs without waiting for an unrelated turn future"
     (try
       (log/set-output! :memory)

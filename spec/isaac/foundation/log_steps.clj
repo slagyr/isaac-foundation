@@ -11,29 +11,52 @@
 
 (helper! isaac.foundation.log-steps)
 
+(defn- normalize-message-table [table]
+  (let [message-idx (.indexOf (:headers table) "message")]
+    (if (neg? message-idx)
+      table
+      (update table :rows
+                (fn [rows]
+                  (mapv (fn [row]
+                          (let [cell (nth row message-idx nil)]
+                            (if (or (nil? cell) (str/starts-with? cell "#\""))
+                              row
+                              (assoc row message-idx (str "#\"" cell "\"")))))
+                        rows))))))
+
+(defn- first-row-match-idx [table entries start]
+  (let [headers (:headers table)
+        row     (first (:rows table))]
+    (some (fn [i]
+            (let [result (match/match-entries {:headers headers :rows [row]}
+                                               [(nth entries i)])]
+              (when (empty? (:failures result)) i)))
+          (range start (count entries)))))
+
 (defn- log-match-result [table entries]
-  (let [headers         (:headers table)
-        message-idx     (.indexOf headers "message")
-        table           (if (neg? message-idx)
-                          table
-                          (update table :rows
-                                  (fn [rows]
-                                    (mapv (fn [row]
-                                            (let [cell (nth row message-idx nil)]
-                                              (if (or (nil? cell) (str/starts-with? cell "#\""))
-                                                row
-                                                (assoc row message-idx (str "#\"" cell "\"")))))
-                                          rows))))
-        expected-count (count (:rows table))
-        direct         (match/match-entries table entries)]
-    (if (empty? (:failures direct))
-      direct
-      (or (some (fn [start]
-                  (let [window (subvec (vec entries) start (min (count entries) (+ start expected-count)))
-                        result (match/match-entries table window)]
-                    (when (empty? (:failures result)) result)))
-                (range (count entries)))
-          direct))))
+  (let [table (normalize-message-table table)]
+    (loop [remaining (:rows table)
+           row-num   0
+           idx       0
+           captures  {}
+           failures  []]
+      (if (empty? remaining)
+        {:pass? (empty? failures) :failures failures :captures captures}
+        (let [single    {:headers (:headers table) :rows [(first remaining)]}
+              match-idx (first-row-match-idx single entries idx)]
+          (if (some? match-idx)
+            (let [result (match/match-entries single [(nth entries match-idx)])]
+              (recur (rest remaining)
+                     (inc row-num)
+                     (inc match-idx)
+                     (merge captures (:captures result))
+                     failures))
+            (let [result (match/match-entries single (subvec (vec entries) idx))]
+              (recur []
+                     row-num
+                     idx
+                     captures
+                     (into failures (map #(str "Row " row-num ": " %) (:failures result)))))))))))
 
 (defn log-entries-match [table]
   (let [turn-future (g/get :turn-future)
