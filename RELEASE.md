@@ -29,6 +29,38 @@ tarball `url` + `sha256` — moving a tag breaks installs.
 The tap bump requires `HOMEBREW_TAP_BUMP_TOKEN` (PAT with `repo` scope on
 homebrew-tap) in this repo's secrets.
 
+## Releasing a module
+
+Modules (agent, server, acp, cron, hail, hooks, discord, imessage) are resolved
+from the registry **by SHA**, so releasing one is:
+
+1. Bump the module's `:version` in its `isaac-manifest.edn` (this is what
+   `isaac modules list` shows).
+2. **Sync its inter-module `deps.edn` pins to the registry's current versions.**
+   A module's transitive isaac-deps come from its *own* `deps.edn`, not the
+   registry — so if you don't refresh them, a fix released in a dependency
+   (e.g. a new `isaac.agent`) will **not** reach users via `isaac modules
+   upgrade`. Bump the module's `isaac-*` pins (agent/server/…) to the coords in
+   `modules.edn` before releasing.
+3. Bump that module's `:git/sha` (→ the new commit) in the registry
+   `modules.edn`.
+4. A git tag (`vX.Y.Z`) is optional — nothing resolves it (the registry is
+   SHA-based); tag deliberate releases as a human-readable marker if you like.
+
+Foundation is the exception — it **must** be tagged (the Homebrew formula's
+tarball URL points at the tag); see "Cutting a release" above.
+
+### A consumer stuck on an old transitive module
+
+Because transitive versions follow their parent's `deps.edn` pin, a consumer can
+sit on an old dependency even after the registry moves on — until the parent
+re-releases (step 2 above). To pull the registry's current version right away,
+pin it explicitly:
+
+```sh
+isaac modules install <name>   # e.g. isaac modules install isaac.agent
+```
+
 ## Homebrew
 
 ```sh
