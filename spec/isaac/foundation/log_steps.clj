@@ -42,14 +42,13 @@
                       (let [result (log-match-result table (log/get-entries))]
                         (reset! result* result)
                         (empty? (:failures result))))]
-    (helper/await-condition
-      #(or (matched?)
-           (some-> turn-future realized?))
-      100)
-    (when (and (seq (:failures @result*)) turn-future (not (realized? turn-future)))
+    ;; Wait for async work only when the log is not already satisfied — a
+    ;; realized :turn-future must not short-circuit polling for entries that
+    ;; arrive later in the same synchronous boot (e.g. comm on-load after
+    ;; :server/boot-phase).
+    (when (and turn-future (not (realized? turn-future)) (not (matched?)))
       (deref turn-future 30000 nil))
-    (when (seq (:failures @result*))
-      (helper/await-condition matched? 2000))
+    (helper/await-condition matched? 5000)
     (g/should= [] (:failures @result*))))
 
 (defn log-entries-dont-match [table]

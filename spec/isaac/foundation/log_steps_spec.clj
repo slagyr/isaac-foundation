@@ -34,4 +34,20 @@
         (should (< (/ (- (System/nanoTime) started) 1000000.0) 100)))
       (finally
         (log/clear-entries!)
+        (log/set-output! :file))))
+
+  (it "keeps polling after a realized turn future until the log row appears"
+    (try
+      (log/set-output! :memory)
+      (log/clear-entries!)
+      (log/info :server/boot-phase :phase :start)
+      (g/assoc! :turn-future (future :done))
+      @(g/get :turn-future)
+      (future
+        (Thread/sleep 50)
+        (log/info :lifecycle/started :path "comms.bert" :impl "telly"))
+      (sut/log-entries-match {:headers ["level" "event" "path" "impl"]
+                              :rows    [[":info" ":lifecycle/started" "comms.bert" "telly"]]})
+      (finally
+        (log/clear-entries!)
         (log/set-output! :file)))))
