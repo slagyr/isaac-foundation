@@ -236,7 +236,7 @@
     (it "declares foundation command cli contributions in the manifest"
       (should= #{"init" "logs" "config" "modules"} (foundation-manifest-cli-command-names)))
 
-    (it "installs the active fs into runtime init"
+    (it "installs the active fs and resolved root into runtime init"
       (let [mem       (fs/mem-fs)
             init-opts (atom nil)]
         (registry/register! {:name        "fs-init"
@@ -253,4 +253,5 @@
                       root/resolve-root  (fn [& _] "/tmp/home")]
           (binding [sut/*extra-opts* {:fs mem}]
             (should= 0 (sut/run ["fs-init"]))))
-        (should= mem (:fs @init-opts))))))
+        (should= mem (:fs @init-opts))
+        (should= "/tmp/home" (:root @init-opts))))))

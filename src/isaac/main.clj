@@ -118,7 +118,7 @@
        (if-let [command (registry/get-command cmd)]
          (binding [root/*root* resolved-root]
             (nexus/-with-nested-nexus {:fs fs*}
-              (nexus/init! {:fs fs*})
+              (nexus/init! {:fs fs* :root resolved-root})
               (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
                                                         :root         resolved-root
                                                         :_raw-args    (vec opts)})) 0)))
