@@ -970,6 +970,7 @@
   (doseq [{:keys [id instance]} (reverse started)]
     (try
       (module/run-unload! instance)
+      (log/info :module/unloaded :module (id-str id))
       (catch Exception e
         (log/error :module/unload-failed
                    :error  (.getMessage e)
