@@ -35,6 +35,7 @@ jobs:
       - name: Bump homebrew tap formula
         env:
           HOMEBREW_TAP_BUMP_TOKEN: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_BUMP_TOKEN }}
           TAG: ${{ inputs.tag }}
         run: |
           if [ -z "${HOMEBREW_TAP_BUMP_TOKEN}" ]; then
