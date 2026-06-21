@@ -189,6 +189,51 @@
                           {:factory factory
                            :type    :config-berth/invalid-factory}))))
 
+(defn- resolve-lifecycle-fn! [lifecycle-fn]
+  (cond
+    (fn? lifecycle-fn) lifecycle-fn
+    (symbol? lifecycle-fn) (requiring-resolve lifecycle-fn)
+    :else nil))
+
+(defn- berth-decl [module-index berth-id]
+  (get (ordered-berth-decls module-index) berth-id))
+
+(defn- reconcile-path-berth-ids
+  "Maps a reconcile root path (e.g. [:comms]) to the berth id whose
+   :register-fn / :deregister-fn hooks apply to factory nodes under it."
+  [module-index]
+  (into {}
+        (concat
+          (map (fn [[berth-id config-decl]]
+                 [(:path config-decl) berth-id])
+               (config-berths module-index))
+          (mapcat (fn [[_module-id entry]]
+                    (for [[config-key descriptor] (get-in entry [:manifest config-schema-key] {})
+                          :let [berth (get-in descriptor [:schema :value-spec :dynamic-schema :berth])]
+                          :when berth]
+                      [[config-key] berth]))
+                  module-index))))
+
+(defn- slot-registry-key [node-path]
+  (when (pos? (count node-path))
+    (name (last node-path))))
+
+(defn- maybe-register-node! [module-index node-path node]
+  (when-let [slot-key (slot-registry-key node-path)]
+    (when-let [berth-id (get (reconcile-path-berth-ids module-index)
+                              (vec (butlast node-path)))]
+      (when-let [register-fn (resolve-lifecycle-fn!
+                               (:register-fn (berth-decl module-index berth-id)))]
+        (register-fn slot-key node)))))
+
+(defn- maybe-deregister-node! [module-index node-path]
+  (when-let [slot-key (slot-registry-key node-path)]
+    (when-let [berth-id (get (reconcile-path-berth-ids module-index)
+                              (vec (butlast node-path)))]
+      (when-let [deregister-fn (resolve-lifecycle-fn!
+                                 (:deregister-fn (berth-decl module-index berth-id)))]
+        (deregister-fn slot-key)))))
+
 (defn- walk-factory-nodes [path spec value]
   (cond
     (:factory spec)
@@ -255,13 +300,15 @@
       (when (satisfies? Reconfigurable node)
         (reconfigurable/on-load node conformed))
       (nexus/register! node-path node)
+      (maybe-register-node! module-index node-path node)
       (log/info :lifecycle/started :path (dotted node-path) :impl (node-impl node-path conformed)))
     node))
 
-(defn- remove-node! [node-path old-slice]
+(defn- remove-node! [module-index node-path old-slice]
   (when-let [existing (nexus/get-in node-path)]
     (when (satisfies? Reconfigurable existing)
       (reconfigurable/on-unload existing old-slice))
+    (maybe-deregister-node! module-index node-path)
     (nexus/deregister! node-path)
     (log/info :lifecycle/stopped :path (dotted node-path) :impl (node-impl node-path old-slice))))
 
@@ -272,7 +319,7 @@
       (create-node! module-index node-path node-spec new-slice)
 
       (not= (node-impl node-path old-slice) (node-impl node-path new-slice))
-      (do (remove-node! node-path old-slice)
+      (do (remove-node! module-index node-path old-slice)
           (create-node! module-index node-path node-spec new-slice))
 
       (satisfies? Reconfigurable existing)
@@ -280,7 +327,7 @@
           (log/info :lifecycle/changed :path (dotted node-path) :impl (node-impl node-path new-slice)))
 
       :else
-      (do (nexus/deregister! node-path)
+      (do (remove-node! module-index node-path old-slice)
           (create-node! module-index node-path node-spec new-slice)))))
 
 (defn reconcile!
@@ -303,7 +350,7 @@
           (create-node! module-index node-path node-spec new-slice))
 
         (and (some? old-slice) (nil? new-slice))
-        (remove-node! node-path old-slice)
+        (remove-node! module-index node-path old-slice)
 
         (and (some? new-slice) (not= old-slice new-slice))
         (change-node! module-index node-path node-spec old-slice new-slice))))

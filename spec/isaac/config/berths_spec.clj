@@ -14,6 +14,17 @@
    :station    (:station slice)
    :relay/band (:relay/band slice)})
 
+(def ^:private registry-instances (atom {}))
+
+(defn test-register-instance! [slot-key instance]
+  (swap! registry-instances assoc slot-key instance))
+
+(defn test-deregister-instance! [slot-key]
+  (swap! registry-instances dissoc slot-key))
+
+(defn test-comm-node [_path _slice]
+  ::registered-node)
+
 (def module-index
   {:marigold.chartroom
    {:manifest
@@ -93,6 +104,30 @@
                            :old-config {:things {:a {:x 1}}}
                            :module-index index})
           (should= 1 @made))))
+
+    (it "invokes berth :register-fn and :deregister-fn for factory nodes"
+      (nexus/-with-nested-nexus {}
+        (reset! registry-instances {})
+        (let [index {:mod.comm
+                     {:manifest
+                      {:berths
+                       {:mod.comm/channels
+                        {:description   "comm slots"
+                         :register-fn   'isaac.config.berths-spec/test-register-instance!
+                         :deregister-fn 'isaac.config.berths-spec/test-deregister-instance!
+                         :config        {:path   [:channels]
+                                         :schema {:type       :map
+                                                  :key-spec   {:type :keyword}
+                                                  :value-spec {:type    :map
+                                                               :factory 'isaac.config.berths-spec/test-comm-node}}}}}}}}]
+          (sut/reconcile! {:config {:channels {:alpha {}}} :module-index index})
+          (should= ::registered-node (nexus/get-in [:channels :alpha]))
+          (should= ::registered-node (get @registry-instances "alpha"))
+          (sut/reconcile! {:config     {}
+                           :old-config {:channels {:alpha {}}}
+                           :module-index index})
+          (should-be-nil (nexus/get-in [:channels :alpha]))
+          (should-not-contain "alpha" (keys @registry-instances)))))
 
     (describe ":isaac.config/schema factory tables"
 
