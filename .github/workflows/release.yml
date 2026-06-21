@@ -45,4 +45,4 @@ jobs:
           fi
           gh api repos/slagyr/homebrew-tap/dispatches \
             -f event_type=foundation-release \
-            -f "client_payload={\"tag\": \"${TAG}\"}"
+            -f "client_payload[tag]=${TAG}"
