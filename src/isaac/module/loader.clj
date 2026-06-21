@@ -241,18 +241,26 @@
 (defn- add-module-deps! [id coord]
   (invoke-add-deps! {(->lib-sym id) (classpath-coord coord)}))
 
+(defn compose-module-deps-map
+  "Pure: the tools.deps `{lib-sym coord}` map for `id-coord-pairs`, each coord
+   carrying its sibling exclusions plus the 92p3 seed-foundation exclusion.
+   Shared by the bb dynamic-classpath path (`add-modules-deps!`) and the JVM
+   launch emitter (`config->launch-deps`) so both produce the identical
+   dependency set."
+  [id-coord-pairs]
+  (let [id->libs (into {} (map (fn [[id _]] [id (module-lib-syms id)]) id-coord-pairs))]
+    (into {}
+          (map (fn [[id coord]]
+                 (let [sibling-exclusions
+                       (into #{}
+                             (mapcat (fn [[other-id libs]]
+                                       (when (not= other-id id) libs))
+                                     id->libs))]
+                   [(->lib-sym id) (classpath-coord coord sibling-exclusions)]))
+               id-coord-pairs))))
+
 (defn- add-modules-deps! [id-coord-pairs]
-  (let [id->libs (into {} (map (fn [[id _]] [id (module-lib-syms id)]) id-coord-pairs))
-        deps-map (into {}
-                       (map (fn [[id coord]]
-                              (let [sibling-exclusions
-                                    (into #{}
-                                          (mapcat (fn [[other-id libs]]
-                                                    (when (not= other-id id) libs))
-                                                  id->libs))]
-                                [(->lib-sym id) (classpath-coord coord sibling-exclusions)]))
-                            id-coord-pairs))]
-    (invoke-add-deps! deps-map)))
+  (invoke-add-deps! (compose-module-deps-map id-coord-pairs)))
 
 (defn- trackable-coord [coord]
   (classpath-coord coord))
@@ -1418,3 +1426,26 @@
   ([config cwd]
    (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
      (preload-planned-module-deps! modules cwd))))
+
+(defn foundation-seed-path
+  "Absolute path to foundation's own source root — the dir holding its
+   isaac-manifest.edn. This is the seed `:paths` entry a JVM launch needs so
+   `isaac.*` namespaces are on the classpath without a materialized deps.edn."
+  []
+  (some (fn [url]
+          (when (= foundation-module-id (:id (read-manifest-edn url)))
+            (let [f (try (java.io.File. (.toURI url)) (catch Exception _ nil))]
+              (when f (.getParent f)))))
+        (resource-urls "isaac-manifest.edn")))
+
+(defn config->launch-deps
+  "The `-Sdeps` map to launch isaac on the JVM from `config`: foundation's seed
+   `:paths` plus every resolved module coord (`:deps`), mirroring the exact
+   dependency set `compose-config-modules!` adds to bb's dynamic classpath.
+   No `org.clojure/clojure` is injected — the clojure CLI's root deps supply it."
+  ([config] (config->launch-deps config (System/getProperty "user.dir")))
+  ([config cwd]
+   (let [raw-modules (when (map? (:modules config)) (:modules config))
+         pairs       (or (plan-module-classpath-pairs raw-modules cwd) [])]
+     (cond-> {:deps (compose-module-deps-map pairs)}
+       (foundation-seed-path) (assoc :paths [(foundation-seed-path)])))))

@@ -2,6 +2,7 @@
   "isaac modules — inspect and manage configured extension modules."
   (:require
     [clojure.edn :as edn]
+    [clojure.pprint :as pp]
     [clojure.string :as str]
     [isaac.cli.api :as cli-api]
     [isaac.cli.color :as color]
@@ -12,7 +13,8 @@
     [isaac.cli.table :as table]
     [isaac.fs :as fs]
     [isaac.module.loader :as module-loader]
-    [isaac.modules.registry :as registry]))
+    [isaac.modules.registry :as registry]
+    [isaac.shell :as shell]))
 
 (def option-spec
   [["-h" "--help" "Show help"]])
@@ -22,6 +24,11 @@
         [[nil "--edn" "Print structured EDN output"]
          [nil "--json" "Print structured JSON output"]]))
 
+(def deps-option-spec
+  (into option-spec
+        [[nil "--edn" "Print the -Sdeps map (default)"]
+         [nil "--classpath" "Print the fully-resolved classpath (shells clojure -Spath)"]]))
+
 (defn- modules-help []
   (common/render-help
     {:command     "isaac modules"
@@ -29,6 +36,7 @@
      :description "Inspect and manage Isaac extension modules declared in config."
      :pre-sections [["Subcommands"
                      (str "  available [search]  Browse the installable module catalog\n"
+                          "  deps [--edn|--classpath]  Emit JVM launch deps/classpath from config\n"
                           "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
                           "  show <name>         Full detail for one module (coordinate, source, required-by)\n"
@@ -43,6 +51,19 @@
      :description (str "List every module in config :modules with its source coordinate\n"
                        "and resolution status. Matches the set the packaged launcher loads.")
      :option-spec structured-option-spec}))
+
+(defn- deps-help []
+  (common/render-help
+    {:command     "isaac modules deps"
+     :description (str "Emit the dependency set needed to launch isaac on the JVM, derived\n"
+                       "from this root's config :modules (foundation seed :paths + each\n"
+                       "module coord with seed-authoritative exclusions). No deps.edn is\n"
+                       "materialized — the set is regenerated from config each call.\n\n"
+                       "  --edn        (default) print the -Sdeps map; launch with\n"
+                       "               clojure -Sdeps \"$(isaac modules deps --edn)\" -M -m isaac.main server\n"
+                       "  --classpath  print the flattened classpath (shells clojure -Spath);\n"
+                       "               for debugging / java -cp. Requires the clojure CLI.")
+     :option-spec deps-option-spec}))
 
 (defn- available-help []
   (common/render-help
@@ -262,6 +283,24 @@
           :else         (println (render-installed-list modules conflicts)))
         0))))
 
+(defn- run-deps [opts _arguments options]
+  (let [{:keys [classpath edn]} options]
+    (if (and classpath edn)
+      (common/print-cli-error! "choose one of --edn or --classpath")
+      (let [config      (or (read-root-config (:root opts)) {})
+            cwd         (System/getProperty "user.dir")
+            launch-deps (module-loader/config->launch-deps config cwd)]
+        (if classpath
+          (if-not (shell/cmd-available? "clojure")
+            (common/print-cli-error!
+              "modules deps --classpath requires the clojure CLI on PATH")
+            (let [{:keys [out err exit]} (shell/sh! "clojure" "-Spath" "-Sdeps" (pr-str launch-deps))]
+              (if (zero? exit)
+                (do (println (str/trim out)) 0)
+                (common/print-cli-error!
+                  (str "clojure -Spath failed (exit " exit "): " (str/trim (or err "")))))))
+          (do (pp/pprint launch-deps) 0))))))
+
 (defn- run-available [opts arguments options]
   (let [{:keys [edn json]} options
         search   (first arguments)
@@ -457,6 +496,9 @@
   {"available" {:option-spec structured-option-spec
                 :runner      run-available
                 :help-text   available-help}
+   "deps"      {:option-spec deps-option-spec
+                :runner      run-deps
+                :help-text   deps-help}
    "install"   {:option-spec option-spec
                 :runner      run-install
                 :help-text   install-help}

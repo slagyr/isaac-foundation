@@ -581,6 +581,15 @@
           (should= 1 (count @calls))
           (let [acp-exclusions (:exclusions (get (first @calls) 'isaac.comm.acp/isaac.comm.acp))]
             (should-contain 'io.github.slagyr/isaac-server acp-exclusions)
-            (should-contain 'isaac.server/isaac.server acp-exclusions)))))))
+            (should-contain 'isaac.server/isaac.server acp-exclusions)))))
+
+    (it "compose-module-deps-map returns the same deps map add-modules-deps! would pass to invoke-add-deps!"
+      (write-local-module! :isaac.comm.pigeon valid-comm-manifest)
+      (let [coord (mod-coord :isaac.comm.pigeon)
+            pairs [[:isaac.comm.pigeon coord]]
+            calls (atom [])]
+        (with-redefs [isaac.module.loader/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
+          (sut/compose-config-modules! {:modules {:isaac.comm.pigeon coord}})
+          (should= (first @calls) (sut/compose-module-deps-map pairs)))))))
 
 
