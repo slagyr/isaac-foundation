@@ -1,6 +1,7 @@
 (ns isaac.config.check-compose
   (:require
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.loader :as module-loader]
+    [isaac.schema.registered-in :as registered-in]))
 
 (def ^:private berth-key :isaac.config/check)
 
@@ -57,10 +58,13 @@
   ([ctx]
    (run-checks (module-loader/builtin-index) ctx))
   ([module-index ctx]
-   (reduce (fn [{:keys [errors warnings]} {:keys [fn]}]
-             (let [{check-errors :errors check-warnings :warnings}
-                   (fn ctx)]
-               {:errors   (into errors check-errors)
-                :warnings (into warnings check-warnings)}))
-           {:errors [] :warnings []}
-           (:checks (merge-contributions module-index)))))
+   (binding [registered-in/*module-index* (merge (module-loader/builtin-index)
+                                                 module-index)
+             registered-in/*config*       (or (:raw (:config ctx)) (:config ctx))]
+     (reduce (fn [{:keys [errors warnings]} {:keys [fn]}]
+               (let [{check-errors :errors check-warnings :warnings}
+                     (fn ctx)]
+                 {:errors   (into errors check-errors)
+                  :warnings (into warnings check-warnings)}))
+             {:errors [] :warnings []}
+             (:checks (merge-contributions module-index))))))
