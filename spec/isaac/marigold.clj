@@ -196,7 +196,9 @@
 
    :isaac.config/schema
    {:tz {:schema {:type        :string
-                  :description "IANA timezone name for this Isaac install; cron and other schedulers default here when no per-trigger zone is set."}}}})
+                  :description "IANA timezone name for this Isaac install; cron and other schedulers default here when no per-trigger zone is set."}}
+    :prefer-entity-files {:schema {:type        :boolean
+                                   :description "When true, config set writes/updates per-entity files (config/<dir>/<id>.edn) instead of inlining into isaac.edn."}}}})
 
 (def ^:private baseline-foundation-index
   {:isaac.foundation {:coord {} :manifest baseline-foundation-manifest :path nil}})

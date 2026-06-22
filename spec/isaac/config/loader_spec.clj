@@ -86,8 +86,7 @@
                          :sessions            {:schema {:type :map}}
                          :gateway             {:schema {:type :map}}
                          :acp                 {:schema {:type :map}}
-                         :modules             {:schema {:type :map}}
-                         :prefer-entity-files {:schema {:type :boolean}}}})
+                         :modules             {:schema {:type :map}}}})
 
 (defn- chartroom-manifest-with-loader-extensions [manifest]
   (assoc manifest
