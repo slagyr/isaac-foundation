@@ -85,4 +85,43 @@
             domain   (reify sut/NamedDomain
                        (name-taken? [_ name] (contains? @taken* name)))
             strategy (sut/->AdjectiveNounStrategy domain ["Red" "Blue"] ["Fox"])]
-        (should= "Blue Fox" (sut/generate strategy))))))
+        (should= "Blue Fox" (sut/generate strategy)))))
+
+  (describe "UuidStrategy"
+
+    (it "satisfies NameStrategy"
+      (should (satisfies? sut/NameStrategy (sut/->UuidStrategy nil))))
+
+    (it "generates a bare full UUID when prefix is nil"
+      (should (re-matches #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                          (sut/generate (sut/->UuidStrategy nil)))))
+
+    (it "prepends an optional prefix"
+      (should (re-matches #"item-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                          (sut/generate (sut/->UuidStrategy "item-")))))
+
+    (it "treats a blank prefix as no prefix"
+      (should (re-matches #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                          (sut/generate (sut/->UuidStrategy "")))))
+
+    (it "is unique on each call"
+      (let [s (sut/->UuidStrategy nil)]
+        (should-not= (sut/generate s) (sut/generate s)))))
+
+  (describe "ShortUuidStrategy"
+
+    (it "satisfies NameStrategy"
+      (should (satisfies? sut/NameStrategy (sut/->ShortUuidStrategy nil))))
+
+    (it "generates a bare 8-hex short id when prefix is nil"
+      (should (re-matches #"[0-9a-f]{8}" (sut/generate (sut/->ShortUuidStrategy nil)))))
+
+    (it "prepends an optional prefix"
+      (should (re-matches #"item-[0-9a-f]{8}" (sut/generate (sut/->ShortUuidStrategy "item-")))))
+
+    (it "treats a blank prefix as no prefix"
+      (should (re-matches #"[0-9a-f]{8}" (sut/generate (sut/->ShortUuidStrategy "")))))
+
+    (it "is distinct across calls"
+      (let [s (sut/->ShortUuidStrategy nil)]
+        (should= 5 (count (distinct (repeatedly 5 #(sut/generate s)))))))))

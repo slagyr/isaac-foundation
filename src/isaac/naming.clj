@@ -76,3 +76,21 @@
         (if (name-taken? domain candidate)
           (recur (inc attempt))
           candidate)))))
+
+(defn- with-prefix [prefix value]
+  (if (str/blank? prefix) value (str prefix value)))
+
+(defrecord UuidStrategy [prefix]
+  ;; Stateless: a random UUID is collision-free without a shared counter, so
+  ;; concurrent/external producers can mint ids independently. `prefix` is
+  ;; optional (nil/blank → bare uuid).
+  NameStrategy
+  (generate [_]
+    (with-prefix prefix (str (java.util.UUID/randomUUID)))))
+
+(defrecord ShortUuidStrategy [prefix]
+  ;; Stateless: the UUID's leading 8-hex group — enough entropy for moderate
+  ;; volumes; bump the length here if collisions ever matter. `prefix` optional.
+  NameStrategy
+  (generate [_]
+    (with-prefix prefix (first (str/split (str (java.util.UUID/randomUUID)) #"-")))))
