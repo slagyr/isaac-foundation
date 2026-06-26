@@ -125,12 +125,16 @@
 
 (defn real-fs [] (->RealFs))
 
-(def ^:dynamic *fs* nil)
-
 (defn instance
-  "Returns the active Fs instance. Reads from source map when provided, otherwise reads from the live nexus."
-  ([]       (or *fs* (nexus/get :fs)))
-  ([source] (or *fs* (:fs source) (nexus/get :fs))))
+  "Returns the active Fs instance: the source map's :fs when provided, otherwise
+   the live nexus :fs. Throws when neither is set — runtime dependencies must be
+   passed explicitly or installed in the nexus, never via thread-local fallback."
+  ([] (instance nil))
+  ([source]
+   (or (:fs source)
+       (nexus/get :fs)
+       (throw (ex-info "isaac.fs/instance: no filesystem available — install one via the nexus (nexus/init!, nexus/-with-nexus) or pass an explicit {:fs ...} source"
+                       {:source source})))))
 
 (defn- assert-absolute! [path]
   (when-not (str/starts-with? path "/")

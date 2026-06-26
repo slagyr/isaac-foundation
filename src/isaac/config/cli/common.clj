@@ -9,6 +9,7 @@
     [isaac.config.loader :as loader]
     [isaac.config.schema.resolve :as schema-resolve]
     [isaac.fs :as fs]
+    [isaac.nexus :as nexus]
     [isaac.config.root :as root]))
 
 ;; region ----- Option parsing -----
@@ -228,7 +229,7 @@
 
 (defn load-result [opts]
   (loader/load-config-result {:root (resolve-root opts)
-                              :fs   (or (fs/instance opts) (fs/real-fs))}))
+                              :fs   (or (:fs opts) (nexus/get :fs) (fs/real-fs))}))
 
 (defn schema-context
   "Resolved config plus module-index and composed root schema for CLI commands."
@@ -242,7 +243,7 @@
 
 (defn load-raw-result [opts]
   (loader/load-config-result {:root            (resolve-root opts)
-                              :fs              (or (fs/instance opts) (fs/real-fs))
+                              :fs              (or (:fs opts) (nexus/get :fs) (fs/real-fs))
                               :substitute-env? false}))
 
 (defn printable-config [opts reveal?]

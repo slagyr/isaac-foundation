@@ -5,19 +5,14 @@
     [isaac.naming :as sut]
     [speclj.core :refer :all]))
 
-(def ^:dynamic *fs* nil)
-
 (describe "isaac.naming"
 
-  #_{:clj-kondo/ignore [:unresolved-symbol]}
-  (around [example]
-    (binding [*fs* (fs/mem-fs)]
-      (example)))
+  (with fs (fs/mem-fs))
 
   (describe "NamedDomain / NameStrategy protocols"
 
     (it "SequentialStrategy satisfies NameStrategy"
-      (should (satisfies? sut/NameStrategy (sut/->SequentialStrategy "/s" "items" "item-" *fs*))))
+      (should (satisfies? sut/NameStrategy (sut/->SequentialStrategy "/s" "items" "item-" @fs))))
 
     (it "AdjectiveNounStrategy satisfies NameStrategy"
       (let [domain (reify sut/NamedDomain (name-taken? [_ _] false))]
@@ -30,33 +25,33 @@
   (describe "SequentialStrategy"
 
     (it "generates the first name as prefix+1 when no counter exists"
-      (let [s (sut/->SequentialStrategy "/state" "items" "item-" *fs*)]
+      (let [s (sut/->SequentialStrategy "/state" "items" "item-" @fs)]
         (should= "item-1" (sut/generate s))))
 
     (it "persists the counter after generation"
-      (let [s (sut/->SequentialStrategy "/state" "items" "item-" *fs*)]
+      (let [s (sut/->SequentialStrategy "/state" "items" "item-" @fs)]
         (sut/generate s)
-        (should= "1" (str/trim (fs/slurp *fs* "/state/items/.counter")))))
+        (should= "1" (str/trim (fs/slurp @fs "/state/items/.counter")))))
 
     (it "increments the counter on subsequent calls"
-      (let [s (sut/->SequentialStrategy "/state" "items" "item-" *fs*)]
+      (let [s (sut/->SequentialStrategy "/state" "items" "item-" @fs)]
         (should= "item-1" (sut/generate s))
         (should= "item-2" (sut/generate s))
         (should= "item-3" (sut/generate s))))
 
     (it "reads an existing counter and continues from it"
-      (fs/mkdirs *fs* "/state/items")
-      (fs/spit *fs* "/state/items/.counter" "5")
-      (let [s (sut/->SequentialStrategy "/state" "items" "item-" *fs*)]
+      (fs/mkdirs @fs "/state/items")
+      (fs/spit @fs "/state/items/.counter" "5")
+      (let [s (sut/->SequentialStrategy "/state" "items" "item-" @fs)]
         (should= "item-6" (sut/generate s))))
 
     (it "uses the counter-key as the subdirectory"
-      (let [s (sut/->SequentialStrategy "/state" "sessions" "session-" *fs*)]
+      (let [s (sut/->SequentialStrategy "/state" "sessions" "session-" @fs)]
         (sut/generate s)
-        (should= "1" (str/trim (fs/slurp *fs* "/state/sessions/.counter")))))
+        (should= "1" (str/trim (fs/slurp @fs "/state/sessions/.counter")))))
 
     (it "uses the prefix in the generated name"
-      (let [s (sut/->SequentialStrategy "/state" "items" "hail-" *fs*)]
+      (let [s (sut/->SequentialStrategy "/state" "items" "hail-" @fs)]
         (should= "hail-1" (sut/generate s)))))
 
   (describe "AdjectiveNounStrategy"

@@ -3,7 +3,8 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.fs :as fs]))
+    [isaac.fs :as fs]
+    [isaac.nexus :as nexus]))
 
 (def default-registry-url
   "https://raw.githubusercontent.com/slagyr/isaac/main/modules.edn")
@@ -61,7 +62,7 @@
   ([config root] (fetch-registry config root false))
   ([config root refresh?]
   (let [source (registry-source config)
-        fs*    (or (fs/instance) (fs/real-fs))]
+        fs*    (or (nexus/get :fs) (fs/real-fs))]
     (when (or refresh?
               (and (not (url? source))
                    (not (fs/exists? fs* (registry-path root source)))))

@@ -5,6 +5,7 @@
     [isaac.log-viewer :as viewer]
     [isaac.logger :as log]
     [isaac.logs.cli :as sut]
+    [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (def ^:private test-root "/tmp/marigold-state")
@@ -48,6 +49,9 @@
         (should= nil (#'sut/config-log-path "/tmp/home" mem)))))
 
   (describe "run"
+
+    (around [example]
+      (nexus/-with-nested-nexus {:fs (fs/mem-fs)} (example)))
 
     (it "prefers the explicit file path and forwards viewer options"
       (let [captured (atom nil)]
