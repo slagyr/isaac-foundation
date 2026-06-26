@@ -1,4 +1,4 @@
-(ns isaac.foundation.config-steps
+(ns isaac.foundation.harness-config-steps
   "Foundation-grade config harness step: persist dotted keys to
    config/isaac.edn and route log.output. bind-server-port is ignored
    here — the server layer handles it via `server config:`."
@@ -10,7 +10,7 @@
     [isaac.logger :as log]
     [isaac.nexus :as nexus]))
 
-(helper! isaac.foundation.config-steps)
+(helper! isaac.foundation.harness-config-steps)
 
 (defn- feature-fs []
   (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs)))
@@ -37,10 +37,10 @@
                              parent      (get-in m parent-path)]
                          (if (map? parent)
                            (assoc-in m parent-path (dissoc parent leaf))
-                           m)))))
+                           m))))
 
 (defn- config-path [path]
-  (mapv keyword (str/split path #"\."))
+  (mapv keyword (str/split path #"\.")))
 
 (defn parse-config-value
   "Coerce a harness table cell to an EDN-friendly config value."
@@ -102,6 +102,6 @@
         (= "bind-server-port" k) nil
         :else                  (persist-config-entry! k v)))))
 
-(defgiven "config:" isaac.foundation.config-steps/config-applied
+(defgiven "config:" isaac.foundation.harness-config-steps/config-applied
   "Applies harness settings from a key/value table. Persists dotted keys
    to config/isaac.edn; routes log.output to the in-memory logger.")
