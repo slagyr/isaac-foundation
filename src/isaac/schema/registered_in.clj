@@ -95,25 +95,27 @@
   ([berth-id]            (registered-in? berth-id nil))
   ([berth-id config-path]
    {:validate (fn [value]
-                (let [mi (or *module-index* {})]
-                  (cond
-                    (not (berth-declared? mi berth-id))
-                    (fail! (str "unknown berth: " berth-id))
+                (if (some? value)
+                  (let [mi (or *module-index* {})]
+                    (cond
+                      (not (berth-declared? mi berth-id))
+                      (fail! (str "unknown berth: " berth-id))
 
-                    :else
-                    (let [accepted (contributions-for-berth mi *config* berth-id config-path)]
-                      (cond
-                        (empty? accepted)
-                        (fail! (str "no registered impls for berth " berth-id))
+                      :else
+                      (let [accepted (contributions-for-berth mi *config* berth-id config-path)]
+                        (cond
+                          (empty? accepted)
+                          (fail! (str "no registered impls for berth " berth-id))
 
-                        (contains? accepted (->id value))
-                        true
+                          (contains? accepted (->id value))
+                          true
 
-                        (<= (count accepted) accepted-ids-list-cap)
-                        (fail! (str "must be one of " (vec (sort accepted))))
+                          (<= (count accepted) accepted-ids-list-cap)
+                          (fail! (str "must be one of " (vec (sort accepted))))
 
-                        :else
-                        (fail! (str "must be a registered contribution to " berth-id)))))))
+                          :else
+                          (fail! (str "must be a registered contribution to " berth-id))))))
+                  true))
     :message  (str "must be a registered contribution to " berth-id)
     :known    (fn []
                 (let [mi (or *module-index* {})]

@@ -82,6 +82,12 @@
       (should= "unknown berth: :marigold.bridge/comm"
                (error-message-of :marigold.bridge/comm :anything))))
 
+  (it "passes when the value is nil (optional reference fields)"
+    (binding [sut/*module-index* (index-with :marigold.bridge
+                                              :marigold.bridge/comm
+                                              {:marigold.longwave {:longwave {}}})]
+      (should-be-nil (error-message-of :marigold.bridge/comm nil))))
+
   (it "composes with :present? in a single :validations chain"
     (binding [sut/*module-index* (index-with :marigold.bridge
                                               :marigold.bridge/comm
