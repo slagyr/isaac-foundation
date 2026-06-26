@@ -10,8 +10,6 @@
     [speclj.core :refer :all])
   (:import (java.io StringWriter)))
 
-(def ^:dynamic *fs* nil)
-
 (def sample-subcommands
   [{:name "install" :summary "Install the thing"}
    {:name "logs"    :summary "Tail the logs"}])
@@ -183,24 +181,22 @@
 (def test-home "/test/init")
 
 (defn- slurp-edn [path]
-  (edn/read-string (fs/slurp *fs* path)))
+  (edn/read-string (fs/slurp (fs/instance) path)))
 
 (describe "CLI Init"
 
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]
-    (let [mem (fs/mem-fs)]
-      (nexus/-with-nested-nexus {:fs mem}
-        (binding [*out* (StringWriter.)
-                  *err* (StringWriter.)
-                  *fs*  mem]
-          ;; Phase 4 of the berth epic: init no longer side-effect-
-          ;; registers at isaac.cli.registry load time — it's a foundation
-          ;; manifest :isaac/cli contribution. Process core's berths so
-          ;; tests see init in the registry without going through
-          ;; main/run first.
-          (module-loader/process-manifest-berths! (module-loader/builtin-index))
-          (example)))))
+    (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
+      (binding [*out* (StringWriter.)
+                *err* (StringWriter.)]
+        ;; Phase 4 of the berth epic: init no longer side-effect-
+        ;; registers at isaac.cli.registry load time — it's a foundation
+        ;; manifest :isaac/cli contribution. Process core's berths so
+        ;; tests see init in the registry without going through
+        ;; main/run first.
+        (module-loader/process-manifest-berths! (module-loader/builtin-index))
+        (example))))
 
   (it "registers the init command"
     (should-not-be-nil (sut/get-command "init")))
@@ -215,7 +211,7 @@
                   "model: \"llama\"\n"
                   "---\n\n"
                   "You are Isaac, a helpful AI assistant.")
-             (fs/slurp *fs* (str test-home "/config/crew/main.md")))
+             (fs/slurp (fs/instance) (str test-home "/config/crew/main.md")))
     (should= {:model "llama3.2" :provider :ollama}
              (slurp-edn (str test-home "/config/models/llama.edn")))
     (should= {:base-url "http://localhost:11434" :api :ollama}
@@ -225,7 +221,7 @@
                   "crew: \"main\"\n"
                   "---\n\n"
                   "Heartbeat. Anything worth noting?")
-             (fs/slurp *fs* (str test-home "/config/cron/heartbeat.md"))))
+             (fs/slurp (fs/instance) (str test-home "/config/cron/heartbeat.md"))))
 
   (it "prints the scaffold summary and ollama setup instructions on success"
     (should= 0 (sut/init-run {:root test-home}))
@@ -245,21 +241,21 @@
              (str *out*)))
 
   (it "refuses when a config already exists"
-    (fs/mkdirs *fs* (str test-home "/config"))
-    (fs/spit   *fs* (str test-home "/config/isaac.edn") "{}")
+    (fs/mkdirs (fs/instance) (str test-home "/config"))
+    (fs/spit   (fs/instance) (str test-home "/config/isaac.edn") "{}")
     (should= 1 (sut/init-run {:root test-home}))
     (should= (str "config already exists at " test-home "/config/isaac.edn; edit it directly.\n")
              (str *err*)))
 
   (it "appears in top-level help output"
-    (binding [main/*extra-opts* {:fs *fs*}]
+    (binding [main/*extra-opts* {:fs (fs/instance)}]
       (let [output (with-out-str (should= 0 (main/run ["--help"])))]
         (should-contain "init" output))))
 
   (it "scaffolds config under an explicit root flag"
-    (binding [main/*extra-opts* {:fs *fs*}]
+    (binding [main/*extra-opts* {:fs (fs/instance)}]
       (should= 0 (main/run ["--root" test-home "init"])))
-    (should (fs/exists? *fs* (str test-home "/config/isaac.edn"))))
+    (should (fs/exists? (fs/instance) (str test-home "/config/isaac.edn"))))
 
   (it "accepts an explicit fs via opts"
     (let [mem (fs/mem-fs)]

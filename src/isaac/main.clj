@@ -17,7 +17,11 @@
 (def ^:dynamic *extra-opts* nil)
 
 (defn- startup-fs [extra-opts]
-  (or (fs/instance extra-opts) (fs/real-fs)))
+  ;; Composition boundary: resolve the runtime fs to install. Prefer an
+  ;; explicitly-passed fs, then any already-installed nexus fs, otherwise
+  ;; default to the real filesystem. Reads slots directly rather than via
+  ;; fs/instance, which now throws when no fs is available.
+  (or (:fs extra-opts) (nexus/get :fs) (fs/real-fs)))
 
 (defn- substitute-env [x]
   (cond

@@ -267,7 +267,7 @@
 
   (describe "runtime fs"
 
-    (it "loads the root config from the installed runtime fs without binding fs/*fs*"
+    (it "loads the root config from the installed runtime fs without binding a thread-local fs"
       (let [mem  (fs/mem-fs)
             root (paths/config-root marigold/home)
             path (str root "/" paths/root-filename)]
