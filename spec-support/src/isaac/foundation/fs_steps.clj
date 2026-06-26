@@ -283,10 +283,7 @@
 
                                     :else
                                     (assoc-in acc keys (parse-isaac-value file-path p value)))))
-                              (if (some #(delete-sentinel? (get (zipmap (:headers table) %) "value"))
-                                        (:rows table))
-                                (or (isaac-file-data path) {})
-                                {})
+                              (or (isaac-file-data path) {})
                               (:rows table))]
         (maybe-prune-root-entity! path)
         (let [fs* (server-fs)]
