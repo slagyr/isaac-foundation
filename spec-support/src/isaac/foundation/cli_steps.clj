@@ -18,6 +18,7 @@
     [isaac.spec-helper :as helper]
     [isaac.nexus :as nexus]
     [isaac.shell :as shell]
+    [isaac.step-tables :as step-tables]
     [babashka.process :as process]))
 
 (helper! isaac.foundation.cli-steps)
@@ -149,20 +150,33 @@
     (catch Exception _
       text)))
 
+(defn- step-tables-cell? [expected-text]
+  (and (string? expected-text) (str/starts-with? expected-text "#")))
+
 (defn- assert-stdout-contains [format-name parse-output parse-literal table]
   (let [stdout (or (current-output) "")
         value  (parse-output stdout)]
-    (doseq [row (:rows table)]
-      (let [[path expected-text] row
-            expected             (parse-literal expected-text)
-            actual               (value-at-path value path)]
-        (when (= ::missing actual)
-          (throw (ex-info (str "stdout " format-name " missing path: " path) {})))
-        (when-not (= expected actual)
-          (throw (ex-info (str "stdout " format-name " path " path
-                               " expected " (pr-str expected)
-                               " but was " (pr-str actual))
-                          {})))))))
+    (loop [rows (:rows table) captures {}]
+      (when (seq rows)
+        (let [[path expected-text] (first rows)
+              actual               (value-at-path value path)]
+          (when (= ::missing actual)
+            (throw (ex-info (str "stdout " format-name " missing path: " path) {})))
+          (if (step-tables-cell? expected-text)
+            (let [result (step-tables/match-value expected-text actual :captures captures)]
+              (when-not (:match result)
+                (throw (ex-info (str "stdout " format-name " path " path
+                                     " expected " (pr-str expected-text)
+                                     " but was " (pr-str actual))
+                                {})))
+              (recur (rest rows) (merge captures (:capture result))))
+            (let [expected (parse-literal expected-text)]
+              (when-not (= expected actual)
+                (throw (ex-info (str "stdout " format-name " path " path
+                                     " expected " (pr-str expected)
+                                     " but was " (pr-str actual))
+                                {})))
+              (recur (rest rows) captures))))))))
 
 (defn- await-exit-code []
   (helper/await-condition #(some? (g/get :exit-code)))
