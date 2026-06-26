@@ -1,6 +1,6 @@
 Feature: Berth registration observability
   Every manifest-only berth entry installed at boot emits a uniform
-  :berth/registered log event (berth id, entry id, contributing module).
+  :berth/registration log event (berth id, entry id, contributing module).
   A :berth/registration-summary closes the registration phase with
   per-berth counts so missing routes/commands are diagnosable from the
   boot log.
@@ -13,7 +13,7 @@ Feature: Berth registration observability
     When the server boots
     Then the log has entries matching:
       | level | event             | berth               | entry | module |
-      | :info | :berth/registered | :isaac.server/route | ping  | demo   |
+      | :info | :berth/registration | :isaac.server/route | ping  | demo   |
 
   Scenario: Registrations across berth kinds all appear at boot
     Given the isaac file "isaac.edn" exists with:
@@ -24,8 +24,8 @@ Feature: Berth registration observability
     When the config is loaded
     Then the log has entries matching:
       | level | event             | berth                         | entry         | module            |
-      | :info | :berth/registered | :isaac/cli                    | longwave-ping | marigold.longwave |
-      | :info | :berth/registered | :marigold.bridge/signal-route | longwave-ping | marigold.longwave |
+      | :info | :berth/registration | :isaac/cli                    | longwave-ping | marigold.longwave |
+      | :info | :berth/registration | :marigold.bridge/signal-route | longwave-ping | marigold.longwave |
 
   Scenario: Boot emits a per-berth registration summary
     Given a module "demo" contributing a :isaac.server/route entry :ping

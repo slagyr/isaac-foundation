@@ -683,7 +683,7 @@
 (defn- log-berth-registered!
   [berth-id entry-id module-id]
   (when entry-id
-    (log/info :berth/registered
+    (log/info :berth/registration
               :berth  berth-id
               :entry  entry-id
               :module (id-str module-id))))

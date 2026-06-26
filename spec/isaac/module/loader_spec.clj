@@ -379,17 +379,17 @@
                  (:value (first errors)))
         (should= [] @*factory-calls*)))
 
-    (it "logs :berth/registered for each installed entry"
+    (it "logs :berth/registration for each installed entry"
       (let [module-index (index-with-berth+contributions
                            :provider/routes
                            'isaac.module.loader-spec/record-route!
                            {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]})]
         (log/capture-logs
           (sut/process-manifest-berths! module-index)
-          (should= [{:level :info :event :berth/registered :berth :provider/routes
+          (should= [{:level :info :event :berth/registration :berth :provider/routes
                      :entry :a :module "consumer-a"}]
                    (->> @log/captured-logs
-                        (filter #(= :berth/registered (:event %)))
+                        (filter #(= :berth/registration (:event %)))
                         (mapv #(select-keys % [:level :event :berth :entry :module])))))))
 
     (it "logs :berth/registration-summary with per-berth counts"
