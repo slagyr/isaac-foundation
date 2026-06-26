@@ -37,7 +37,7 @@
                              parent      (get-in m parent-path)]
                          (if (map? parent)
                            (assoc-in m parent-path (dissoc parent leaf))
-                           m))))
+                           m)))))
 
 (defn- config-path [path]
   (mapv keyword (str/split path #"\."))
