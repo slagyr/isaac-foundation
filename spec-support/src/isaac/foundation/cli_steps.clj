@@ -151,7 +151,14 @@
       text)))
 
 (defn- step-tables-cell? [expected-text]
-  (and (string? expected-text) (str/starts-with? expected-text "#")))
+  ;; Only genuine step_tables DSL cells — wildcard (#*), regex (#"…"), and refs
+  ;; (#name). EDN reader literals that also start with "#" (notably set literals
+  ;; #{…}, plus #inst/#uuid/tagged) must fall through to EDN parsing so they
+  ;; compare by value, not as DSL patterns.
+  (and (string? expected-text)
+       (or (= "#*" expected-text)
+           (str/starts-with? expected-text "#\"")
+           (boolean (re-matches #"#[\w-]+" expected-text)))))
 
 (defn- assert-stdout-contains [format-name parse-output parse-literal table]
   (let [stdout (or (current-output) "")
