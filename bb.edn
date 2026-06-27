@@ -1,4 +1,4 @@
-{:paths ["src" "spec" "."]
+{:paths ["src" "spec" "spec-support/src" "."]
 
  :deps  {clj-mutate/clj-mutate               {:git/url "https://github.com/slagyr/clj-mutate"
                                               :git/sha "edf0362dee919f75541ce173ca7144c1230cd4de"}

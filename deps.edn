@@ -10,7 +10,7 @@
  :aliases
  {:isaac    {:main-opts ["-m" "isaac.main"]}
 
-  :test     {:extra-paths ["spec"]
+  :test     {:extra-paths ["spec" "spec-support/src"]
              :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
                            io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
                            marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}

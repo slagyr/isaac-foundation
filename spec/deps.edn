@@ -15,7 +15,13 @@
 ;; expected to already depend on it directly, and this subproject's
 ;; namespaces resolve against the consumer's coord.
 {:paths ["."]
- :deps  {io.github.slagyr/isaac-foundation {:local/root ".."}
+ ;; Step definitions live ONLY in the spec-support subproject; foundation-spec
+ ;; depends on foundation-test-support so consumers (and foundation's own specs)
+ ;; get a single copy of the foundation gherclj steps. Pulling both coords
+ ;; dedupes to one isaac-foundation-test-support, avoiding ambiguous step
+ ;; registration downstream.
+ :deps  {io.github.slagyr/isaac-foundation              {:local/root ".."}
+         io.github.slagyr/isaac-foundation-test-support {:local/root ".." :deps/root "spec-support"}
          speclj/speclj            {:mvn/version "3.13.0"}
          babashka/process         {:mvn/version "0.5.22"}
          io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}}
