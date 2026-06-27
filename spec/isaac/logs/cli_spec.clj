@@ -13,7 +13,8 @@
 (def ^:private relative-log "marigold.log")
 (def ^:private config-log "logs/bridge-watch.log")
 (def ^:private run-log "logs/watch.log")
-(def ^:private default-log "/tmp/ship-default.log")
+(def ^:private default-log "logs/isaac.log")
+(def ^:private config-file-log "logs/config-file.log")
 
 (describe "logs cli"
 
@@ -38,6 +39,13 @@
         (fs/mkdirs mem "/tmp/state/config")
         (fs/spit   mem "/tmp/state/config/isaac.edn" (str "{:log {:output \"" config-log "\"}}"))
         (should= config-log (#'sut/config-log-path "/tmp/state" mem))))
+
+    (it "prefers log.file over log.output when both are set"
+      (let [mem (fs/mem-fs)]
+        (fs/mkdirs mem "/tmp/state/config")
+        (fs/spit   mem "/tmp/state/config/isaac.edn"
+                   (str "{:log {:file \"" config-file-log "\" :output \"" config-log "\"}}"))
+        (should= config-file-log (#'sut/config-log-path "/tmp/state" mem))))
 
     (it "returns nil when the config file is missing"
       (should= nil (#'sut/config-log-path "/tmp/state" (fs/mem-fs))))
@@ -76,13 +84,12 @@
                     {:color? true :zebra? false :follow? false :plain? false :limit 20}]
                    @captured))))
 
-    (it "falls back to the logger default when no config path exists"
+    (it "falls back to the default log path under root when no config path exists"
       (let [captured (atom nil)]
-        (with-redefs [sut/config-log-path (fn [_ _]nil)
-                      log/log-file        (fn [] default-log)
+        (with-redefs [sut/config-log-path (fn [_ _] nil)
                       viewer/tail!        (fn [path opts] (reset! captured [path opts]))]
           (sut/run {:home "/tmp/home" :root test-root :limit 20})
-          (should= [default-log
+          (should= [(str test-root "/" default-log)
                     {:color? true :zebra? false :follow? false :plain? false :limit 20}]
                    @captured)))))
 

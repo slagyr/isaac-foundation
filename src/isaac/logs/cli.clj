@@ -29,17 +29,25 @@
     (and root (seq root))     (str root "/" file)
     :else                               file))
 
+(def ^:private default-relative-log "logs/isaac.log")
+
+(defn- default-log-path [root]
+  (when root
+    (str root "/" default-relative-log)))
+
 (defn- config-log-path [root fs*]
   (when root
     (let [config-file (str root "/config/isaac.edn")]
       (when (fs/exists? fs* config-file)
         (try
-          (get-in (edn/read-string (fs/slurp fs* config-file)) [:log :output])
+          (let [log-config (get-in (edn/read-string (fs/slurp fs* config-file)) [:log])]
+            (or (:file log-config) (:output log-config)))
           (catch Exception _ nil))))))
 
 (defn run [{:keys [file follow limit no-color zebra plain root]}]
   (let [log-path (or (resolve-path file root)
                      (resolve-path (config-log-path root (fs/instance)) root)
+                     (default-log-path root)
                      (log/log-file))]
     (viewer/tail! log-path
                   {:color?  (not no-color)

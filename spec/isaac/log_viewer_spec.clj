@@ -248,6 +248,34 @@
             (should-not (str/includes? result dim2)))
           (finally (.delete f)))))
 
+    (it "prints a friendly message and returns when the file is missing without follow"
+      (let [missing (str (System/getProperty "java.io.tmpdir") "/isaac-missing-" (rand-int 100000) ".log")]
+        (try
+          (let [result (with-out-str
+                          (sut/tail! missing {:color? false :follow? false}))]
+            (should (str/includes? result "No log file at"))
+            (should (str/includes? result missing))
+            (should (str/includes? result "--file")))
+          (finally
+            (.delete (java.io.File. missing))))))
+
+    (it "waits for a missing file when follow is true, then tails new entries"
+      (let [missing (str (System/getProperty "java.io.tmpdir") "/isaac-follow-" (rand-int 100000) ".log")
+            line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :appeared}\n"
+            writer  (java.io.StringWriter.)
+            run*    (future
+                      (binding [*out* writer]
+                        (binding [sut/*follow-sleep-ms* 0]
+                          (sut/tail! missing {:color? false :follow? true}))))]
+        (try
+          (Thread/sleep 50)
+          (spit missing line)
+          (helper/await-condition #(str/includes? (str writer) ":appeared") 5000)
+          (should (str/includes? (str writer) ":appeared"))
+          (finally
+            (future-cancel run*)
+            (.delete (java.io.File. missing))))))
+
     (it "does not skip a line appended between the initial dump and follow seek"
       (let [f             (java.io.File/createTempFile "test-log" ".log")
             first-line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"

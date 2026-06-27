@@ -27,7 +27,7 @@
           (sut/set-log-file! test-log))
   (after  (sut/set-output! :file)
           (sut/clear-entries!)
-          (sut/set-log-file! "/tmp/isaac.log"))
+          (sut/set-log-file! (#'sut/default-log-file)))
 
   ;; region ----- Writing Entries -----
 

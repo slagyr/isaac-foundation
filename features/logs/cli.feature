@@ -10,8 +10,9 @@ Feature: isaac logs — colorized log tail
   for all). Color is on by default; pass --no-color to disable. Zebra
   striping (alternating row background) is off by default; pass
   --zebra to enable. --plain is raw passthrough — no parsing,
-  color, or zebra. The path is taken from log.output in config;
-  --file overrides it.
+  color, or zebra. The path is taken from log.file or log.output in
+  config; --file overrides it. When the log file does not exist yet,
+  isaac logs prints a friendly message instead of crashing.
 
   Background:
     Given an empty Isaac root at "target/test-logs"
@@ -58,6 +59,21 @@ Feature: isaac logs — colorized log tail
     Given a file "app.log" exists with content "this is not edn"
     When isaac is run with "logs --file app.log --no-color"
     Then the stdout contains "this is not edn"
+
+  Scenario: Prints a friendly message when the log file does not exist
+    When isaac is run with "logs --file missing.log --no-color"
+    Then the stdout contains "No log file at"
+    And the stdout contains "missing.log"
+    And the exit code is 0
+
+  Scenario: Reads log path from log.file in config when --file is absent
+    Given the isaac file "config/isaac.edn" exists with:
+      """
+      {:log {:file "cfg-file.log"}}
+      """
+    And a file "cfg-file.log" exists with content "{:ts \"2026-05-12T00:00:00Z\", :level :info, :event :via/file-config}"
+    When isaac is run with "logs --no-color"
+    Then the stdout contains ":via/file-config"
 
   Scenario: Reads log path from log.output in config when --file is absent
     Given the isaac file "config/isaac.edn" exists with:

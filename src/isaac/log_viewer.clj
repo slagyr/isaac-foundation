@@ -170,18 +170,22 @@
     (.seek raf (.length raf))
     lines))
 
-(defn tail!
-  "Print formatted log entries from `path`.
-   opts:
-     :color?  (bool, default false)
-     :follow? (bool, default false) — watch file for new lines; never returns
-     :zebra?  (bool, default false)
-     :plain?  (bool, default false) — raw passthrough, no parsing/coloring/zebra
-     :limit   (int, default nil)    — show only the last N lines (nil/0/neg = all)"
-  [path {:keys [color? follow? zebra? plain? limit]
-         :or   {color? false follow? false zebra? false plain? false}}]
-  (let [file (java.io.File. path)
-        opts {:color? (and color? (not plain?))
+(defn- missing-file-message [path follow?]
+  (str "No log file at " path " yet."
+       (when follow? " Waiting for log output...")
+       (when-not follow?
+         " Run an isaac command that produces logs first, or use --file PATH.")))
+
+(defn- wait-for-file! [^java.io.File file]
+  (loop []
+    (when-not (.exists file)
+      (Thread/sleep *follow-sleep-ms*)
+      (recur))))
+
+(defn- tail-open-file!
+  [^java.io.File file {:keys [color? follow? zebra? plain? limit]
+                       :or   {color? false follow? false zebra? false plain? false}}]
+  (let [opts {:color? (and color? (not plain?))
               :zebra? (and zebra? (not plain?))
               :plain? plain?}
         row  (atom 0)
@@ -196,5 +200,23 @@
           (if-let [line (.readLine raf)]
             (do (emit line) (recur))
             (do (Thread/sleep *follow-sleep-ms*) (recur))))))))
+
+(defn tail!
+  "Print formatted log entries from `path`.
+   opts:
+     :color?  (bool, default false)
+     :follow? (bool, default false) — watch file for new lines; never returns
+     :zebra?  (bool, default false)
+     :plain?  (bool, default false) — raw passthrough, no parsing/coloring/zebra
+     :limit   (int, default nil)    — show only the last N lines (nil/0/neg = all)"
+  [path {:keys [follow?] :as opts :or {follow? false}}]
+  (let [file (java.io.File. path)]
+    (if-not (.exists file)
+      (do
+        (println (missing-file-message path follow?))
+        (when follow?
+          (wait-for-file! file)
+          (tail-open-file! file opts)))
+      (tail-open-file! file opts))))
 
 ;; endregion ^^^^^ Tailing ^^^^^

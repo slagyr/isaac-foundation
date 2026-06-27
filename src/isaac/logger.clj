@@ -9,10 +9,13 @@
 
 (def ^:private levels {:report 0 :error 1 :warn 2 :info 3 :debug 4})
 
+(defn- default-log-file []
+  (str (System/getProperty "user.home") "/.isaac/logs/isaac.log"))
+
 (defonce ^:private state
          (atom {:level    :debug
                 :output   :file
-                :log-file "/tmp/isaac.log"
+                :log-file (default-log-file)
                 :entries  []}))
 
 (defn level [] (get @state :level :debug))
