@@ -134,11 +134,19 @@
 
 (declare schema-for)
 
+(def ^:private default-compaction-policy
+  {:async? false :strategy :rubberband :head 0.3 :threshold 0.8})
+
+(defn- ensure-default-compaction [defaults]
+  (update defaults :compaction
+          #(merge default-compaction-policy %)))
+
 (defn- normalize-defaults
   ([defaults] (normalize-defaults (cached-root-schema) defaults))
   ([root-schema defaults]
    (let [result (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults)]
-     (if (cs/error? result) {} result))))
+     (if (cs/error? result) {}
+         (ensure-default-compaction result)))))
 
 (defn- normalize-crew
   ([crew] (normalize-crew (cached-root-schema) crew))

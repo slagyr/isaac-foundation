@@ -82,7 +82,8 @@
 
 (def ^:private minimal-config
   {:defaults  {:crew "main"
-               :model "llama"}
+               :model "llama"
+               :compaction {:strategy :rubberband :threshold 0.8 :head 0.3}}
    :crew      {"main" {}}
    :models    {"llama" {:model          "llama3.3:1b"
                          :provider       "ollama"

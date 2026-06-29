@@ -871,6 +871,17 @@
           (should= true (:prefer-entity-files result))
           (should= (:modules cfg) (:modules result)))))
 
+    (it "injects default compaction policy into defaults when absent"
+      (with-redefs [lexicon/conform (fn [_ value] value)
+                    cs/error?  (constantly false)]
+        (let [cfg    {:defaults {:crew :main :model :grover}
+                      :crew     {"main" {}}
+                      :models   {"grover" {:model "echo" :provider "ollama"}}
+                      :providers {"ollama" {:api "ollama"}}}
+              result (sut/normalize-config cfg)]
+          (should= {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}
+                   (get-in result [:defaults :compaction])))))
+
     (it "normalizes legacy crew lists nested models and provider vectors"
       (with-redefs [lexicon/conform (fn [_ value] value)
                     cs/error?  (constantly false)]
