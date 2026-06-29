@@ -116,8 +116,11 @@
   (let [entry (normalize-entry-for-disk entry)]
     (case (:output @state)
       :memory (swap! state update :entries conj entry)
-      (let [fs* (or (nexus/get :fs) (fs/real-fs))]
-        (fs/spit fs* (:log-file @state) (str (pr-str entry) "\n") :append true)))))
+      (let [fs*   (or (nexus/get :fs) (fs/real-fs))
+            path  (:log-file @state)]
+        (when-let [parent (fs/parent path)]
+          (fs/mkdirs fs* parent))
+        (fs/spit fs* path (str (pr-str entry) "\n") :append true)))))
 
 (defn log* [level event file line & kvs]
   (when (enabled? level)
