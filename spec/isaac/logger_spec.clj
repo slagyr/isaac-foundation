@@ -27,7 +27,8 @@
           (sut/set-output! :file)
           (sut/clear-entries!)
           (sut/set-log-file! test-log))
-  (after  (sut/set-output! :stderr)
+  (after  (lfile/clear-sink-config!)
+          (sut/set-output! :stderr)
           (sut/clear-entries!)
           (sut/set-log-file! nil))
 
@@ -227,7 +228,15 @@
       (sut/error :test/fail)
       (let [entry (first (sut/get-entries))]
         (should= :error (:level entry))
-        (should= :test/fail (:event entry)))))
+        (should= :test/fail (:event entry))))
+
+    (it "with an active server sink, also writes the durable file"
+      (let [root "/state"]
+        (fs/mkdirs (fs/instance) (str root "/logs"))
+        (lfile/configure-server-sink! root {:tz "UTC"})
+        (sut/info :test/server-sink)
+        (should= 1 (count (sut/get-entries)))
+        (should (fs/exists? (fs/instance) (lfile/server-log-path root))))))
 
   ;; endregion ^^^^^ Memory Output ^^^^^
 

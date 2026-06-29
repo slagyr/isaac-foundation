@@ -115,18 +115,21 @@
 
 (defn- save-entry [entry]
   (let [entry (normalize-entry-for-disk entry)]
-    (case (:output @state)
-      :memory (swap! state update :entries conj entry)
-      :stderr (binding [*out* *err*] (println (pr-str entry)))
-      :none   nil
-      (cond
-        (lfile/server-sink?) (lfile/write-entry! entry)
-        (:log-file @state)
-        (let [fs*  (or (nexus/get :fs) (fs/real-fs))
-              path (:log-file @state)]
-          (when-let [parent (fs/parent path)]
-            (fs/mkdirs fs* parent))
-          (fs/spit fs* path (str (pr-str entry) "\n") :append true))))))
+    (if (lfile/server-sink?)
+      (do
+        (lfile/write-entry! entry)
+        (when (= :memory (:output @state))
+          (swap! state update :entries conj entry)))
+      (case (:output @state)
+        :memory (swap! state update :entries conj entry)
+        :stderr (binding [*out* *err*] (println (pr-str entry)))
+        :none   nil
+        (when (:log-file @state)
+          (let [fs*  (or (nexus/get :fs) (fs/real-fs))
+                path (:log-file @state)]
+            (when-let [parent (fs/parent path)]
+              (fs/mkdirs fs* parent))
+            (fs/spit fs* path (str (pr-str entry) "\n") :append true)))))))
 
 (defn log* [level event file line & kvs]
   (when (enabled? level)
