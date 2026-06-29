@@ -38,6 +38,12 @@
       (should= (str test-root "/logs/server.log")
                (sut/server-log-path test-root))))
 
+  (describe "cli log path"
+
+    (it "places the CLI log under <root>/logs/cli.log"
+      (should= (str test-root "/logs/cli.log")
+               (sut/cli-log-path test-root))))
+
   (describe "daily rollover"
 
     (it "archives server.log to server-YYYYMMDD.log when the active day changes"

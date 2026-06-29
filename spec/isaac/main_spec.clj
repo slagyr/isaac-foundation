@@ -6,6 +6,8 @@
     [isaac.config.loader :as loader]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
+    [isaac.log.file :as lfile]
+    [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
     [isaac.main :as sut]
     [isaac.nexus :as nexus]
@@ -181,6 +183,43 @@
         (binding [sut/*extra-opts* {:root (str (System/getProperty "user.dir") "/target/test-state")}]
           (sut/run ["extra-test"]))
         (should= (str (System/getProperty "user.dir") "/target/test-state") (:root @received)))))
+
+  (describe "configure-cli-logging!"
+
+    (around [it]
+      (let [mem (fs/mem-fs)]
+        (nexus/-with-nested-nexus {:fs mem}
+          (lfile/clear-sink-config!)
+          (log/set-output! :stderr)
+          (log/set-log-file! nil)
+          (it)
+          (log/set-output! :stderr)
+          (log/set-log-file! nil)
+          (lfile/clear-sink-config!))))
+
+    (it "defaults structured logs to <root>/logs/cli.log"
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+      (should= :file (log/output))
+      (should= "/tmp/isaac-cli-root/logs/cli.log" (log/log-file))
+      (should (fs/exists? (nexus/get :fs) "/tmp/isaac-cli-root/logs"))
+      (should-not (fs/exists? (nexus/get :fs) "/tmp/isaac-cli-root/logs/server.log")))
+
+    (it "honors an explicit --log-file path"
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" "custom/cmd.log")
+      (should= :file (log/output))
+      (should= "/tmp/isaac-cli-root/custom/cmd.log" (log/log-file)))
+
+    (it "honors ISAAC_LOG_FILE when no --log-file is passed"
+      (with-redefs [loader/env (fn [v] (when (= v "ISAAC_LOG_FILE") "env/cmd.log"))]
+        (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+        (should= :file (log/output))
+        (should= "/tmp/isaac-cli-root/env/cmd.log" (log/log-file))))
+
+    (it "leaves :memory output unchanged when no log file is configured"
+      (log/set-output! :memory)
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+      (should= :memory (log/output))
+      (should-be-nil (log/log-file))))
 
   (describe "substitute-env"
 

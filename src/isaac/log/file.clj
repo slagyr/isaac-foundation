@@ -22,6 +22,11 @@
 (defn server-log-path [root]
   (str root "/logs/server.log"))
 
+(defn cli-log-path [root]
+  (str root "/logs/cli.log"))
+
+(def cli-log-rel-path "logs/cli.log")
+
 (defn logs-dir [root]
   (str root "/logs"))
 
