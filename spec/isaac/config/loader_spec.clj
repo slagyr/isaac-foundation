@@ -893,7 +893,9 @@
                        :models {:providers [{:name helm-kw :api-key "sk-test"}
                                             {:id :grover :base-url "https://grover.example"}]}}
               result  (sut/normalize-config cfg)]
-          (should= {:crew :main :model :grover} (:defaults result))
+          (should= {:crew :main :model :grover
+                    :compaction {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}}
+                   (:defaults result))
           (should= {"main"  {:id :main :soul "You are Isaac." :model :grover}
                     "ketch" {:id "ketch" :model :grover}}
                    (:crew result))
