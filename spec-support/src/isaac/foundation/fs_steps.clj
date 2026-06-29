@@ -169,12 +169,16 @@
       #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
          (fs/spit fs* path (str actual "\n") :append true)))))
 
+(defn- seeded-log-ts [n]
+  (let [base (or (g/get :current-time) (java.time.Instant/parse "2026-05-12T00:00:00Z"))]
+    (str (.plusSeconds base n))))
+
 (defn file-with-log-entries [name n]
   (let [path  (resolve-path name)
         n     (parse-long n)
         lines (->> (range 1 (inc n))
-                   (map #(format "{:ts \"2026-05-12T00:%02d:%02dZ\" :level :info :event :e%02d}"
-                                 (quot % 60) (mod % 60) %))
+                   (map #(format "{:ts \"%s\" :level :info :event :e%02d}"
+                                 (seeded-log-ts %) %))
                    (str/join "\n"))]
     (with-ensured-fs
       #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
@@ -304,6 +308,18 @@
 (defn edn-isaac-file-does-not-exist [path]
   (g/should-not (with-server-fs #(fs/exists? (server-fs) (isaac-file-path path)))))
 
+(defn isaac-file-exists [path]
+  (g/should (with-server-fs #(fs/exists? (server-fs) (isaac-file-path path)))))
+
+(defn isaac-file-has-log-entries [path]
+  (with-server-fs
+    (fn []
+      (let [file-path (isaac-file-path path)
+            fs*       (server-fs)
+            content   (when (fs/exists? fs* file-path) (fs/slurp fs* file-path))]
+        (g/should (fs/exists? fs* file-path))
+        (g/should (seq (remove str/blank? (str/split-lines (or content "")))))))))
+
 (defn file-exists-with [path content]
   (with-feature-fs
     (fn []
@@ -347,6 +363,10 @@
     from the current file before write.")
 
 (defthen "the isaac file \"{path}\" does not exist" isaac.foundation.fs-steps/edn-isaac-file-does-not-exist)
+
+(defthen "the isaac file {path:string} exists" isaac.foundation.fs-steps/isaac-file-exists)
+
+(defthen "the isaac file {path:string} exists with log entries" isaac.foundation.fs-steps/isaac-file-has-log-entries)
 
 (defgiven #"the file \"([^\"]+)\" exists with:$" isaac.foundation.fs-steps/file-exists-with)
 

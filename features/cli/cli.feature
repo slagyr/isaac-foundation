@@ -34,7 +34,7 @@ Feature: CLI
   Scenario: Top-level usage omits root pointer precedence
     When isaac is run with "--help"
     Then the stdout does not contain "May also be set"
-    And the stdout contains "--root <dir>    Isaac root directory (default: ~/.isaac)"
+    And the stdout contains "--root <dir>       Isaac root directory (default: ~/.isaac)"
 
   Scenario: Config sources documents root resolution precedence
     When isaac is run with "config sources"

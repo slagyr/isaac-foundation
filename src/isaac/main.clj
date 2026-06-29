@@ -7,6 +7,7 @@
     [isaac.config.loader :as loader]
     [isaac.config.paths :as paths]
     [isaac.fs :as fs]
+    [isaac.log.file :as lfile]
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
     [isaac.nexus :as nexus]
@@ -67,13 +68,25 @@
     (catch Exception _
       nil)))
 
+(defn- env-log-file []
+  (let [v (loader/env "ISAAC_LOG_FILE")]
+    (when-not (str/blank? v) v)))
+
+(defn- configure-cli-logging! [root log-file-path]
+  (log/set-output! :stderr)
+  (when-let [path (or log-file-path (env-log-file))]
+    (when-let [abs (lfile/configure-cli-sink! root path)]
+      (log/set-log-file! abs)
+      (log/set-output! :file))))
+
 (defn- usage []
   (let [cmds (registry/all-commands)
         max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
     (str "Usage: isaac [options] <command> [args]\n\n"
          "Global Options:\n"
-         "  --root <dir>    Isaac root directory (default: ~/.isaac)\n"
-         "  --help, -h      Show this message\n\n"
+         "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
+         "  --log-file <path>  Append structured logs to this file (optional)\n"
+         "  --help, -h         Show this message\n\n"
          "Commands:\n"
          (str/join "\n" (map (fn [cmd]
                                (str "  " (:name cmd)
@@ -96,7 +109,7 @@
 (defn run
   "Run the CLI. Returns exit code."
   [args]
-  (let [{after-root :args :keys [root]} (cli-args/extract-root-flag args)
+  (let [{after-root :args :keys [root log-file]} (cli-args/extract-root-flag args)
          args (resolve-alias after-root)
          cmd  (first args)
          opts (rest args)
@@ -104,6 +117,7 @@
          fs*           (startup-fs extra-opts)
          resolved-root (root/resolve-root root (:root extra-opts) fs*)]
     (register-module-cli-commands! resolved-root fs* cmd)
+    (configure-cli-logging! resolved-root log-file)
     (cond
       (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
       (do (println (usage)) 0)

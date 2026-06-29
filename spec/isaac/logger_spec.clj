@@ -2,6 +2,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.log.file :as lfile]
     [isaac.logger :as sut]
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]
@@ -20,14 +21,15 @@
     (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
       (it)))
 
-  (before (fs/spit (fs/instance) test-log "")
+  (before (lfile/clear-sink-config!)
+          (fs/spit (fs/instance) test-log "")
           (sut/set-level! :debug)
           (sut/set-output! :file)
           (sut/clear-entries!)
           (sut/set-log-file! test-log))
-  (after  (sut/set-output! :file)
+  (after  (sut/set-output! :stderr)
           (sut/clear-entries!)
-          (sut/set-log-file! (#'sut/default-log-file)))
+          (sut/set-log-file! nil))
 
   ;; region ----- Writing Entries -----
 

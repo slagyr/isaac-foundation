@@ -3,19 +3,17 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [isaac.fs :as fs]
+    [isaac.log.file :as lfile]
     [isaac.nexus :as nexus]))
 
 ;; region ----- Configuration -----
 
 (def ^:private levels {:report 0 :error 1 :warn 2 :info 3 :debug 4})
 
-(defn- default-log-file []
-  (str (System/getProperty "user.home") "/.isaac/logs/isaac.log"))
-
 (defonce ^:private state
          (atom {:level    :debug
-                :output   :file
-                :log-file (default-log-file)
+                :output   :stderr
+                :log-file nil
                 :entries  []}))
 
 (defn level [] (get @state :level :debug))
@@ -28,7 +26,7 @@
   (swap! state assoc :level level))
 
 (defn log-file []
-  (:log-file @state))
+  (or (lfile/active-log-path) (:log-file @state)))
 
 (defn set-log-file! [path]
   (swap! state assoc :log-file path))
@@ -50,7 +48,7 @@
   (<= (level-rank level) (level-rank)))
 
 (defn- iso-now []
-  (str (java.time.Instant/now)))
+  (str (lfile/instant-now)))
 
 (defn- normalize-file-path [file]
   (let [workspace  (System/getProperty "user.dir")
@@ -116,11 +114,16 @@
   (let [entry (normalize-entry-for-disk entry)]
     (case (:output @state)
       :memory (swap! state update :entries conj entry)
-      (let [fs*   (or (nexus/get :fs) (fs/real-fs))
-            path  (:log-file @state)]
-        (when-let [parent (fs/parent path)]
-          (fs/mkdirs fs* parent))
-        (fs/spit fs* path (str (pr-str entry) "\n") :append true)))))
+      :stderr (binding [*out* *err*] (println (pr-str entry)))
+      :none   nil
+      (cond
+        (lfile/server-sink?) (lfile/write-entry! entry)
+        (:log-file @state)
+        (let [fs*  (or (nexus/get :fs) (fs/real-fs))
+              path (:log-file @state)]
+          (when-let [parent (fs/parent path)]
+            (fs/mkdirs fs* parent))
+          (fs/spit fs* path (str (pr-str entry) "\n") :append true))))))
 
 (defn log* [level event file line & kvs]
   (when (enabled? level)

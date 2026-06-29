@@ -1,5 +1,5 @@
 {:id        :isaac.foundation
- :version   "0.1.8"
+ :version   "0.1.9"
  :factory   isaac.foundation.module/create-module
 
  :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
@@ -52,7 +52,15 @@
   :prefer-entity-files
   {:schema
    {:type        :boolean
-    :description "When true, config set writes/updates per-entity files (config/<dir>/<id>.edn) instead of inlining into isaac.edn."}}}
+    :description "When true, config set writes/updates per-entity files (config/<dir>/<id>.edn) instead of inlining into isaac.edn."}}
+
+  :logging
+  {:schema
+   {:type   :map
+    :schema {:max-bytes {:type        :int
+                         :description "Rotate the server log when it exceeds this many bytes (default 100MB)."}
+             :max-days  {:type        :int
+                         :description "Drop rotated server logs older than this many days (default 30)."}}}}}
 
  :isaac/cli {:init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
