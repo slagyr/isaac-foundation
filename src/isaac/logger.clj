@@ -31,6 +31,9 @@
 (defn set-log-file! [path]
   (swap! state assoc :log-file path))
 
+(defn output []
+  (:output @state))
+
 (defn set-output! [output]
   (swap! state assoc :output output))
 

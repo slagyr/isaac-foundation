@@ -73,11 +73,13 @@
     (when-not (str/blank? v) v)))
 
 (defn- configure-cli-logging! [root log-file-path]
-  (log/set-output! :stderr)
   (when-let [path (or log-file-path (env-log-file))]
     (when-let [abs (lfile/configure-cli-sink! root path)]
       (log/set-log-file! abs)
-      (log/set-output! :file))))
+      (log/set-output! :file)))
+  (when (and (not (or log-file-path (env-log-file)))
+             (not= :memory (log/output)))
+    (log/set-output! :stderr)))
 
 (defn- usage []
   (let [cmds (registry/all-commands)
