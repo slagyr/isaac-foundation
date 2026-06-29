@@ -80,11 +80,34 @@
       (str dim "{" reset pairs dim "}" reset)
       (str "{" pairs "}"))))
 
+(defn- unescape-log-text [s]
+  (let [placeholder "\u0000"]
+    (-> (or s "")
+        (str/replace "\\\\" placeholder)
+        (str/replace "\\n" "\n")
+        (str/replace "\\t" "\t")
+        (str/replace placeholder "\\"))))
+
+(defn- throwable-display-summary [throwable]
+  (if (map? throwable)
+    (select-keys throwable [:class :message])
+    throwable))
+
+(defn- format-throwable-expanded [throwable color?]
+  (when (and (map? throwable) (seq (:stacktrace throwable)))
+    (let [indent (if color? (str dim "    " reset) "    ")]
+      (->> (str/split-lines (unescape-log-text (:stacktrace throwable)))
+           (map #(str indent %))
+           (str/join "\n")))))
+
 (defn format-entry [entry color?]
   (let [ts         (get entry :ts "")
         level      (get entry :level :info)
         event      (get entry :event "")
-        kvs        (dissoc entry :ts :level :event :file :line)
+        throwable  (:throwable entry)
+        kvs        (-> entry
+                       (dissoc :ts :level :event :file :line :throwable)
+                       (cond-> throwable (assoc :throwable (throwable-display-summary throwable))))
         time-str   (format-time ts)
         level-str  (format "%-5s" (str/upper-case (name (or level "INFO"))))
         event-str  (str event)
@@ -97,8 +120,10 @@
                      (str (color-for-ns event-ns) event-str reset)
                      event-str)
         map-part   (when (seq kvs)
-                     (str "  " (format-map kvs color?)))]
-    (str time-part level-part event-part map-part)))
+                     (str "  " (format-map kvs color?)))
+        stack-part (format-throwable-expanded throwable color?)]
+    (cond-> (str time-part level-part event-part map-part)
+      stack-part (str "\n" stack-part))))
 
 (defn format-line [line color?]
   (let [line (str/trim (or line ""))]

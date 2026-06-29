@@ -50,6 +50,16 @@
             (should (str/includes? (:stacktrace (:throwable entry)) "Output closed"))
             (should-not (str/includes? (:stacktrace (:throwable entry)) "\n"))))))
 
+    (it "normalizes raw throwables to single-line maps on disk"
+      (let [error (ex-info "Output closed" {})]
+        (sut/error :ws/error :throwable error)
+        (let [lines (str/split-lines (fs/slurp (fs/instance) test-log))]
+          (should= 1 (count lines))
+          (let [entry (edn/read-string (first lines))]
+            (should= "Output closed" (:message (:throwable entry)))
+            (should (str/includes? (:stacktrace (:throwable entry)) "Output closed"))
+            (should-not (str/includes? (:stacktrace (:throwable entry)) "\n"))))))
+
     (it "each entry is a readable EDN map"
       (sut/info :test/hello :value 42)
       (let [entry (first (read-entries))]

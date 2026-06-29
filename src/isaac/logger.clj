@@ -74,6 +74,25 @@
     (and (= 1 (count kvs)) (map? (first kvs))) (first kvs)
     :else (apply hash-map kvs)))
 
+(defn- escape-for-log-line [s]
+  (-> (or s "")
+      (str/replace "\\" "\\\\")
+      (str/replace #"\r\n" "\n")
+      (str/replace #"\n" "\\n")
+      (str/replace #"\r" "\\n")
+      (str/replace #"\t" "\\t")))
+
+(defn single-line-throwable
+  "Serialize a Throwable for log context. Stack frames are newline-escaped
+   so the enclosing log entry stays one physical line on disk."
+  [^Throwable t]
+  (let [sw (java.io.StringWriter.)
+        pw (java.io.PrintWriter. sw)]
+    (.printStackTrace t pw)
+    {:class      (.getName (class t))
+     :message    (.getMessage t)
+     :stacktrace (escape-for-log-line (.toString sw))}))
+
 (defn- build-entry [level event context file line]
   (let [ts    (iso-now)
         extra (dissoc context :event)]
@@ -82,11 +101,23 @@
                    (apply concat extra)
                    [:file (normalize-file-path file) :line line]))))
 
+(defn- normalize-value-for-disk [v]
+  (cond
+    (instance? Throwable v) (single-line-throwable v)
+    (map? v)                (into {} (map (fn [[k v]] [k (normalize-value-for-disk v)]) v))
+    (vector? v)             (mapv normalize-value-for-disk v)
+    (seq? v)                (map normalize-value-for-disk v)
+    :else                   v))
+
+(defn- normalize-entry-for-disk [entry]
+  (reduce-kv (fn [m k v] (assoc m k (normalize-value-for-disk v))) entry entry))
+
 (defn- save-entry [entry]
-  (case (:output @state)
-    :memory (swap! state update :entries conj entry)
-    (let [fs* (or (nexus/get :fs) (fs/real-fs))]
-      (fs/spit fs* (:log-file @state) (str (pr-str entry) "\n") :append true))))
+  (let [entry (normalize-entry-for-disk entry)]
+    (case (:output @state)
+      :memory (swap! state update :entries conj entry)
+      (let [fs* (or (nexus/get :fs) (fs/real-fs))]
+        (fs/spit fs* (:log-file @state) (str (pr-str entry) "\n") :append true)))))
 
 (defn log* [level event file line & kvs]
   (when (enabled? level)
@@ -126,25 +157,6 @@
 
 (defmacro debug [event & kvs]
   `(log* :debug ~event ~*file* ~(:line (meta &form)) ~@kvs))
-
-(defn- escape-for-log-line [s]
-  (-> (or s "")
-      (str/replace "\\" "\\\\")
-      (str/replace #"\r\n" "\n")
-      (str/replace #"\n" "\\n")
-      (str/replace #"\r" "\\n")
-      (str/replace #"\t" "\\t")))
-
-(defn single-line-throwable
-  "Serialize a Throwable for log context. Stack frames are newline-escaped
-   so the enclosing log entry stays one physical line on disk."
-  [^Throwable t]
-  (let [sw (java.io.StringWriter.)
-        pw (java.io.PrintWriter. sw)]
-    (.printStackTrace t pw)
-    {:class      (.getName (class t))
-     :message    (.getMessage t)
-     :stacktrace (escape-for-log-line (.toString sw))}))
 
 (defn ex-context
   "Build a context map from an exception merged with additional kvs.

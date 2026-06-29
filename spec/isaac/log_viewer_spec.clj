@@ -122,11 +122,37 @@
       (let [result (sut/format-entry {:ts "2026-05-12T00:00:00Z" :level :info :event bridge-event} false)]
         (should-not (str/includes? result "\033[")))))
 
+    (it "expands escaped throwable stacktraces on indented continuation lines"
+      (let [entry  {:ts "2026-05-12T00:00:00Z" :level :error :event :scheduler/handler-error
+                    :error "Output closed"
+                    :throwable {:class "clojure.lang.ExceptionInfo"
+                                :message "Output closed"
+                                :stacktrace "clojure.lang.ExceptionInfo: Output closed\\n\tat isaac.scheduler.runtime/finish_run_BANG_(runtime.clj:295)"}}
+            result (sut/format-entry entry false)
+            lines  (str/split-lines result)]
+        (should (str/includes? (first lines) ":scheduler/handler-error"))
+        (should (str/includes? (first lines) ":message \"Output closed\""))
+        (should-not (str/includes? (first lines) ":stacktrace"))
+        (should= 3 (count lines))
+        (should (str/includes? (second lines) "ExceptionInfo: Output closed"))
+        (should (str/starts-with? (second lines) "    "))
+        (should (str/includes? (nth lines 2) "finish_run_BANG_"))))
+
   (describe "format-line"
 
     (it "formats a valid EDN log line"
       (let [result (sut/format-line (str "{:ts \"2026-05-12T15:24:51.491Z\" :level :info :event " bridge-event "}") false)]
         (should (str/includes? result (str bridge-event)))))
+
+    (it "formats a single-line scheduler error with expanded stacktrace"
+      (let [line   (pr-str {:ts "2026-05-12T00:00:00Z" :level :error :event :scheduler/handler-error
+                            :error "Output closed"
+                            :throwable {:class "clojure.lang.ExceptionInfo"
+                                        :message "Output closed"
+                                        :stacktrace "java.lang.Exception: Output closed\\n\tat worker.run(worker.clj:10)"}})
+            result (sut/format-line line false)]
+        (should (str/includes? result ":scheduler/handler-error"))
+        (should (str/includes? result "worker.run"))))
 
     (it "passes unparseable lines through as-is"
       (should= "this is not edn" (sut/format-line "this is not edn" false)))
