@@ -13,7 +13,7 @@
 (def ^:private relative-log "marigold.log")
 (def ^:private config-log "logs/bridge-watch.log")
 (def ^:private run-log "logs/watch.log")
-(def ^:private default-log "logs/isaac.log")
+(def ^:private default-log "logs/cli.log")
 (def ^:private config-file-log "logs/config-file.log")
 
 (describe "logs cli"

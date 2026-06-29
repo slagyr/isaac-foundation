@@ -7,6 +7,7 @@
     [isaac.cli.common :as cli-common]
     [isaac.fs :as fs]
     [isaac.log-viewer :as viewer]
+    [isaac.log.file :as lfile]
     [isaac.logger :as log]))
 
 (def ^:private default-limit 20)
@@ -29,11 +30,9 @@
     (and root (seq root))     (str root "/" file)
     :else                               file))
 
-(def ^:private default-relative-log "logs/isaac.log")
-
 (defn- default-log-path [root]
   (when root
-    (str root "/" default-relative-log)))
+    (lfile/cli-log-path root)))
 
 (defn- config-log-path [root fs*]
   (when root
