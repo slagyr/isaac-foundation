@@ -132,7 +132,7 @@
 (defn configure-server-sink!
   "Binds the process-wide server file sink at <root>/logs/server.log."
   [root config]
-  (swap! sink-state assoc :root root :settings (resolve-settings config))
+  (swap! sink-state assoc :root root :settings (resolve-settings config) :cli-path nil)
   (prepare-active-log! root config))
 
 (defn configure-cli-sink!
@@ -168,4 +168,6 @@
           (prepare-active-log! fs* root {:logging {:max-bytes max-bytes
                                                    :max-days  max-days}
                                          :tz      tz})))
+      (when-let [parent (fs/parent path)]
+        (fs/mkdirs fs* parent))
       (fs/spit fs* path (str (pr-str entry) "\n") :append true))))
