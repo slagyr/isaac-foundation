@@ -1,5 +1,6 @@
 (ns isaac.scheduler-spec
   (:require
+    [clojure.string :as str]
     [isaac.logger :as log]
     [isaac.spec-helper :as helper]
     [isaac.scheduler.runtime :as sut]
@@ -319,7 +320,12 @@
       (helper/await-condition #(= 3 @fired*))
       (helper/await-condition #(= 3 (count (filter (fn [entry] (= :scheduler/handler-error (:event entry))) @log/captured-logs))))
       (should= 3 @fired*)
-      (should= 3 (count (filter (fn [entry] (= :scheduler/handler-error (:event entry))) @log/captured-logs)))))
+      (should= 3 (count (filter (fn [entry] (= :scheduler/handler-error (:event entry))) @log/captured-logs)))
+      (let [entry (first (filter (fn [e] (= :scheduler/handler-error (:event e))) @log/captured-logs))]
+        (should= "boom" (:error entry))
+        (should= "boom" (:message (:throwable entry)))
+        (should (seq (:stacktrace (:throwable entry))))
+        (should-not (str/includes? (:stacktrace (:throwable entry)) "\n")))))
 
   (it "retries with exponential backoff after a handler error"
     (let [now*      (atom (Instant/parse "2026-05-20T10:00:00Z"))

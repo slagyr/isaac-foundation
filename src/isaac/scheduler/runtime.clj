@@ -206,7 +206,8 @@
         task               (assoc task :consecutive-errors consecutive-errors)
         error-note         {:handler-error {:id           (:id task)
                                             :scheduled-at scheduled-at
-                                            :error-msg    (.getMessage ^Exception error)}}]
+                                            :error-msg    (.getMessage ^Throwable error)
+                                            :throwable    error}}]
     (case (on-error-mode task)
       :retry
       (if (>= consecutive-errors (:retry-attempts task))
@@ -290,8 +291,12 @@
                            #(compute-finish-transition scheduler id token outcome error scheduled-at %))]
     (when-let [^ScheduledFuture tf timeout-future-to-cancel]
       (.cancel tf false))
-    (when-let [{:keys [id scheduled-at error-msg]} handler-error]
-      (log/error :scheduler/handler-error :id id :scheduled-at (str scheduled-at) :error error-msg))
+    (when-let [{:keys [id scheduled-at error-msg throwable]} handler-error]
+      (log/error :scheduler/handler-error
+                 :id id
+                 :scheduled-at (str scheduled-at)
+                 :error error-msg
+                 :throwable (log/single-line-throwable throwable)))
     (when-let [{:keys [id attempts]} disabled]
       (log/warn :scheduler/disabled :id id :reason :too-many-errors :attempts attempts))
     (when next-action

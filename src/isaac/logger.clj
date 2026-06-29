@@ -127,6 +127,25 @@
 (defmacro debug [event & kvs]
   `(log* :debug ~event ~*file* ~(:line (meta &form)) ~@kvs))
 
+(defn- escape-for-log-line [s]
+  (-> (or s "")
+      (str/replace "\\" "\\\\")
+      (str/replace #"\r\n" "\n")
+      (str/replace #"\n" "\\n")
+      (str/replace #"\r" "\\n")
+      (str/replace #"\t" "\\t")))
+
+(defn single-line-throwable
+  "Serialize a Throwable for log context. Stack frames are newline-escaped
+   so the enclosing log entry stays one physical line on disk."
+  [^Throwable t]
+  (let [sw (java.io.StringWriter.)
+        pw (java.io.PrintWriter. sw)]
+    (.printStackTrace t pw)
+    {:class      (.getName (class t))
+     :message    (.getMessage t)
+     :stacktrace (escape-for-log-line (.toString sw))}))
+
 (defn ex-context
   "Build a context map from an exception merged with additional kvs.
    kvs can be a single map or key-value pairs."

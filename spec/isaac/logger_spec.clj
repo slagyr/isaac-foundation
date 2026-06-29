@@ -38,6 +38,18 @@
       (let [lines (str/split-lines (fs/slurp (fs/instance) test-log))]
         (should= 1 (count lines))))
 
+    (it "writes a single EDN line when logging a serialized throwable"
+      (let [error (ex-info "connection reset"
+                           {:phase :read}
+                           (ex-info "Output closed" {}))]
+        (sut/error :test/throwable :throwable (sut/single-line-throwable error))
+        (let [lines (str/split-lines (fs/slurp (fs/instance) test-log))]
+          (should= 1 (count lines))
+          (let [entry (edn/read-string (first lines))]
+            (should (map? (:throwable entry)))
+            (should (str/includes? (:stacktrace (:throwable entry)) "Output closed"))
+            (should-not (str/includes? (:stacktrace (:throwable entry)) "\n"))))))
+
     (it "each entry is a readable EDN map"
       (sut/info :test/hello :value 42)
       (let [entry (first (read-entries))]
