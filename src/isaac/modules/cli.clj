@@ -7,6 +7,7 @@
     [isaac.cli.api :as cli-api]
     [isaac.cli.color :as color]
     [isaac.cli.common :as cli-common]
+    [isaac.config.api :as config-api]
     [isaac.config.cli.common :as common]
     [isaac.config.mutate :as mutate]
     [isaac.config.paths :as paths]
@@ -105,12 +106,9 @@
 
 (defn- read-root-config [root]
   (when root
-    (let [fs*         (fs/instance)
-          config-file (paths/root-config-file root)]
-      (when (fs/exists? fs* config-file)
-        (try
-          (edn/read-string (fs/slurp fs* config-file))
-          (catch Exception _ nil))))))
+    (let [result (config-api/load-resolved {:root root :fs (fs/instance)})]
+      (when-not (:missing-config? result)
+        (:config result)))))
 
 (defn- status-color [status]
   (when (= :invalid status)

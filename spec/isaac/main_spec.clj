@@ -3,6 +3,7 @@
     [clojure.edn :as edn]
     [isaac.cli.api :as cli-api]
     [isaac.cli.registry :as registry]
+    [isaac.config.api :as config-api]
     [isaac.config.loader :as loader]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
@@ -231,22 +232,6 @@
       (should= :memory (log/output))
       (should-be-nil (log/log-file))))
 
-  (describe "substitute-env"
-
-    (it "expands ${VAR} strings using loader/env"
-      (with-redefs [loader/env (fn [v] (when (= v "MY_ROOT") "/resolved/path"))]
-        (should= {:local/root "/resolved/path"}
-                 (@#'sut/substitute-env {:local/root "${MY_ROOT}"}))))
-
-    (it "leaves unknown variables unexpanded"
-      (with-redefs [loader/env (constantly nil)]
-        (should= "${UNKNOWN}" (@#'sut/substitute-env "${UNKNOWN}"))))
-
-    (it "recurses into nested maps and vectors"
-      (with-redefs [loader/env (fn [v] (when (= v "X") "y"))]
-        (should= {:a {:b "y"} :c ["y" 1]}
-                 (@#'sut/substitute-env {:a {:b "${X}"} :c ["${X}" 1]})))))
-
   (describe "register-module-cli-commands!"
 
     #_{:clj-kondo/ignore [:unresolved-symbol]}
@@ -261,10 +246,12 @@
             config-path "/tmp/home/.isaac/config/isaac.edn"]
         (fs/mkdirs mem "/tmp/home/.isaac/config")
         (fs/spit mem config-path "{:modules {:hello {}}}")
-        (with-redefs [module-loader/discover!
+        (with-redefs [config-api/load-resolved
+                      (fn [_] {:config {:modules {:hello {}}} :errors []})
+                      module-loader/discover!
                       (fn [config context]
-                        (should= {:modules {:hello {}}} config)
-                        (should= {:cwd (System/getProperty "user.dir")} context)
+                        (should= {:hello {}} (:modules config))
+                        (should= (System/getProperty "user.dir") (:cwd context))
                         ;; Mock both the berth declaration (on foundation) and a
                         ;; contribution from the user module.
                         {:index {:isaac.foundation {:manifest {:id      :isaac.foundation

@@ -1,11 +1,10 @@
 ;; mutation-tested: 2026-05-06
 (ns isaac.main
   (:require
-    [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.cli.registry :as registry]
+    [isaac.config.api :as config-api]
     [isaac.config.loader :as loader]
-    [isaac.config.paths :as paths]
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
     [isaac.log.output :as log-output]
@@ -25,20 +24,11 @@
   ;; fs/instance, which now throws when no fs is available.
   (or (:fs extra-opts) (nexus/get :fs) (fs/real-fs)))
 
-(defn- substitute-env [x]
-  (cond
-    (string? x) (str/replace x #"\$\{([^}]+)\}"
-                   (fn [[_ var]] (or (loader/env var) (str "${" var "}"))))
-    (map? x)    (into {} (map (fn [[k v]] [k (substitute-env v)]) x))
-    (coll? x)   (mapv substitute-env x)
-    :else        x))
-
 (defn- read-user-config [root fs*]
   (when root
-    (let [config-file (paths/root-config-file root)]
-      (when (fs/exists? fs* config-file)
-        (try (substitute-env (edn/read-string (fs/slurp fs* config-file)))
-             (catch Exception _ nil))))))
+    (let [result (config-api/load-resolved {:root root :fs fs*})]
+      (when-not (:missing-config? result)
+        (:config result)))))
 
 (defn- register-module-cli-commands!
   "`:isaac/cli` is a berth, so all CLI
@@ -110,31 +100,32 @@
   "Run the CLI. Returns exit code."
   [args]
   (let [{after-root :args :keys [root log-file]} (cli-args/extract-root-flag args)
-         args (resolve-alias after-root)
-         cmd  (first args)
-         opts (rest args)
-         extra-opts    (or *extra-opts* {})
-         fs*           (startup-fs extra-opts)
-         resolved-root (root/resolve-root root (:root extra-opts) fs*)]
-    (register-module-cli-commands! resolved-root fs* cmd)
-    (configure-cli-logging! resolved-root fs* log-file)
-    (cond
-      (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
-      (do (println (usage)) 0)
+        args          (resolve-alias after-root)
+        cmd           (first args)
+        opts          (rest args)
+        extra-opts    (or *extra-opts* {})
+        fs*           (startup-fs extra-opts)
+        resolved-root (root/resolve-root root (:root extra-opts) fs*)]
+    (nexus/-with-nested-nexus {:fs fs*}
+      (register-module-cli-commands! resolved-root fs* cmd)
+      (configure-cli-logging! resolved-root fs* log-file)
+      (cond
+        (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
+        (do (println (usage)) 0)
 
-      (or (= "--version" cmd) (= "-V" cmd) (= "version" cmd))
-      (do (println (version/version-string)) 0)
+        (or (= "--version" cmd) (= "-V" cmd) (= "version" cmd))
+        (do (println (version/version-string)) 0)
 
-      (= "help" cmd)
-      (if-let [target (first opts)]
-        (if-let [command (registry/get-command target)]
-          (do (println (registry/command-help command)) 0)
-          (do (println (str "Unknown command: " target)) 1))
-        (do (println (usage)) 0))
+        (= "help" cmd)
+        (if-let [target (first opts)]
+          (if-let [command (registry/get-command target)]
+            (do (println (registry/command-help command)) 0)
+            (do (println (str "Unknown command: " target)) 1))
+          (do (println (usage)) 0))
 
-       :else
-       (if-let [command (registry/get-command cmd)]
-         (binding [root/*root* resolved-root]
+        :else
+        (if-let [command (registry/get-command cmd)]
+          (binding [root/*root* resolved-root]
             (nexus/-with-nested-nexus {:fs fs*}
               (nexus/init! {:fs fs* :root resolved-root})
               (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
@@ -142,7 +133,7 @@
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
               (println (usage))
-              1)))))
+              1))))))
 
 (defn -main [& args]
   (let [exit-code (run args)]
