@@ -1,8 +1,12 @@
-;; Exposes foundation spec/ on the classpath for downstream test consumers.
-;; spec/ is symlinked into this subproject so :paths stay in-project.
+;; Exposes foundation test harness code for downstream consumers.
 ;;
 ;;   io.github.slagyr/isaac-foundation-test-support
-;;     {:local/root "../isaac-foundation" :deps/root "spec-support"}
+;;     {:git/url "https://github.com/slagyr/isaac-foundation.git"
+;;      :git/sha "..."
+;;      :deps/root "spec-support"}
+;;
+;; Includes isaac.foundation.config-bypass-lint — run via module bb.edn
+;; config-bypass-lint task (requires this coord on the bb classpath).
 {:paths ["src"]
  :deps  {speclj/speclj                       {:mvn/version "3.13.0"}
          babashka/process                    {:mvn/version "0.5.22"}

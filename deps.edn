@@ -27,4 +27,8 @@
   :features {:extra-paths ["spec/marigold/bridge/resources" "spec/marigold/longwave/resources"]
              :main-opts   ["-m" "gherclj.main"
                            "-f" "features" "-s" "isaac.**-steps"
-                           "-t" "~slow" "-t" "~wip"]}}}
+                           "-t" "~slow" "-t" "~wip"]}
+
+  :config-bypass-lint {:extra-paths ["spec-support/src"]
+                        :exec-fn    isaac.foundation.config-bypass-lint/lint!
+                        :exec-args  ["src"]}}}

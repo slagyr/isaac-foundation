@@ -31,7 +31,8 @@
                                (tests/run-ci!))}
 
   config-bypass-lint {:doc "Fail on raw config slurp/read outside isaac.config.*"
-                      :task (shell "bb" "config_bypass_lint.bb" "src")}
+                      :requires ([isaac.foundation.config-bypass-lint :as lint])
+                      :task     (apply lint/lint! (or (seq *command-line-args*) ["src"]))}
 
   jvm-spec      {:doc  "Run speclj via clj -M:test:spec (60s timeout)"
                  :requires ([bb.test-tasks :as tests])
