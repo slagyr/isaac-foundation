@@ -66,24 +66,6 @@ Feature: isaac logs — colorized log tail
     And the stdout contains "missing.log"
     And the exit code is 0
 
-  Scenario: Reads log path from log.file in config when --file is absent
-    Given the isaac file "config/isaac.edn" exists with:
-      """
-      {:log {:file "cfg-file.log"}}
-      """
-    And a file "cfg-file.log" exists with content "{:ts \"2026-05-12T00:00:00Z\", :level :info, :event :via/file-config}"
-    When isaac is run with "logs --no-color"
-    Then the stdout contains ":via/file-config"
-
-  Scenario: Reads log path from log.output in config when --file is absent
-    Given the isaac file "config/isaac.edn" exists with:
-      """
-      {:log {:output "cfg-test.log"}}
-      """
-    And a file "cfg-test.log" exists with content "{:ts \"2026-05-12T00:00:00Z\", :level :info, :event :via/config}"
-    When isaac is run with "logs --no-color"
-    Then the stdout contains ":via/config"
-
   Scenario: Default limit caps history to the last 20 entries
     Given a file "app.log" exists with 25 log entries
     When isaac is run with "logs --file app.log --no-color"

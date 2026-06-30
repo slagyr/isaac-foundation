@@ -13,6 +13,7 @@
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.fs :as fs]
+    [isaac.logs.streams :as log-streams]
     [isaac.main :as main]
     [isaac.config.root :as root]
     [isaac.spec-helper :as helper]
@@ -498,6 +499,16 @@
         (.mkdirs (io/file abs-root))))
     (g/assoc! :root abs-root)))
 
+(defn registered-log-streams [table]
+  (let [headers (mapv keyword (:headers table))
+        rows    (mapv #(zipmap headers %) (:rows table))]
+    (log-streams/set-streams!
+      (into {}
+            (map (fn [{:keys [name file description]}]
+                   [(keyword (str/trim name))
+                    {:file (str/trim file) :description (str/trim description)}])
+                 rows)))))
+
 (defn isaac-file-contains [path content]
   (let [full-path (if (str/starts-with? path "/")
                     path
@@ -588,6 +599,11 @@
    Without this step, *in* is closed for the run.")
 
 (defgiven "stdin is empty" isaac.foundation.cli-steps/stdin-is-empty)
+
+(defgiven "the registered log streams:" isaac.foundation.cli-steps/registered-log-streams
+  "Sets the log-stream registry to exactly the rows given (columns: name,
+   file, description). This is the seam 'isaac logs' reads to list and select
+   streams, standing in for module manifest contributions in tests.")
 
 (defgiven "the clock is fixed at {string}" isaac.foundation.cli-steps/clock-is-fixed-at
   "Pins the run clock (:current-time) for the next 'isaac is run with' so

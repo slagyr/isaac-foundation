@@ -1,10 +1,9 @@
 (ns isaac.logs.cli-spec
   (:require
     [isaac.cli.registry :as registry]
-    [isaac.fs :as fs]
     [isaac.log-viewer :as viewer]
-    [isaac.logger :as log]
     [isaac.logs.cli :as sut]
+    [isaac.logs.streams :as streams]
     [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
 
@@ -13,8 +12,6 @@
 (def ^:private relative-log "marigold.log")
 (def ^:private config-log "logs/bridge-watch.log")
 (def ^:private run-log "logs/watch.log")
-(def ^:private default-log "logs/cli.log")
-(def ^:private config-file-log "logs/config-file.log")
 
 (describe "logs cli"
 
@@ -32,34 +29,10 @@
     (it "returns the relative path when root is unavailable"
       (should= relative-log (#'sut/resolve-path relative-log nil))))
 
-  (describe "config-log-path"
-
-    (it "reads the configured log output path"
-      (let [mem (fs/mem-fs)]
-        (fs/mkdirs mem "/tmp/state/config")
-        (fs/spit   mem "/tmp/state/config/isaac.edn" (str "{:log {:output \"" config-log "\"}}"))
-        (should= config-log (#'sut/config-log-path "/tmp/state" mem))))
-
-    (it "prefers log.file over log.output when both are set"
-      (let [mem (fs/mem-fs)]
-        (fs/mkdirs mem "/tmp/state/config")
-        (fs/spit   mem "/tmp/state/config/isaac.edn"
-                   (str "{:log {:file \"" config-file-log "\" :output \"" config-log "\"}}"))
-        (should= config-file-log (#'sut/config-log-path "/tmp/state" mem))))
-
-    (it "returns nil when the config file is missing"
-      (should= nil (#'sut/config-log-path "/tmp/state" (fs/mem-fs))))
-
-    (it "returns nil when the config file is invalid"
-      (let [mem (fs/mem-fs)]
-        (fs/mkdirs mem "/tmp/home/.isaac/config")
-        (fs/spit   mem "/tmp/home/.isaac/config/isaac.edn" "{:log")
-        (should= nil (#'sut/config-log-path "/tmp/home" mem)))))
-
   (describe "run"
 
     (around [example]
-      (nexus/-with-nested-nexus {:fs (fs/mem-fs)} (example)))
+      (nexus/-with-nested-nexus {:isaac/log-streams nil} (example)))
 
     (it "prefers the explicit file path and forwards viewer options"
       (let [captured (atom nil)]
@@ -75,23 +48,32 @@
                     {:color? false :zebra? true :follow? true :plain? true :limit 5}]
                    @captured))))
 
-    (it "falls back to the configured log path when no explicit file is given"
+    (it "tails the named stream's file from the registry"
       (let [captured (atom nil)]
-        (with-redefs [sut/config-log-path (fn [_ _] config-log)
-                      viewer/tail!        (fn [path opts] (reset! captured [path opts]))]
-          (sut/run {:home "/tmp/home" :root test-root :limit 20})
-          (should= [(str test-root "/" config-log)
+        (streams/set-streams! {:server {:file "logs/server.log" :description "HTTP server logs"}})
+        (with-redefs [viewer/tail! (fn [path opts] (reset! captured [path opts]))]
+          (sut/run {:arguments ["server"] :root test-root :limit 20})
+          (should= [(str test-root "/logs/server.log")
                     {:color? true :zebra? false :follow? false :plain? false :limit 20}]
                    @captured))))
 
-    (it "falls back to the default log path under root when no config path exists"
-      (let [captured (atom nil)]
-        (with-redefs [sut/config-log-path (fn [_ _] nil)
-                      viewer/tail!        (fn [path opts] (reset! captured [path opts]))]
-          (sut/run {:home "/tmp/home" :root test-root :limit 20})
-          (should= [(str test-root "/" default-log)
-                    {:color? true :zebra? false :follow? false :plain? false :limit 20}]
-                   @captured)))))
+    (it "lists the registered streams when no name and no file are given"
+      (streams/set-streams! {:cli    {:file "logs/cli.log" :description "CLI command logs"}
+                             :server {:file "logs/server.log" :description "HTTP server logs"}})
+      (let [out (with-out-str (should= 0 (sut/run {:root test-root :limit 20})))]
+        (should (.contains out "cli"))
+        (should (.contains out "logs/cli.log"))
+        (should (.contains out "server"))
+        (should (.contains out "logs/server.log"))))
+
+    (it "reports an unknown stream and lists the available ones without tailing"
+      (let [tailed? (atom false)]
+        (streams/set-streams! {:cli {:file "logs/cli.log" :description "CLI command logs"}})
+        (with-redefs [viewer/tail! (fn [_ _] (reset! tailed? true))]
+          (let [out (with-out-str (should= 0 (sut/run {:arguments ["nope"] :root test-root :limit 20})))]
+            (should (.contains out "nope"))
+            (should (.contains out "cli"))
+            (should-not @tailed?))))))
 
   (describe "run-fn"
 
@@ -115,5 +97,6 @@
                     :root test-root
                     :file run-log
                     :limit 20
-                    :zebra true}
+                    :zebra true
+                    :arguments []}
                    @captured))))))

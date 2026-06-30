@@ -1,4 +1,3 @@
-@wip
 Feature: isaac logs — stream discovery and selection
   `isaac logs` views any registered log stream. Streams are declared by
   modules via the :isaac/log-stream berth (name -> {:file, :description});

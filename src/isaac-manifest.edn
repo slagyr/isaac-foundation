@@ -16,6 +16,17 @@
                                                                         :namespace {:type        :symbol
                                                                                     :validations [:present?]
                                                                                     :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}}}}}
+             :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Each module declares its log file(s); `isaac logs` lists and tails them. Foundation hardcodes no file names."
+                                   :schema      {:type       :map
+                                                 :key-spec   {:type :keyword}
+                                                 :value-spec {:type    :map
+                                                              :factory isaac.logs.streams/register-stream!
+                                                              :schema  {:file        {:type        :string
+                                                                                      :validations [:present?]
+                                                                                      :description "Root-relative path to the log file (e.g. \"logs/cli.log\"). Stream name comes from the map key."}
+                                                                        :description {:type        :string
+                                                                                      :validations [:present?]
+                                                                                      :description "One-line description shown in the stream listing."}}}}}
              :isaac.config/schema {:description "Top-level config schema fragments contributed by modules."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
@@ -64,6 +75,9 @@
                          :description "Rotate the server log when it exceeds this many bytes (default 100MB)."}
              :max-days  {:type        :int
                          :description "Drop rotated server logs older than this many days (default 30)."}}}}}
+
+ :isaac/log-stream {:cli {:file        "logs/cli.log"
+                          :description "CLI command logs"}}
 
  :isaac/cli {:init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
