@@ -126,11 +126,16 @@
         :stdout (println (pr-str entry))
         :none   nil
         (when (:log-file @state)
-          (let [fs*  (or (nexus/get :fs) (fs/real-fs))
-                path (:log-file @state)]
-            (when-let [parent (fs/parent path)]
-              (fs/mkdirs fs* parent))
-            (fs/spit fs* path (str (pr-str entry) "\n") :append true)))))))
+          ;; File logging is best-effort: a write failure (unwritable path,
+          ;; vanished directory) must never propagate into and crash the
+          ;; caller (e.g. an HTTP request handler's wrap-logging).
+          (try
+            (let [fs*  (or (nexus/get :fs) (fs/real-fs))
+                  path (:log-file @state)]
+              (when-let [parent (fs/parent path)]
+                (fs/mkdirs fs* parent))
+              (fs/spit fs* path (str (pr-str entry) "\n") :append true))
+            (catch Exception _ nil)))))))
 
 (defn log* [level event file line & kvs]
   (when (enabled? level)
