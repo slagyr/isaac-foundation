@@ -39,9 +39,17 @@
 
 (defn apply-server!
   "Configure server logging from config. :file activates the rotating server
-   sink; :stdout/:stderr/:none stream without a durable server log file."
+   sink; :stdout/:stderr/:none stream without a durable server log file.
+
+   A harness-set :memory output is preserved (mirrors apply-cli!) so tests can
+   assert server-boot entries in the in-memory buffer — but the durable server
+   sink is still configured, so logs/server.log is written either way
+   (save-entry mirrors each entry to memory while output is :memory). Production
+   boots with :stderr, so the config output (default :file) applies normally."
   [root config]
-  (let [output (output-from-config config)]
-    (log/set-output! output)
-    (when (= :file output)
-      (lfile/configure-server-sink! root config))))
+  (if (= :memory (log/output))
+    (lfile/configure-server-sink! root config)
+    (let [output (output-from-config config)]
+      (log/set-output! output)
+      (when (= :file output)
+        (lfile/configure-server-sink! root config)))))
