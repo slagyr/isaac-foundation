@@ -2,6 +2,9 @@
 ;; Flags production namespaces that read Isaac config content via raw slurp +
 ;; edn/read-string instead of isaac.config.loader / isaac.config.api.
 ;;
+;; Canonical copy: isaac-foundation/config_bypass_lint.bb
+;; Each Isaac module repo vendors an identical copy for standalone CI.
+;;
 ;; Usage: bb config_bypass_lint.bb [src-dir ...]
 ;; Default target: src/
 
