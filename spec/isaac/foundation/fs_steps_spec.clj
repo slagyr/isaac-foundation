@@ -74,4 +74,17 @@
                                   :rows    [["status" "#delete"]
                                             ["attempt" "2"]]})
     (should= {:attempt 2}
-             (read-string (fs/slurp (nexus/get :fs) (str test-root "/delivery/pending/7f3a.edn"))))))
+             (read-string (fs/slurp (nexus/get :fs) (str test-root "/delivery/pending/7f3a.edn")))))
+
+  (it "passes when a log file is missing"
+    (g/assoc! :mem-fs (nexus/get :fs))
+    (g/assoc! :root test-root)
+    (sut/isaac-log-file-no-server-origin "logs/cli.log"))
+
+  (it "passes when a log file has only non-server entries"
+    (g/assoc! :mem-fs (nexus/get :fs))
+    (g/assoc! :root test-root)
+    (fs/mkdirs (nexus/get :fs) (str test-root "/logs"))
+    (fs/spit (nexus/get :fs) (str test-root "/logs/cli.log")
+             "{:event :cli/version}\n")
+    (sut/isaac-log-file-no-server-origin "logs/cli.log")))

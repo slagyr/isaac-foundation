@@ -320,6 +320,22 @@
         (g/should (fs/exists? fs* file-path))
         (g/should (seq (remove str/blank? (str/split-lines (or content "")))))))))
 
+(defn- read-log-file-entries [fs* path]
+  (when (fs/exists? fs* path)
+    (->> (str/split-lines (or (fs/slurp fs* path) ""))
+         (remove str/blank?)
+         (mapv #(try (edn/read-string %) (catch Exception _ nil)))
+         (remove nil?))))
+
+(defn isaac-log-file-no-server-origin [path]
+  (with-server-fs
+    (fn []
+      (let [file-path (isaac-file-path path)
+            fs*       (server-fs)]
+        (when (fs/exists? fs* file-path)
+          (doseq [entry (read-log-file-entries fs* file-path)]
+            (g/should-not (= "server" (namespace (:event entry))))))))))
+
 (defn file-exists-with [path content]
   (with-feature-fs
     (fn []
@@ -367,6 +383,9 @@
 (defthen "the isaac file {path:string} exists" isaac.foundation.fs-steps/isaac-file-exists)
 
 (defthen "the isaac file {path:string} exists with log entries" isaac.foundation.fs-steps/isaac-file-has-log-entries)
+
+(defthen "the isaac log file {path:string} has no server-origin entries"
+  isaac.foundation.fs-steps/isaac-log-file-no-server-origin)
 
 (defgiven #"the file \"([^\"]+)\" exists with:$" isaac.foundation.fs-steps/file-exists-with)
 
