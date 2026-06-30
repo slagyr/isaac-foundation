@@ -66,10 +66,11 @@
       (do (list-streams! registry) 0))))
 
 (defn run-fn [opts]
-  (cli-common/standard-run-fn "logs"
-                               #(tools-cli/parse-opts % option-spec)
-                               run
-                               opts))
+  (let [parsed (tools-cli/parse-opts (or (:_raw-args opts) []) option-spec)]
+    (cli-common/standard-run-fn "logs"
+                                 (constantly parsed)
+                                 (fn [merged] (run (assoc merged :arguments (vec (:arguments parsed)))))
+                                 opts)))
 
 ;; ----- :isaac/cli berth implementation -----
 
