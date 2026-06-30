@@ -36,6 +36,11 @@
              (schema/conform {:logging (schema-fragment :logging)}
                              {:logging {:max-bytes 2000 :max-days 30}})))
 
+  (it "logging conforms :output"
+    (should= {:logging {:output :stdout :max-bytes 2000}}
+             (schema/conform {:logging (schema-fragment :logging)}
+                             {:logging {:output :stdout :max-bytes 2000}})))
+
   (it "registers prefer-entity-files in the composed root schema"
     (let [index  {:isaac.foundation {:coord {} :manifest (manifest) :path nil}}
           fields (schema-base/schema-fields (schema-compose/effective-root-schema index))]

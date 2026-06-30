@@ -123,6 +123,7 @@
       (case (:output @state)
         :memory (swap! state update :entries conj entry)
         :stderr (binding [*out* *err*] (println (pr-str entry)))
+        :stdout (println (pr-str entry))
         :none   nil
         (when (:log-file @state)
           (let [fs*  (or (nexus/get :fs) (fs/real-fs))

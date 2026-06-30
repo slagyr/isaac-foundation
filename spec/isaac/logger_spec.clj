@@ -203,6 +203,16 @@
 
   ;; endregion ^^^^^ Level Filtering ^^^^^
 
+  (describe "stdout output"
+
+    (it "writes a single EDN line to *out*"
+      (let [sw (java.io.StringWriter.)]
+        (binding [*out* sw]
+          (sut/set-output! :stdout)
+          (sut/info :test/stdout))
+        (should (str/includes? (.toString sw) ":test/stdout"))
+        (should= 0 (count (read-entries))))))
+
   ;; region ----- Memory Output -----
 
   (describe "memory output"

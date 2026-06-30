@@ -198,26 +198,36 @@
           (lfile/clear-sink-config!))))
 
     (it "defaults structured logs to <root>/logs/cli.log"
-      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) nil)
       (should= :file (log/output))
       (should= "/tmp/isaac-cli-root/logs/cli.log" (log/log-file))
       (should (fs/exists? (nexus/get :fs) "/tmp/isaac-cli-root/logs"))
       (should-not (fs/exists? (nexus/get :fs) "/tmp/isaac-cli-root/logs/server.log")))
 
     (it "honors an explicit --log-file path"
-      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" "custom/cmd.log")
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) "custom/cmd.log")
       (should= :file (log/output))
       (should= "/tmp/isaac-cli-root/custom/cmd.log" (log/log-file)))
 
     (it "honors ISAAC_LOG_FILE when no --log-file is passed"
       (with-redefs [loader/env (fn [v] (when (= v "ISAAC_LOG_FILE") "env/cmd.log"))]
-        (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+        (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) nil)
         (should= :file (log/output))
         (should= "/tmp/isaac-cli-root/env/cmd.log" (log/log-file))))
 
+    (it "applies :logging.output from user config when no file override is set"
+      (let [root "/tmp/isaac-cli-root"
+            fs*  (nexus/get :fs)]
+        (fs/mkdirs fs* (str root "/config"))
+        (fs/spit fs* (str root "/config/isaac.edn")
+                 "{:logging {:output :stdout}}")
+        (@#'sut/configure-cli-logging! root fs* nil)
+        (should= :stdout (log/output))
+        (should-be-nil (log/log-file))))
+
     (it "leaves :memory output unchanged when no log file is configured"
       (log/set-output! :memory)
-      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" nil)
+      (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) nil)
       (should= :memory (log/output))
       (should-be-nil (log/log-file))))
 

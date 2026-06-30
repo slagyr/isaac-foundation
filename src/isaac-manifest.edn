@@ -1,5 +1,5 @@
 {:id        :isaac.foundation
- :version   "0.1.14"
+ :version   "0.1.15"
  :factory   isaac.foundation.module/create-module
 
  :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
@@ -57,7 +57,10 @@
   :logging
   {:schema
    {:type   :map
-    :schema {:max-bytes {:type        :int
+    :schema {:output    {:type        :keyword
+                         :description "Log destination: :file (default), :stderr, :stdout, or :none. Server :file uses logs/server.log; CLI :file uses logs/cli.log."
+                         :validations [[:maybe? [:one-of :file :stderr :stdout :none]]]}
+             :max-bytes {:type        :int
                          :description "Rotate the server log when it exceeds this many bytes (default 100MB)."}
              :max-days  {:type        :int
                          :description "Drop rotated server logs older than this many days (default 30)."}}}}}

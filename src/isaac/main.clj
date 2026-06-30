@@ -8,6 +8,7 @@
     [isaac.config.paths :as paths]
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
+    [isaac.log.output :as log-output]
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
     [isaac.nexus :as nexus]
@@ -72,17 +73,11 @@
   (let [v (loader/env "ISAAC_LOG_FILE")]
     (when-not (str/blank? v) v)))
 
-(defn- configure-cli-logging! [root log-file-path]
-  (when-let [path (or log-file-path (env-log-file))]
-    (when-let [abs (lfile/configure-cli-sink! root path)]
-      (log/set-log-file! abs)
-      (log/set-output! :file)
-      (log/debug :cli/log-file :path abs)))
-  (when (and (not (or log-file-path (env-log-file)))
-             (not= :memory (log/output)))
-    (when-let [abs (lfile/configure-cli-sink! root lfile/cli-log-rel-path)]
-      (log/set-log-file! abs)
-      (log/set-output! :file))))
+(defn- configure-cli-logging! [root fs* log-file-path]
+  (let [config (or (read-user-config root fs*) {})]
+    (log-output/apply-cli! root config
+                           {:log-file-path log-file-path
+                            :env-log-file  (env-log-file)})))
 
 (defn- usage []
   (let [cmds (registry/all-commands)
@@ -122,7 +117,7 @@
          fs*           (startup-fs extra-opts)
          resolved-root (root/resolve-root root (:root extra-opts) fs*)]
     (register-module-cli-commands! resolved-root fs* cmd)
-    (configure-cli-logging! resolved-root log-file)
+    (configure-cli-logging! resolved-root fs* log-file)
     (cond
       (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
       (do (println (usage)) 0)

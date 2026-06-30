@@ -16,7 +16,7 @@
    (check-compose / schema-compose / validation), created by the config
    schema/check pre-work. Closed under isaac.* requires (asserted below)."
   '#{isaac.main isaac.cli.registry isaac.foundation.module isaac.module.protocol isaac.nexus
-     isaac.fs isaac.logger isaac.log.file isaac.config.root isaac.foundation.version isaac.reconfigurable
+     isaac.fs isaac.logger isaac.log.file isaac.log.output isaac.config.root isaac.foundation.version isaac.reconfigurable
      isaac.naming isaac.scheduler.runtime
      isaac.spec-helper
      isaac.module.loader isaac.module.manifest
