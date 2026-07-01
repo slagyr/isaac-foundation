@@ -106,9 +106,10 @@
 
 (defn- read-root-config [root]
   (when root
-    (let [result (config-api/load-resolved {:root root :fs (fs/instance)})]
-      (when-not (:missing-config? result)
-        (:config result)))))
+    (binding [module-loader/*resolve-classpath?* false]
+      (let [result (config-api/load-resolved {:root root :fs (fs/instance)})]
+        (when-not (:missing-config? result)
+          (:config result))))))
 
 (defn- status-color [status]
   (when (= :invalid status)

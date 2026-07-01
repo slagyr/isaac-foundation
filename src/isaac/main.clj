@@ -47,15 +47,14 @@
   [root fs* cmd]
   (try
     (with-redefs [log/log* (fn [& _])]
-      (binding [module-loader/*resolve-classpath?* (not= "modules" cmd)]
-        (let [config  (or (read-user-config root fs*) {})
-              context {:cwd (System/getProperty "user.dir")}
-              {:keys [index]}
-              (nexus/-with-nested-nexus {:fs fs*}
-                (module-loader/discover! config context))]
-          (registry/clear-berth-commands!)
-          (module-loader/reconcile-modules! index)
-          (module-loader/process-manifest-berths! index))))
+      (let [config  (or (read-user-config root fs*) {})
+            context {:cwd (System/getProperty "user.dir")}
+            {:keys [index]}
+            (nexus/-with-nested-nexus {:fs fs*}
+              (module-loader/discover! config context))]
+        (registry/clear-berth-commands!)
+        (module-loader/reconcile-modules! index)
+        (module-loader/process-manifest-berths! index)))
     (catch Exception _
       nil)))
 
@@ -107,9 +106,10 @@
         fs*           (startup-fs extra-opts)
         resolved-root (root/resolve-root root (:root extra-opts) fs*)]
     (nexus/-with-nested-nexus {:fs fs*}
-      (register-module-cli-commands! resolved-root fs* cmd)
-      (configure-cli-logging! resolved-root fs* log-file)
-      (cond
+      (binding [module-loader/*resolve-classpath?* (not= "modules" cmd)]
+        (register-module-cli-commands! resolved-root fs* cmd)
+        (configure-cli-logging! resolved-root fs* log-file)
+        (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (usage)) 0)
 
@@ -133,7 +133,7 @@
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
               (println (usage))
-              1))))))
+              1)))))))
 
 (defn -main [& args]
   (let [exit-code (run args)]

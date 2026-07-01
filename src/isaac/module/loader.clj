@@ -1218,7 +1218,8 @@
                                        (map? coord))
                               [dep-id (loadable-coord context coord)]))
                           pending))
-              _ (preload-module-pairs! preload-pairs)
+              _ (when *resolve-classpath?*
+                  (preload-module-pairs! preload-pairs))
               {:keys [new-entries new-errors]}
               (reduce
                 (fn [{:keys [new-entries new-errors]} [consumer-id dep-id coord]]
