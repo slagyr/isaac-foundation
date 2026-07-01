@@ -327,4 +327,29 @@
             (should (str/includes? (str writer) ":second"))
             (finally
               (future-cancel run*)
-              (.delete f))))))))
+              (.delete f)))))
+
+    (it "follows across log rotation when the path is replaced"
+      (let [dir        (java.nio.file.Files/createTempDirectory "isaac-log-rotate-" (into-array java.nio.file.attribute.FileAttribute []))
+            path       (str dir "/server.log")
+            archive    (str dir "/server-20260701.log")
+            before     "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :before-rotate}\n"
+            after      "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :after-rotate}\n"
+            writer     (java.io.StringWriter.)
+            run*       (future
+                         (binding [*out* writer]
+                           (binding [sut/*follow-sleep-ms* 0]
+                             (sut/tail! path {:color? false :follow? true}))))]
+        (try
+          (spit path before)
+          (helper/await-condition #(str/includes? (str writer) ":before-rotate") 5000)
+          (java.nio.file.Files/move
+            (.toPath (java.io.File. path))
+            (.toPath (java.io.File. archive))
+            (into-array java.nio.file.CopyOption [(java.nio.file.StandardCopyOption/ATOMIC_MOVE)]))
+          (spit path after)
+          (helper/await-condition #(str/includes? (str writer) ":after-rotate") 5000)
+          (should (str/includes? (str writer) ":after-rotate"))
+          (finally
+            (future-cancel run*)
+            (clojure.java.io/delete-file dir true))))))))

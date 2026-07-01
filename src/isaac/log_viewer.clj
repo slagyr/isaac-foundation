@@ -207,9 +207,49 @@
       (Thread/sleep *follow-sleep-ms*)
       (recur))))
 
+(defn- file-key [path]
+  (try
+    (let [p (.toPath (java.io.File. path))]
+      (when (java.nio.file.Files/exists p (into-array java.nio.file.LinkOption []))
+        (.fileKey (java.nio.file.Files/readAttributes
+                    p
+                    java.nio.file.attribute.BasicFileAttributes
+                    (into-array java.nio.file.LinkOption [])))))
+    (catch Exception _ nil)))
+
+(defn- rotated? [path ^java.io.RandomAccessFile raf tracked-key]
+  (let [f (java.io.File. path)]
+    (when (.exists f)
+      (let [pos (.getFilePointer raf)
+            len (.length f)
+            key (file-key path)]
+        (or (and (some? tracked-key) (some? key) (not= tracked-key key))
+            (< len pos))))))
+
+(defn- follow-tail! [path emit tracked-key ^java.io.RandomAccessFile raf]
+  (loop [raf raf key tracked-key]
+    (if-let [line (.readLine raf)]
+      (do (emit line) (recur raf key))
+      (let [f (java.io.File. path)]
+        (Thread/sleep *follow-sleep-ms*)
+        (cond
+          (not (.exists f))
+          (let [_ (.close raf)]
+            (wait-for-file! f)
+            (let [new-raf (java.io.RandomAccessFile. path "r")]
+              (recur new-raf (file-key path))))
+
+          (rotated? path raf key)
+          (let [_ (.close raf)
+                new-raf (java.io.RandomAccessFile. path "r")]
+            (recur new-raf (file-key path)))
+
+          :else
+          (recur raf key))))))
+
 (defn- tail-open-file!
-  [^java.io.File file {:keys [color? follow? zebra? plain? limit]
-                       :or   {color? false follow? false zebra? false plain? false}}]
+  [path {:keys [color? follow? zebra? plain? limit]
+         :or   {color? false follow? false zebra? false plain? false}}]
   (let [opts {:color? (and color? (not plain?))
               :zebra? (and zebra? (not plain?))
               :plain? plain?}
@@ -217,14 +257,14 @@
         emit (fn [line]
                (when (print-line! line @row opts)
                  (swap! row inc)))]
-    (with-open [raf (java.io.RandomAccessFile. file "r")]
-      (doseq [line (read-initial-lines raf limit)]
-        (emit line))
-      (when follow?
-        (loop []
-          (if-let [line (.readLine raf)]
-            (do (emit line) (recur))
-            (do (Thread/sleep *follow-sleep-ms*) (recur))))))))
+    (let [raf (java.io.RandomAccessFile. path "r")]
+      (try
+        (doseq [line (read-initial-lines raf limit)]
+          (emit line))
+        (when follow?
+          (follow-tail! path emit (file-key path) raf))
+        (finally
+          (.close raf))))))
 
 (defn tail!
   "Print formatted log entries from `path`.
@@ -241,7 +281,7 @@
         (println (missing-file-message path follow?))
         (when follow?
           (wait-for-file! file)
-          (tail-open-file! file opts)))
-      (tail-open-file! file opts))))
+          (tail-open-file! path opts)))
+      (tail-open-file! path opts))))
 
 ;; endregion ^^^^^ Tailing ^^^^^
