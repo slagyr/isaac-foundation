@@ -291,10 +291,10 @@
             writer  (java.io.StringWriter.)
             run*    (future
                       (binding [*out* writer]
-                        (binding [sut/*follow-sleep-ms* 0]
+                        (binding [sut/*follow-sleep-ms* 1]
                           (sut/tail! missing {:color? false :follow? true}))))]
         (try
-          (Thread/sleep 50)
+          (helper/await-condition #(str/includes? (str writer) "Waiting for log output") 5000)
           (spit missing line)
           (helper/await-condition #(str/includes? (str writer) ":appeared") 5000)
           (should (str/includes? (str writer) ":appeared"))
