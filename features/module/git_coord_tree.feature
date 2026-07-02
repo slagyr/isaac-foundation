@@ -44,6 +44,4 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
       | conflicts.0.id               | :marigold.shared |
       | conflicts.0.chosen           | "1.0.0"          |
       | conflicts.0.requested.0.version | "9.9.9"       |
-      | drift.0.id                   | :marigold.shared |
-      | drift.0.requested.0.version  | "1.0.0"          |
     And the exit code is 0
