@@ -32,16 +32,16 @@ Feature: isaac launcher — exactly one version of any module (92p3)
       """
     # app's deps.edn pulls marigold.shared 1.0.0; app2's pulls 9.9.9 — same id,
     # two versions. Fixtures are pinned so resolution deterministically keeps 1.0.0.
-    # yi82 surfaces 9.9.9 in :conflicts; :modules still carries one loaded row.
+    # yi82 surfaces only newer-than-chosen requests in :conflicts; :modules still carries one loaded row.
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
-      | path               | value            |
-      | modules.2.id       | :marigold.shared |
-      | modules.2.version  | "1.0.0"          |
-      | conflicts.0.id                 | :marigold.shared |
-      | conflicts.0.chosen             | "1.0.0"          |
-      | conflicts.0.requested.0.version | "1.0.0"         |
-      | conflicts.0.requested.1.version | "9.9.9"         |
+      | path                       | value            |
+      | modules.2.id               | :marigold.shared |
+      | modules.2.version          | "1.0.0"          |
+      | conflicts.0.id             | :marigold.shared |
+      | conflicts.0.chosen         | "1.0.0"          |
+      | conflicts.0.requested.0.version | "9.9.9"     |
+      | drift.0.requested.0.version | "1.0.0"         |
     And the isaac modules list has 3 entries
     And the exit code is 0
 

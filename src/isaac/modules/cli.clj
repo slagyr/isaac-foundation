@@ -221,15 +221,19 @@
      :rows    modules
      :zebra?  true}))
 
-(defn- conflict-table-rows [conflicts severity]
+(defn- divergence-table-rows [entries]
   (mapcat (fn [{:keys [id chosen requested]}]
-            (map (fn [{:keys [version required-by]}]
-                   {:module      id
-                    :version     version
-                    :required-by (vec required-by)
-                    :loaded      (when (= version chosen) "✓")})
-                 (filter #(= severity (:severity %)) requested)))
-          conflicts))
+            (cons {:module      id
+                   :version     chosen
+                   :required-by []
+                   :loaded      "✓"}
+                  (map (fn [{:keys [version required-by]}]
+                         {:module      id
+                          :version     version
+                          :required-by (vec required-by)
+                          :loaded      nil})
+                       requested)))
+          entries))
 
 (defn- render-conflict-table [rows]
   (table/render
@@ -241,29 +245,26 @@
      :zebra?  true}))
 
 (defn- render-warning-conflicts-block [conflicts]
-  (let [rows (conflict-table-rows conflicts :warning)]
-    (when (seq rows)
-      (let [n (count (filter (fn [{:keys [requested]}]
-                               (seq (filter #(= :warning (:severity %)) requested)))
-                             conflicts))]
-        (str "\n"
-             color/yellow "⚠  " color/reset
-             n " version conflict"
-             (when (> n 1) "s")
-             " — one version loaded; the rest dropped\n"
-             (render-conflict-table rows))))))
+  (when (seq conflicts)
+    (str "\n"
+         color/yellow "⚠  " color/reset
+         (count conflicts) " version conflict"
+         (when (> (count conflicts) 1) "s")
+         " — requested newer than loaded\n"
+         (render-conflict-table (divergence-table-rows conflicts)))))
 
-(defn- render-drift-conflicts-block [conflicts]
-  (let [rows (conflict-table-rows conflicts :drift)]
-    (when (seq rows)
-      (str "\n"
-           "ℹ  version drift — older requested versions were dropped\n"
-           (render-conflict-table rows)))))
+(defn- render-drift-conflicts-block [drift]
+  (when (seq drift)
+    (str "\n"
+         "ℹ  " (count drift) " version drift"
+         (when (> (count drift) 1) "s")
+         " — loaded version is newer than some requests\n"
+         (render-conflict-table (divergence-table-rows drift)))))
 
-(defn- render-installed-list [modules conflicts]
+(defn- render-installed-list [modules conflicts drift]
   (str (render-installed-table modules)
        (render-warning-conflicts-block conflicts)
-       (render-drift-conflicts-block conflicts)))
+       (render-drift-conflicts-block drift)))
 
 (defn- render-catalog-table [modules]
   (table/render
@@ -289,11 +290,13 @@
       (common/print-cli-error! "choose one of --edn or --json")
       (let [config  (or (read-root-config (:root opts)) {})
             context {:cwd (System/getProperty "user.dir")}
-            {:keys [modules conflicts]}
+            {:keys [modules conflicts drift]}
             (module-loader/list-configured-modules config context)]
         (cond
-          (or edn json) (print-structured! edn json {:modules modules :conflicts conflicts})
-          :else         (println (render-installed-list modules conflicts)))
+          (or edn json) (print-structured! edn json (cond-> {:modules modules}
+                                                      (seq conflicts) (assoc :conflicts conflicts)
+                                                      (seq drift)     (assoc :drift drift)))
+          :else         (println (render-installed-list modules conflicts drift)))
         0))))
 
 (defn- run-deps [opts _arguments options]

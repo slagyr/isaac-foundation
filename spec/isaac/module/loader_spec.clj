@@ -570,16 +570,31 @@
                         :version "0.1.0"
                         :required-by :mod.consumer
                         :coord {:local/root (mod-root :mod.shared.old)}}])]
-        (should= [{:id :mod.shared
-                   :chosen "0.2.0"
-                   :requested [{:version "0.1.0" :required-by [:mod.consumer] :severity :drift}
-                               {:version "0.2.0" :required-by [] :severity :drift}]}]
-                 (#'isaac.module.loader/module-version-conflicts
+        (should= {:conflicts []
+                   :drift [{:id :mod.shared
+                            :chosen "0.2.0"
+                            :requested [{:version "0.1.0" :required-by [:mod.consumer]}]}]}
+                 (#'isaac.module.loader/module-version-divergences
                   {:mod.consumer {:local/root (mod-root :mod.consumer)}
                    :mod.shared   {:local/root (mod-root :mod.shared)}}
                   ctx))))
 
-    (it "classifies newer-than-chosen requests as warnings and older ones as drift"
+    (it "does not record chosen-version duplicates as drift"
+      (write-local-module! :mod.shared.match {:id :mod.shared :version "0.2.0"})
+      (write-local-module! :mod.shared {:id :mod.shared :version "0.2.0"})
+      (with-redefs [isaac.module.loader/collect-module-version-requests
+                    (fn [_ _]
+                      [{:module-id :mod.shared
+                        :version "0.2.0"
+                        :required-by :mod.consumer
+                        :coord {:local/root (mod-root :mod.shared.match)}}])]
+        (should= {:conflicts [] :drift []}
+                 (#'isaac.module.loader/module-version-divergences
+                  {:mod.consumer {:local/root (mod-root :mod.consumer)}
+                   :mod.shared   {:local/root (mod-root :mod.shared)}}
+                  ctx))))
+
+    (it "classifies newer-than-chosen requests as conflicts and older ones as drift"
       (write-local-module! :mod.shared.base {:id :mod.shared :version "0.2.0"})
       (write-local-module! :mod.shared.old {:id :mod.shared :version "0.1.0"})
       (write-local-module! :mod.shared.new {:id :mod.shared :version "0.3.0"})
@@ -593,12 +608,13 @@
                         :version "0.3.0"
                         :required-by :mod.consumer.new
                         :coord {:local/root (mod-root :mod.shared.new)}}])]
-        (should= [{:id :mod.shared
-                   :chosen "0.2.0"
-                   :requested [{:version "0.1.0" :required-by [:mod.consumer.old] :severity :drift}
-                               {:version "0.2.0" :required-by [] :severity :drift}
-                               {:version "0.3.0" :required-by [:mod.consumer.new] :severity :warning}]}]
-                 (#'isaac.module.loader/module-version-conflicts
+        (should= {:conflicts [{:id :mod.shared
+                               :chosen "0.2.0"
+                               :requested [{:version "0.3.0" :required-by [:mod.consumer.new]}]}]
+                   :drift [{:id :mod.shared
+                            :chosen "0.2.0"
+                            :requested [{:version "0.1.0" :required-by [:mod.consumer.old]}]}]}
+                 (#'isaac.module.loader/module-version-divergences
                   {:mod.shared {:local/root (mod-root :mod.shared.base)}
                    :mod.consumer.old {:local/root (mod-root :mod.consumer.old)}
                    :mod.consumer.new {:local/root (mod-root :mod.consumer.new)}}

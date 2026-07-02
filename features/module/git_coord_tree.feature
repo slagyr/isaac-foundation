@@ -27,7 +27,7 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
     And the exit code is 0
 
   @slow
-  Scenario: git-coord version conflicts surface in the conflicts table
+  Scenario: git-coord version conflicts surface in separate conflict and drift tables
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """
@@ -43,6 +43,7 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
       | path                         | value            |
       | conflicts.0.id               | :marigold.shared |
       | conflicts.0.chosen           | "1.0.0"          |
-      | conflicts.0.requested.0.severity | :drift        |
-      | conflicts.0.requested.1.severity | :warning      |
+      | conflicts.0.requested.0.version | "9.9.9"       |
+      | drift.0.id                   | :marigold.shared |
+      | drift.0.requested.0.version  | "1.0.0"          |
     And the exit code is 0

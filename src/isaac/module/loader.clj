@@ -1368,8 +1368,7 @@
 (defn- requested-version-entry [version reqs]
   (let [required-by (vec (sort (keep :required-by (filter #(= (:version %) version) reqs))))]
     {:version     version
-     :required-by required-by
-     :severity    (when (seq required-by) :drift)}))
+     :required-by required-by}))
 
 (defn- explicit-version-request [module-id explicit-modules context]
   (when-let [coord (get explicit-modules module-id)]
@@ -1380,35 +1379,51 @@
        :coord       coord
        :explicit?   true})))
 
-(defn- classify-requested-versions [chosen reqs]
-  (mapv (fn [version]
-          (let [entry (requested-version-entry version reqs)]
-            (assoc entry :severity (if (pos? (compare-module-versions version chosen))
-                                     :warning
-                                     :drift))))
-        (sort compare-module-versions (distinct (map :version reqs)))))
+(defn- request-bucket [version chosen reqs]
+  (let [cmp (compare-module-versions version chosen)]
+    (cond
+      (pos? cmp) :conflicts
+      (and (neg? cmp)
+           (seq (keep :required-by (filter #(= (:version %) version) reqs)))) :drift
+      :else nil)))
 
-(defn- module-version-conflicts
+(defn- divergent-requested-versions [chosen reqs bucket]
+  (->> (distinct (map :version reqs))
+       (sort compare-module-versions)
+       (keep (fn [version]
+               (when (= bucket (request-bucket version chosen reqs))
+                 (requested-version-entry version reqs))))
+       vec))
+
+(defn- module-version-divergences
   "Version mediation rows for modules requested at multiple versions across the
    configured set. :chosen matches the unified resolution, including an explicit
-   configured coordinate for the same module id when present."
+   configured coordinate for the same module id when present. Returns grouped
+   severity buckets with only divergent requested rows."
   [explicit-modules context]
   (let [requests (distinct (collect-module-version-requests explicit-modules context))
         by-id    (group-by :module-id requests)]
-    (->> by-id
-         (keep (fn [[module-id reqs]]
-                 (let [explicit  (explicit-version-request module-id explicit-modules context)
-                       all-reqs  (cond-> (vec reqs)
-                                   explicit (conj explicit))
-                       versions  (distinct (keep :version all-reqs))]
-                   (when (> (count versions) 1)
-                     (let [winner-coord (or (:coord explicit)
+    (reduce (fn [{:keys [conflicts drift] :as acc} [module-id reqs]]
+              (let [explicit   (explicit-version-request module-id explicit-modules context)
+                    all-reqs   (cond-> (vec reqs)
+                                 explicit (conj explicit))
+                    versions   (distinct (keep :version all-reqs))]
+                (if (<= (count versions) 1)
+                  acc
+                  (let [winner-coord    (or (:coord explicit)
                                             (reduce prefer-module-coord (map :coord reqs)))
-                           chosen       (manifest-version-at-coord winner-coord context)
-                           requested    (classify-requested-versions chosen all-reqs)]
-                       {:id module-id :chosen chosen :requested requested})))))
-         (sort-by (comp id-str :id))
-         vec)))
+                        chosen         (manifest-version-at-coord winner-coord context)
+                        conflict-rows  (divergent-requested-versions chosen all-reqs :conflicts)
+                        drift-rows     (divergent-requested-versions chosen all-reqs :drift)
+                        conflict-entry (when (seq conflict-rows)
+                                         {:id module-id :chosen chosen :requested conflict-rows})
+                        drift-entry    (when (seq drift-rows)
+                                         {:id module-id :chosen chosen :requested drift-rows})]
+                    (cond-> acc
+                      conflict-entry (update :conflicts conj conflict-entry)
+                      drift-entry    (update :drift conj drift-entry))))))
+            {:conflicts [] :drift []}
+            (sort-by (comp id-str key) by-id))))
 
 (defn list-configured-modules
   "Returns {:modules [{:id :coord :status :version :required-by}]} for explicit
@@ -1419,7 +1434,7 @@
   (binding [*resolve-classpath?* true]
     (let [declared (get config :modules {})]
       (if (or (nil? declared) (not (map? declared)))
-        {:modules [] :conflicts []}
+        {:modules [] :conflicts [] :drift []}
         (let [cwd              (or (:cwd context) (System/getProperty "user.dir"))
               _                (preload-planned-module-deps! declared cwd)
               explicit-modules (explicit-module-map declared context)
@@ -1447,9 +1462,11 @@
                            :status      :ok
                            :required-by (vec (sort (get requirers id #{})))}
                     (:version manifest) (assoc :version (:version manifest))
-                    (:coord entry) (assoc :coord (:coord entry)))))]
-          {:modules   (vec (concat explicit-rows implied-rows))
-           :conflicts (module-version-conflicts explicit-modules context)})))))
+                    (:coord entry) (assoc :coord (:coord entry)))))
+              {:keys [conflicts drift]} (module-version-divergences explicit-modules context)]
+          (cond-> {:modules (vec (concat explicit-rows implied-rows))}
+            (seq conflicts) (assoc :conflicts conflicts)
+            (seq drift)     (assoc :drift drift)))))))
 
 (defn compose-config-modules!
   "Adds every valid :modules coordinate plus deps.edn-implied module deps to
