@@ -509,7 +509,9 @@
         :prompt
         (if (= kind :hail)
           (let [{resolved-band :band prompt-errors :errors}
-                (resolve-hail-prompt id raw-data #(load-companion-text (str root "/" entity-dir "/" id ".md")))]
+                (resolve-hail-prompt id raw-data (if load-md?
+                                                   load-fn
+                                                   #(load-companion-text (str root "/" entity-dir "/" id ".md"))))]
             {:data resolved-band :error nil :extra-errors prompt-errors})
           (let [relative (paths/cron-relative id)
                 {resolved-job :job prompt-errors :errors}
@@ -875,6 +877,13 @@
                                                                                (:files (get entity-files-by-kind kind))))
                                                                      result
                                                                      entity-kinds))
+                                        hail-module?     (contains? (:index discovery) :isaac.hail)
+                                        result           (if hail-module?
+                                                           (try
+                                                             (let [resolve (requiring-resolve 'isaac.hail.band-resolve/apply-to-load-result!)]
+                                                               (resolve effective-schema result))
+                                                             (catch Throwable _ result))
+                                                           result)
                                         config           (update (:config result) :defaults #(normalize-defaults effective-schema %))
                                         config           (if data-path-overlay
                                                            (assoc-in config (:path data-path-overlay) (:value data-path-overlay))
