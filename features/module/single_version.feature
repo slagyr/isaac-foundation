@@ -38,8 +38,10 @@ Feature: isaac launcher — exactly one version of any module (92p3)
       | path               | value            |
       | modules.2.id       | :marigold.shared |
       | modules.2.version  | "1.0.0"          |
-      | conflicts.0.id     | :marigold.shared |
-      | conflicts.0.chosen | "1.0.0"        |
+      | conflicts.0.id                 | :marigold.shared |
+      | conflicts.0.chosen             | "1.0.0"          |
+      | conflicts.0.requested.0.version | "1.0.0"         |
+      | conflicts.0.requested.1.version | "9.9.9"         |
     And the isaac modules list has 3 entries
     And the exit code is 0
 

@@ -221,35 +221,49 @@
      :rows    modules
      :zebra?  true}))
 
-(defn- conflict-table-rows [conflicts]
+(defn- conflict-table-rows [conflicts severity]
   (mapcat (fn [{:keys [id chosen requested]}]
             (map (fn [{:keys [version required-by]}]
                    {:module      id
                     :version     version
                     :required-by (vec required-by)
                     :loaded      (when (= version chosen) "✓")})
-                 requested))
+                 (filter #(= severity (:severity %)) requested)))
           conflicts))
 
-(defn- render-conflicts-block [conflicts]
-  (when (seq conflicts)
-    (let [n    (count conflicts)
-          rows (conflict-table-rows conflicts)]
+(defn- render-conflict-table [rows]
+  (table/render
+    {:columns [{:header "MODULE" :key :module :format module-id-str}
+               {:header "VERSION" :key :version}
+               {:header "REQUIRED BY" :key :required-by :format format-required-by}
+               {:header "LOADED" :key :loaded}]
+     :rows    rows
+     :zebra?  true}))
+
+(defn- render-warning-conflicts-block [conflicts]
+  (let [rows (conflict-table-rows conflicts :warning)]
+    (when (seq rows)
+      (let [n (count (filter (fn [{:keys [requested]}]
+                               (seq (filter #(= :warning (:severity %)) requested)))
+                             conflicts))]
+        (str "\n"
+             color/yellow "⚠  " color/reset
+             n " version conflict"
+             (when (> n 1) "s")
+             " — one version loaded; the rest dropped\n"
+             (render-conflict-table rows))))))
+
+(defn- render-drift-conflicts-block [conflicts]
+  (let [rows (conflict-table-rows conflicts :drift)]
+    (when (seq rows)
       (str "\n"
-           color/yellow "⚠  " color/reset
-           n " version conflict"
-           (when (> n 1) "s")
-           " — one version loaded; the rest dropped\n"
-           (table/render
-             {:columns [{:header "MODULE" :key :module :format module-id-str}
-                        {:header "VERSION" :key :version}
-                        {:header "REQUIRED BY" :key :required-by :format format-required-by}
-                        {:header "LOADED" :key :loaded}]
-              :rows    rows
-              :zebra?  true})))))
+           "ℹ  version drift — older requested versions were dropped\n"
+           (render-conflict-table rows)))))
 
 (defn- render-installed-list [modules conflicts]
-  (str (render-installed-table modules) (render-conflicts-block conflicts)))
+  (str (render-installed-table modules)
+       (render-warning-conflicts-block conflicts)
+       (render-drift-conflicts-block conflicts)))
 
 (defn- render-catalog-table [modules]
   (table/render

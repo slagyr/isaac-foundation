@@ -1357,22 +1357,55 @@
                          found*)))))))
       explicit-modules)))
 
+(defn- parse-version-parts [version]
+  (mapv #(Long/parseLong %)
+        (re-seq #"\d+" (str version))))
+
+(defn- compare-module-versions [a b]
+  (compare (parse-version-parts a)
+           (parse-version-parts b)))
+
+(defn- requested-version-entry [version reqs]
+  (let [required-by (vec (sort (keep :required-by (filter #(= (:version %) version) reqs))))]
+    {:version     version
+     :required-by required-by
+     :severity    (when (seq required-by) :drift)}))
+
+(defn- explicit-version-request [module-id explicit-modules context]
+  (when-let [coord (get explicit-modules module-id)]
+    (when-let [version (manifest-version-at-coord coord context)]
+      {:module-id   module-id
+       :version     version
+       :required-by nil
+       :coord       coord
+       :explicit?   true})))
+
+(defn- classify-requested-versions [chosen reqs]
+  (mapv (fn [version]
+          (let [entry (requested-version-entry version reqs)]
+            (assoc entry :severity (if (pos? (compare-module-versions version chosen))
+                                     :warning
+                                     :drift))))
+        (sort compare-module-versions (distinct (map :version reqs)))))
+
 (defn- module-version-conflicts
   "Version mediation rows for modules requested at multiple versions across the
-   configured set. :chosen matches prefer-module-coord / unified resolution."
+   configured set. :chosen matches the unified resolution, including an explicit
+   configured coordinate for the same module id when present."
   [explicit-modules context]
   (let [requests (distinct (collect-module-version-requests explicit-modules context))
         by-id    (group-by :module-id requests)]
     (->> by-id
          (keep (fn [[module-id reqs]]
-                 (let [versions (distinct (map :version reqs))]
+                 (let [explicit  (explicit-version-request module-id explicit-modules context)
+                       all-reqs  (cond-> (vec reqs)
+                                   explicit (conj explicit))
+                       versions  (distinct (keep :version all-reqs))]
                    (when (> (count versions) 1)
-                     (let [winner-coord (reduce prefer-module-coord (map :coord reqs))
+                     (let [winner-coord (or (:coord explicit)
+                                            (reduce prefer-module-coord (map :coord reqs)))
                            chosen       (manifest-version-at-coord winner-coord context)
-                           requested    (vec (for [v (sort versions)]
-                                               {:version     v
-                                                :required-by (vec (sort (map :required-by
-                                                                             (filter #(= (:version %) v) reqs))))}))]
+                           requested    (classify-requested-versions chosen all-reqs)]
                        {:id module-id :chosen chosen :requested requested})))))
          (sort-by (comp id-str :id))
          vec)))

@@ -40,7 +40,9 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
       """
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
-      | path               | value            |
-      | conflicts.0.id     | :marigold.shared |
-      | conflicts.0.chosen | "1.0.0"          |
+      | path                         | value            |
+      | conflicts.0.id               | :marigold.shared |
+      | conflicts.0.chosen           | "1.0.0"          |
+      | conflicts.0.requested.0.severity | :drift        |
+      | conflicts.0.requested.1.severity | :warning      |
     And the exit code is 0

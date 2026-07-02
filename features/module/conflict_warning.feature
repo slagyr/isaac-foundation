@@ -7,7 +7,7 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
   # Reuses 92p3's conflict fixtures: marigold.app.conflict (pulls marigold.shared
   # 1.0.0), marigold.app2.conflict (pulls 9.9.9); 1.0.0 deterministically chosen.
 
-  Scenario: list renders the conflicts table — a row per requested version, ✓ on the loaded one
+  Scenario: list renders warning and drift tables with ✓ on the loaded version
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """
@@ -20,11 +20,13 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
     Then the stdout matches:
       | 1 version conflict                                    |
       | MODULE +VERSION +REQUIRED BY +LOADED                  |
-      | marigold\.shared +1\.0\.0 +marigold\.app\.conflict +✓ |
       | marigold\.shared +9\.9\.9 +marigold\.app2\.conflict   |
+      | ℹ  version drift — older requested versions were dropped |
+      | MODULE +VERSION +REQUIRED BY +LOADED                  |
+      | marigold\.shared +1\.0\.0 +marigold\.app\.conflict +✓ |
     And the exit code is 0
 
-  Scenario: list --edn reports the conflict structurally
+  Scenario: list --edn reports the conflict structurally with severities
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """
@@ -33,9 +35,13 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
       """
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
-      | path               | value            |
-      | conflicts.0.id     | :marigold.shared |
-      | conflicts.0.chosen | "1.0.0"          |
+      | path                         | value            |
+      | conflicts.0.id               | :marigold.shared |
+      | conflicts.0.chosen           | "1.0.0"          |
+      | conflicts.0.requested.0.version | "1.0.0"       |
+      | conflicts.0.requested.0.severity | :drift        |
+      | conflicts.0.requested.1.version | "9.9.9"       |
+      | conflicts.0.requested.1.severity | :warning      |
     And the exit code is 0
 
   Scenario: isaac.server version conflicts surface when platform filter is removed
@@ -47,9 +53,11 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
       """
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
-      | path               | value           |
-      | conflicts.0.id     | :isaac.server   |
-      | conflicts.0.chosen | "0.1.0"         |
+      | path                           | value           |
+      | conflicts.0.id                 | :isaac.server   |
+      | conflicts.0.chosen             | "0.1.0"         |
+      | conflicts.0.requested.0.severity | :drift        |
+      | conflicts.0.requested.1.severity | :warning      |
     And the exit code is 0
 
   Scenario: No conflict produces no conflicts table
