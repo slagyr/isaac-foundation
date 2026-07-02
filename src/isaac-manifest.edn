@@ -1,5 +1,5 @@
 {:id        :isaac.foundation
- :version   "0.1.18"
+ :version   "0.1.19"
  :factory   isaac.foundation.module/create-module
 
  :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
