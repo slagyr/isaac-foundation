@@ -217,7 +217,7 @@
         (str/starts-with? value "#"))
     (edn/read-string value)
 
-    (and (= path "session") (re-find #"hail/" file-path))
+    (and (#{"bound-session" "session"} path) (re-find #"hail/" file-path))
     (if (re-matches #"[a-z][a-z-]*" value) (keyword value) value)
 
     (or (contains? #{"defaults.crew" "defaults.model"} path)
