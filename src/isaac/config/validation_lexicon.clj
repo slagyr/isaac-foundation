@@ -65,8 +65,8 @@
                         :message  "must be a set of keywords"}
    :keyword-or-string? {:validate #(or (nil? %) (keyword? %) (string? %))
                         :message  "must be a keyword or string"}
-   :cwd-or-path?       {:validate #(or (nil? %) (= :cwd %) (string? %))
-                        :message  "must be :cwd or an absolute path string"}})
+   :cwd-or-path?       {:validate #(or (nil? %) (#{:cwd :role} %) (string? %))
+                        :message  "must be :cwd, :role, or an absolute path string"}})
 
 (defn- one-of-ref [& allowed]
   {:validate #(or (nil? %) (contains? (set allowed) %))
