@@ -94,4 +94,11 @@
     (with-redefs [color/env (fn [_] "1")]
       (let [output (sut/render {:columns simple-cols
                                 :rows    [{:name "x" :count 1}]})]
-        (should-not (str/includes? output ""))))))
+        (should-not (str/includes? output "")))))
+
+  (it "respects FORCE_COLOR env var in auto-detect mode"
+    (with-redefs [color/tty? (fn [] false)
+                  color/env  (fn [name] (when (= name "FORCE_COLOR") "1"))]
+      (let [output (sut/render {:columns simple-cols
+                                :rows    [{:name "x" :count 1}]})]
+        (should (str/includes? output ""))))))

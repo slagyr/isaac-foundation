@@ -5,9 +5,10 @@
 
 (defn- effective-color? [color?]
   (cond
-    (boolean? color?)             color?
-    (seq (color/env "NO_COLOR")) false
-    :else                         (color/tty?)))
+    (boolean? color?)                color?
+    (seq (color/env "NO_COLOR"))    false
+    (seq (color/env "FORCE_COLOR")) true
+    :else                            (color/tty?)))
 
 (defn- cell-str [col value]
   (if-let [fmt (:format col)]
