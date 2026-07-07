@@ -1,7 +1,8 @@
 (ns isaac.log-viewer
   (:require
     [clojure.edn :as edn]
-    [clojure.string :as str]))
+    [clojure.string :as str]
+    [isaac.cli.color :as color]))
 
 ;; region ----- ANSI helpers -----
 
@@ -147,7 +148,7 @@
 (def ^:dynamic *follow-sleep-ms* 100)
 
 (defn tty? []
-  (some? (System/console)))
+  (color/tty?))
 
 (defn- print-line! [line row {:keys [color? zebra? plain?]}]
   (when (and line (not (str/blank? line)))

@@ -8,5 +8,25 @@
 
 (def codes {:bold bold :dim dim :red red :yellow yellow})
 
-(defn tty? [] (some? (System/console)))
 (defn env [name] (System/getenv name))
+
+(defn- env-set? [name]
+  (let [value (env name)]
+    (and (some? value)
+         (not= "" value))))
+
+(defn force-color? []
+  (or (env-set? "FORCE_COLOR")
+      (env-set? "CLICOLOR_FORCE")))
+
+(defn no-color? []
+  (env-set? "NO_COLOR"))
+
+(defn console? []
+  (some? (System/console)))
+
+(defn tty? []
+  (cond
+    (force-color?) true
+    (no-color?)    false
+    :else          (console?)))

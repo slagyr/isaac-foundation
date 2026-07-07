@@ -91,7 +91,19 @@
         (should-not (str/includes? output "")))))
 
   (it "respects NO_COLOR env var in auto-detect mode"
-    (with-redefs [color/env (fn [_] "1")]
+    (with-redefs [color/env     (fn [name] (when (= "NO_COLOR" name) "1"))
+                  color/console? (fn [] true)]
       (let [output (sut/render {:columns simple-cols
                                 :rows    [{:name "x" :count 1}]})]
-        (should-not (str/includes? output ""))))))
+        (should-not (str/includes? output "")))))
+
+  (it "FORCE_COLOR overrides NO_COLOR in auto-detect mode"
+    (with-redefs [color/env     (fn [name]
+                                  (case name
+                                    "FORCE_COLOR" "1"
+                                    "NO_COLOR" "1"
+                                    nil))
+                  color/console? (fn [] false)]
+      (let [output (sut/render {:columns simple-cols
+                                :rows    [{:name "x" :count 1}]})]
+        (should (str/includes? output ""))))))

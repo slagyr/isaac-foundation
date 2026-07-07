@@ -6,6 +6,7 @@
     [clojure.string :as str]
     [clojure.tools.cli :as tools-cli]
     [clojure.walk :as walk]
+    [isaac.cli.color :as color]
     [isaac.config.loader :as loader]
     [isaac.config.schema.resolve :as schema-resolve]
     [isaac.fs :as fs]
@@ -112,8 +113,9 @@
 ;; region ----- Printing -----
 
 (defn stdout-tty? []
-  (and (some? (System/console))
-       (not (instance? java.io.StringWriter *out*))))
+  (or (color/force-color?)
+      (and (color/console?)
+           (not (instance? java.io.StringWriter *out*)))))
 
 (defn print-lines! [lines]
   (doseq [line lines]
