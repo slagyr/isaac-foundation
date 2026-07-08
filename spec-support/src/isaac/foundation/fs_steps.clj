@@ -364,6 +364,45 @@
         (fs/spit   fs* abs-path content)
         (notify-write! abs-path)))))
 
+(defn- root-relative-path [path]
+  (if (str/starts-with? path "/")
+    path
+    (str (runtime-root-dir) "/" path)))
+
+(defn- parse-contains-value [value]
+  (when (str/starts-with? (str/trim value) "contains ")
+    (->> (re-seq #"\"([^\"]+)\"" (subs (str/trim value) 9))
+         (map second)
+         vec)))
+
+(defn directory-has-exactly-n-files [path n-str]
+  (with-server-fs
+    (fn []
+      (let [dir-path (root-relative-path path)
+            fs*      (server-fs)
+            children (when (fs/exists? fs* dir-path) (fs/children fs* dir-path))]
+        (g/should= (parse-long n-str) (count children))))))
+
+(defn only-file-in-edn-contains [dir-path table]
+  (with-server-fs
+    (fn []
+      (let [expanded (root-relative-path dir-path)
+            fs*      (server-fs)
+            children (when (fs/exists? fs* expanded) (fs/children fs* expanded))]
+        (g/should= 1 (count children))
+        (let [file-path (str expanded "/" (first children))
+              data      (edn/read-string (fs/slurp fs* file-path))]
+          (doseq [row (:rows table)]
+            (let [row-map (zipmap (:headers table) row)
+                  path    (get row-map "path")
+                  value   (get row-map "value")]
+              (when-not (skip-row? value)
+                (let [actual (get-path data path)]
+                  (if-let [parts (parse-contains-value value)]
+                    (doseq [part parts]
+                      (g/should (str/includes? (str actual) part)))
+                    (g/should= (parse-isaac-value dir-path path value) actual)))))))))))
+
 ;; endregion ^^^^^ isaac-file step bodies ^^^^^
 
 ;; region ----- Routing -----
@@ -413,5 +452,11 @@
 (defwhen "the file {name:string} is appended with {content:string}" isaac.foundation.fs-steps/file-appended-with)
 
 (defgiven #"a file \"([^\"]+)\" exists with (\d+) log entries" isaac.foundation.fs-steps/file-with-log-entries)
+
+(defthen #"the directory \"([^\"]+)\" has exactly (\d+) files?"
+  isaac.foundation.fs-steps/directory-has-exactly-n-files)
+
+(defthen #"the only file in \"([^\"]+)\" EDN contains:"
+  isaac.foundation.fs-steps/only-file-in-edn-contains)
 
 ;; endregion ^^^^^ Routing ^^^^^
