@@ -14,7 +14,8 @@
     [isaac.fs :as fs]
     [isaac.config.root :as root]
     [isaac.nexus :as nexus]
-    [isaac.shell :as shell]))
+    [isaac.shell :as shell]
+    [isaac.step-tables :as step-tables]))
 
 (helper! isaac.foundation.fs-steps)
 
@@ -295,15 +296,31 @@
           (fs/spit   fs* file-path (pr-str data)))
         (notify-write! file-path)))))
 
+(defn- step-tables-cell? [text]
+  ;; Genuine step_tables DSL cells — wildcard (#*), regex (#"…"), refs (#name) —
+  ;; must match by pattern, not be EDN-read (which chokes on #*). EDN reader
+  ;; literals like set #{…} fall through to value comparison.
+  (and (string? text)
+       (or (= "#*" text)
+           (str/starts-with? text "#\"")
+           (boolean (re-matches #"#[\w-]+" text)))))
+
 (defn isaac-file-edn-contains [path table]
   (let [data (with-server-fs #(isaac-file-data path))]
     (doseq [row (:rows table)]
       (let [row-map (zipmap (:headers table) row)
-            value   (get row-map "value")]
+            value   (get row-map "value")
+            p       (get row-map "path")]
         (when-not (skip-row? value)
-          (let [actual   (get-path data (get row-map "path"))
-                expected (parse-isaac-value path (get row-map "path") value)]
-            (g/should= expected actual)))))))
+          (let [actual (get-path data p)]
+            (if (step-tables-cell? value)
+              (let [result (step-tables/match-value value actual)]
+                (when-not (:match result)
+                  (throw (ex-info (str "isaac file " path " EDN path " p
+                                       " expected " (pr-str value) " but was " (pr-str actual))
+                                  {})))
+                (g/should true))
+              (g/should= (parse-isaac-value path p value) actual))))))))
 
 (defn edn-isaac-file-does-not-exist [path]
   (g/should-not (with-server-fs #(fs/exists? (server-fs) (isaac-file-path path)))))

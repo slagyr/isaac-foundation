@@ -28,6 +28,7 @@
   (-dir?         [fs path])
   (-children     [fs path])
   (-cache-token  [fs])
+  (-modified     [fs path])
   (-mkdirs       [fs path])
   (-delete       [fs path])
   (-move         [fs source destination]))
@@ -56,6 +57,7 @@
                  sort
                  vec))))
   (-cache-token  [_] nil)
+  (-modified     [_ path]         (let [f (io/file path)] (when (.exists f) (.lastModified f))))
   (-mkdirs       [_ path]         (.mkdirs (io/file path)))
   (-delete       [_ path]         (.delete (io/file path)))
   (-move         [_ source destination]
@@ -74,17 +76,15 @@
   Fs
   (-slurp        [_ path _]       (get @store path))
   (-spit         [_ path content options]
-    (if (:append (apply hash-map options))
-      (do
+    (let [new-rev (swap! revision inc)]
+      (if (:append (apply hash-map options))
         (swap! store #(cond-> (update % path (fn [existing] (str (or existing "") content)))
+                              true               (assoc [::mtime path] new-rev)
                               (parent-path path) (assoc [::dir (parent-path path)] true)))
-        (swap! revision inc)
-        nil)
-      (do
         (swap! store #(cond-> (assoc % path content)
-                              (parent-path path) (assoc [::dir (parent-path path)] true)))
-        (swap! revision inc)
-        nil)))
+                              true               (assoc [::mtime path] new-rev)
+                              (parent-path path) (assoc [::dir (parent-path path)] true))))
+      nil))
   (-exists?      [_ path]         (or (contains? @store path) (mem-dir? @store path)))
   (-file?        [_ path]         (contains? @store path))
   (-dir?         [_ path]         (mem-dir? @store path))
@@ -105,20 +105,21 @@
               sort
               vec))))
   (-cache-token  [_]              @revision)
+  (-modified     [_ path]         (get @store [::mtime path]))
   (-mkdirs       [_ path]
     (swap! store assoc [::dir path] true)
     (swap! revision inc)
     nil)
   (-delete       [_ path]
-    (swap! store dissoc path)
+    (swap! store #(dissoc % path [::mtime path]))
     (swap! revision inc)
     nil)
   (-move         [_ source destination]
-    (let [value (get @store source)]
-      (swap! store #(cond-> (dissoc % source)
-                      (some? value)               (assoc destination value)
+    (let [value   (get @store source)
+          new-rev (swap! revision inc)]
+      (swap! store #(cond-> (dissoc % source [::mtime source])
+                      (some? value)               (assoc destination value [::mtime destination] new-rev)
                       (parent-path destination)   (assoc [::dir (parent-path destination)] true)))
-      (swap! revision inc)
       nil)))
 
 ;; endregion
@@ -151,6 +152,13 @@
   "Returns a cache token for the given filesystem when it supports cheap
    invalidation-aware caching, otherwise nil."
   [fs] (-cache-token fs))
+
+(defn modified
+  "Returns a monotonic modification stamp for path (real mtime millis on disk,
+   a per-path write revision in-memory), or nil when the path has never been
+   written. Stamps are comparable within one filesystem: a larger stamp means a
+   later write. Used for cheap staleness checks (isaac-clic startup cache)."
+  [fs path] (assert-absolute! path) (-modified fs path))
 
 (defn exists?
   "Returns truthy when the path exists in the given filesystem."

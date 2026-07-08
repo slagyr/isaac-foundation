@@ -13,6 +13,8 @@
     [isaac.nexus :as nexus]
     [isaac.cli.args :as cli-args]
     [isaac.config.root :as root]
+    [isaac.config.paths :as paths]
+    [isaac.startup.cache :as cache]
     [isaac.foundation.version :as version]))
 
 (def ^:dynamic *extra-opts* nil)
@@ -68,9 +70,8 @@
                            {:log-file-path log-file-path
                             :env-log-file  (env-log-file)})))
 
-(defn- usage []
-  (let [cmds (registry/all-commands)
-        max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
+(defn- usage-for [cmds]
+  (let [max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
     (str "Usage: isaac [options] <command> [args]\n\n"
          "Global Options:\n"
          "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
@@ -82,6 +83,9 @@
                                     (apply str (repeat (- (+ max-len 4) (count (:name cmd))) " "))
                                     (:summary cmd)))
                              cmds)))))
+
+(defn- usage []
+  (usage-for (registry/all-commands)))
 
 (defn- resolve-alias
   "Resolve command aliases. 'models auth ...' → 'auth ...', 'gateway ...' → 'server ...'"
@@ -107,9 +111,31 @@
         resolved-root (root/resolve-root root (:root extra-opts) fs*)]
     (nexus/-with-nested-nexus {:fs fs*}
       (binding [module-loader/*resolve-classpath?* (not= "modules" cmd)]
-        (register-module-cli-commands! resolved-root fs* cmd)
-        (configure-cli-logging! resolved-root fs* log-file)
-        (cond
+        ;; Startup cache (isaac-clic): when nothing the CLI plans from has
+        ;; changed, the fast-path commands (--version, --help) skip module
+        ;; discovery/registration entirely and serve from the cache.
+        (let [config     (or (read-user-config resolved-root fs*) {})
+              watched    (cache/watched-files (paths/root-config-file resolved-root)
+                                              config (System/getProperty "user.dir"))
+              cache-fresh? (and (not= "modules" cmd) (cache/fresh? fs* resolved-root watched))
+              fast-cmd?  (or (nil? cmd) (str/blank? cmd)
+                             (contains? #{"--help" "-h" "--version" "-V" "version"} cmd))]
+          (if (and cache-fresh? fast-cmd?)
+            (do
+              (configure-cli-logging! resolved-root fs* log-file)
+              (if (contains? #{"--version" "-V" "version"} cmd)
+                (do (println (version/version-string)) 0)
+                (do (println (usage-for (get-in (cache/read-cache fs* resolved-root) [:data :commands]))) 0)))
+            (do
+              (register-module-cli-commands! resolved-root fs* cmd)
+              (configure-cli-logging! resolved-root fs* log-file)
+              (when (and (not cache-fresh?) (not= "modules" cmd))
+                (cache/write-cache! fs* resolved-root
+                                    {:version cache/cache-version
+                                     :basis   (cache/compute-basis fs* watched)
+                                     :data    {:commands (mapv #(select-keys % [:name :summary])
+                                                               (registry/all-commands))}}))
+              (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (usage)) 0)
 
@@ -133,7 +159,7 @@
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
               (println (usage))
-              1)))))))
+              1))))))))))
 
 (defn -main [& args]
   (let [exit-code (run args)]
