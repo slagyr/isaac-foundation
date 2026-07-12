@@ -11,10 +11,11 @@
     [isaac.config.cli.set :as set-cmd]
     [isaac.config.cli.sources :as sources-cmd]
     [isaac.config.cli.unset :as unset-cmd]
+    [isaac.config.cli.inspect :as inspect]
     [isaac.config.cli.validate :as validate-cmd]))
 
 (def option-spec
-  [["-h" "--help" "Show help"]])
+  inspect/structured-option-spec)
 
 (def ^:private subcommands
   {"get"      get-cmd/subcommand

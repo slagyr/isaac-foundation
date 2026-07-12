@@ -52,7 +52,12 @@
         (should-contain "config path" output)
         (should-contain "schema path" output)
         (should-contain "slash-mode" output)
-        (should-contain "/crew/Almighty Bob/model" output))))
+        (should-contain "/crew/Almighty Bob/model" output)))
+
+    (it "lists --edn and --json in top-level Options (isaac-0jse)"
+      (let [output (with-out-str (should= 0 (sut/run {:root test-root} ["--help"])))]
+        (should-contain "--json" output)
+        (should-contain "--edn" output))))
 
   (describe "registry integration"
 
