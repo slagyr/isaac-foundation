@@ -101,4 +101,9 @@
     (write-config! {})
     (let [output (with-out-str (should= 0 (sut/run {:root test-root} ["schema" "kit.distant-read.vendor"]))) ]
       (should-contain "keyword" output)
-      (should-contain "kit.distant-read.vendor" output))))
+      (should-contain "kit.distant-read.vendor" output)))
+
+  (it "schema --json emits the resolved schema node as structured data"
+    (write-config! {})
+    (should= 0 (sut/run {:root test-root} ["schema" "foundries.value" "--json"]))
+    (should-contain "\"type\"" (str *out*))))

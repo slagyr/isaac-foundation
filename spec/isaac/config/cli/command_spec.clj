@@ -32,6 +32,10 @@
       (should= 1 (sut/run {:root test-root} ["--sources"]))
       (should-contain "Unknown option: \"--sources\"" (str *err*)))
 
+    (it "rejects unknown flags on get subcommand"
+      (should= 1 (sut/run {:root test-root} ["get" "models" "--not-a-flag"]))
+      (should-contain "Unknown option" (str *err*)))
+
     (it "routes 'help <subcommand>' to the subcommand's own help page"
       (should= 0 (sut/run {:root test-root} ["help" "validate"]))
       (should-contain "Usage: isaac config validate" (str *out*))))

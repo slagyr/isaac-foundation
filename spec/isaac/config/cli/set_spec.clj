@@ -5,6 +5,7 @@
     [isaac.config.marigold :as config-marigold]
     [isaac.marigold :as marigold]
     [isaac.config.mutate :as mutate]
+
     [speclj.core :refer :all])
   (:import (java.io StringWriter)))
 
@@ -42,3 +43,4 @@
                                         {:status :ok :warnings [] :file "isaac.edn"})]
         (should= 0 (sut/run {:root test-root} ["set" (str "berths." marigold/first-mate ".ledger") "--raw"])))
       (should= [(str "berths." marigold/first-mate ".ledger") "--raw"] @captured))))
+

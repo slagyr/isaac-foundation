@@ -1,5 +1,5 @@
 (ns isaac.config.cli.inspect
-  "Shared read-side helpers for isaac config keys and list."
+  "Shared structured-output helpers for isaac config read/write subcommands."
   (:require
     [c3kit.apron.schema.path :as path]
     [clojure.string :as str]
@@ -7,6 +7,7 @@
     [isaac.cli.table :as table]
     [isaac.config.cli.common :as common]
     [isaac.config.paths :as paths]
+    [isaac.config.root :as root-res]
     [isaac.config.validation :as validation]))
 
 (def structured-option-spec
@@ -37,15 +38,29 @@
              :source (validation/config-source-file root (dotted-child-key path-str child-key))})
           child-keys)))
 
-(defn- print-structured! [edn? json? value]
+(defn structured-format-conflict? [options]
+  (when (and (:edn options) (:json options))
+    (common/print-cli-error! "choose one of --edn or --json")))
+
+(defn print-structured! [edn? json? value]
   (cond
     json? (cli-common/print-json! value)
     edn?  (cli-common/print-edn! value)
     :else (common/print-cli-error! "structured output requires --edn or --json")))
 
-(defn- structured-format-conflict? [options]
-  (when (and (:edn options) (:json options))
-    (common/print-cli-error! "choose one of --edn or --json")))
+(defn structured-requested? [{:keys [edn json]}]
+  (or edn json))
+
+(defn mutation-result-record [path-str result]
+  (cond-> {:path path-str
+           :ok   (= :ok (:status result))}
+    (:file result) (assoc :file (:file result))
+    (seq (:errors result)) (assoc :errors (:errors result))
+    (seq (:warnings result)) (assoc :warnings (:warnings result))))
+
+(defn sources-structured-value [sources]
+  {:precedence (vec (root-res/root-lookup-precedence))
+   :sources    (vec (or sources []))})
 
 (defn inspect! [opts path-str options {:keys [mode]}]
   (if-let [format-error (structured-format-conflict? options)]

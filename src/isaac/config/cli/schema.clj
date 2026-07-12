@@ -4,13 +4,14 @@
     [c3kit.apron.schema.path :as schema-path]
     [clojure.string :as str]
     [isaac.config.cli.common :as common]
+    [isaac.config.cli.inspect :as inspect]
     [isaac.config.comm-kinds :as comm-kinds]
     [isaac.config.schema.term :as schema-term]
     [isaac.module.loader :as module-loader]))
 
 (def option-spec
-  [[nil  "--tree" "Expand every named sub-schema as its own section"]
-   ["-h" "--help" "Show help"]])
+  (into [[nil  "--tree" "Expand every named sub-schema as its own section"]]
+        inspect/structured-option-spec))
 
 (def ^:private examples
   (str "  isaac config schema\n"
@@ -67,33 +68,41 @@
           (some-> path-str substituted-path (->> (schema-path/schema-at root))))
       (catch Exception _ nil))))
 
-(defn- print-schema! [opts path-str tree?]
-  (let [{:keys [config module-index root]} (schema-context opts)
-        spec (resolve-path root path-str)]
-    (if spec
-      (let [root?  (or (nil? path-str) (str/blank? path-str))
-            output (schema-term/spec->term spec {:color?            (common/stdout-tty?)
-                                                 :config            config
-                                                 :module-index      module-index
-                                                 :path-prefix       (common/path-prefix path-str)
-                                                 :deep?             (boolean tree?)
-                                                 :width             80
-                                                 :options-resolvers {:comms (comm-resolver module-index)}})]
-        (if output
-          (do
-            (println (if root? (str output (guidance)) output))
-            0)
-          (do
-            (binding [*out* *err*]
-              (println (str "Path not found in config schema: " path-str)))
-            1)))
-      (do
-        (binding [*out* *err*]
-          (println (str "Path not found in config schema: " path-str)))
-        1))))
+(defn- print-schema! [opts path-str options]
+  (if-let [format-error (inspect/structured-format-conflict? options)]
+    format-error
+    (let [{:keys [config module-index root]} (schema-context opts)
+          spec     (resolve-path root path-str)
+          {:keys [tree edn json]} options]
+      (if spec
+        (cond
+          (or edn json)
+          (do (inspect/print-structured! edn json spec) 0)
+
+          :else
+          (let [root?  (or (nil? path-str) (str/blank? path-str))
+                output (schema-term/spec->term spec {:color?            (common/stdout-tty?)
+                                                     :config            config
+                                                     :module-index      module-index
+                                                     :path-prefix       (common/path-prefix path-str)
+                                                     :deep?             (boolean tree)
+                                                     :width             80
+                                                     :options-resolvers {:comms (comm-resolver module-index)}})]
+            (if output
+              (do
+                (println (if root? (str output (guidance)) output))
+                0)
+              (do
+                (binding [*out* *err*]
+                  (println (str "Path not found in config schema: " path-str)))
+                1))))
+        (do
+          (binding [*out* *err*]
+            (println (str "Path not found in config schema: " path-str)))
+          1)))))
 
 (defn run [opts arguments options]
-  (print-schema! opts (common/normalize-path (first arguments)) (:tree options)))
+  (print-schema! opts (common/normalize-path (first arguments)) options))
 
 (def subcommand
   {:option-spec option-spec
