@@ -3,11 +3,13 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.cli.common :as cli-common]
     [isaac.config.cli.common :as common]
     [isaac.config.loader :as loader]))
 
 (def option-spec
   [[nil  "--as CONFIG-PATH" "Overlay stdin EDN at the given config path before validating"]
+   [nil  "--json"           "Print validation result as structured JSON"]
    ["-h" "--help"          "Show help"]])
 
 (defn help []
@@ -29,23 +31,27 @@
                    (not entity?) (map keyword))]
     (into [head] tail)))
 
-(defn- report-validation! [{:keys [errors warnings]}]
-  (common/print-errors! errors "error")
-  (common/print-warnings! warnings)
-  (if (seq errors)
-    1
-    (do
-      (println "OK - config is valid")
-      0)))
+(defn- report-validation! [{:keys [errors warnings]} {:keys [json]}]
+  (if json
+    (do (cli-common/print-json! {:ok (empty? errors) :warnings warnings :errors errors})
+        (if (seq errors) 1 0))
+    (do (common/print-errors! errors "error")
+        (common/print-warnings! warnings)
+        (if (seq errors)
+          1
+          (do
+            (println "OK - config is valid")
+            0)))))
 
-(defn- validate-stdin! [opts]
+(defn- validate-stdin! [opts options]
   (report-validation!
     (loader/load-config-result {:root          (common/resolve-root opts)
                                 :overlay-content    (slurp *in*)
                                 :overlay-path       "isaac.edn"
-                                :skip-entity-files? true})))
+                                :skip-entity-files? true})
+    options))
 
-(defn- validate-overlay-data! [opts data-path-str]
+(defn- validate-overlay-data! [opts data-path-str options]
   (let [stdin-value (try
                       {:value (edn/read-string (slurp *in*))}
                       (catch Exception e
@@ -58,10 +64,11 @@
       (report-validation!
         (loader/load-config-result {:root         (common/resolve-root opts)
                                     :data-path-overlay {:path  (parse-data-path data-path-str)
-                                                        :value (:value stdin-value)}})))))
+                                                        :value (:value stdin-value)}})
+        options))))
 
-(defn- validate-config! [opts]
-  (report-validation! (common/load-result opts)))
+(defn- validate-config! [opts options]
+  (report-validation! (common/load-result opts) options))
 
 (defn- file-path-style? [path-str]
   (and path-str
@@ -77,14 +84,14 @@
 
       as-value
       (if stdin?
-        (validate-overlay-data! opts (common/normalize-path as-value))
+        (validate-overlay-data! opts (common/normalize-path as-value) options)
         (common/print-cli-error! "validate --as requires '-' stdin source"))
 
       stdin?
-      (validate-stdin! opts)
+      (validate-stdin! opts options)
 
       :else
-      (validate-config! opts))))
+      (validate-config! opts options))))
 
 (def subcommand
   {:option-spec option-spec

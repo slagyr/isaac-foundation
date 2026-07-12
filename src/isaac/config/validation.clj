@@ -42,7 +42,9 @@
 (defn- exists-at-path? [path]
   (fs/exists? (or (fs/instance) (throw (ex-info "validation requires :fs in system" {}))) path))
 
-(defn- validation-source-file [root key]
+(defn config-source-file
+  "Return the config-relative source path for a dotted config key."
+  [root key]
   (let [[head id] (str/split key #"\." 3)
         entity-file (when (and root id)
                       (str root "/" head "/" id ".edn"))]
@@ -57,7 +59,7 @@
    (let [known-fn (:known ref-def)]
      {:key          key
       :value        (or override-message (:message ref-def))
-      :file         (validation-source-file root key)
+      :file         (config-source-file root key)
       :bad-value    (->id value)
       :valid-values (when known-fn (known-fn))})))
 

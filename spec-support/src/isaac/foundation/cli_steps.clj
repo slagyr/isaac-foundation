@@ -448,6 +448,16 @@
         expected (unescape-expected expected)]
     (g/should-not (str/includes? (or output "") expected))))
 
+(defn stdout-is-empty []
+  (g/should= "" (or (current-output) "")))
+
+(defn stdout-parses-as-json-with-warnings-naming-path []
+  (let [parsed (parse-json-text (or (current-output) ""))
+        warnings (get parsed "warnings")]
+    (g/should (vector? warnings))
+    (g/should (pos? (count warnings)))
+    (g/should (some #(get % "key") warnings))))
+
 (defn exit-code-is [code]
   (let [code (if (string? code) (parse-long code) code)]
     (g/should= code (or (await-exit-code) (g/get :exit-code)))))
@@ -580,6 +590,11 @@
   "Each row's 'pattern' cell is compiled as a regex and asserts it is NOT found anywhere in stdout.")
 
 (defthen "the stdout does not contain {expected:string}" isaac.foundation.cli-steps/stdout-does-not-contain)
+
+(defthen "the stdout is empty" isaac.foundation.cli-steps/stdout-is-empty)
+
+(defthen "the stdout parses as JSON with a warnings array naming the offending path"
+  isaac.foundation.cli-steps/stdout-parses-as-json-with-warnings-naming-path)
 
 (defthen "the exit code is {int}" isaac.foundation.cli-steps/exit-code-is
   "Polls up to 1s for :exit-code to be set (background 'isaac is run'
