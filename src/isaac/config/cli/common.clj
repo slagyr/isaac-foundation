@@ -26,6 +26,20 @@
                      (remove (comp nil? val))
                      (into {}))}))
 
+(defn- structured-flag? [arg]
+  (#{"--edn" "--json"} arg))
+
+(defn parse-in-order-with-structured-flags
+  "Like parse-option-map with :in-order true, but --edn/--json may trail positional args."
+  [args option-spec]
+  (let [structured (into {}
+                         (comp (filter structured-flag?)
+                               (map (fn [f] [(keyword (subs f 2)) true])))
+                         args)
+        stripped   (remove structured-flag? args)
+        parsed     (parse-option-map stripped option-spec :in-order true)]
+    (update parsed :options merge structured)))
+
 (defn pad-right [text width]
   (let [needed (- width (count text))]
     (if (pos? needed)

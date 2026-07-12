@@ -21,6 +21,6 @@
 
 (def subcommand
   {:option-spec inspect/structured-option-spec
-   :parse-args  [:in-order true]
+   :parse-fn    common/parse-in-order-with-structured-flags
    :runner      run
    :help-text   help})
