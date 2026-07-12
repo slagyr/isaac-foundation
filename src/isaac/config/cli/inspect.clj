@@ -59,7 +59,7 @@
     (seq (:warnings result)) (assoc :warnings (:warnings result))))
 
 (defn sources-structured-value [sources]
-  {:precedence (vec (root-res/root-lookup-precedence))
+  {:precedence (vec root-res/root-lookup-precedence)
    :sources    (vec (or sources []))})
 
 (defn inspect! [opts path-str options {:keys [mode]}]
