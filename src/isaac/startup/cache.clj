@@ -15,7 +15,7 @@
     [clojure.string :as str]
     [isaac.fs :as fs]))
 
-(def cache-version 1)
+(def cache-version 2)
 
 (defn cache-path [root]
   (str root "/cache/cli.edn"))

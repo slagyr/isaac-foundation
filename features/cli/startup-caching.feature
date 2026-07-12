@@ -24,7 +24,7 @@ Feature: CLI startup caching
     And the isaac file "cache/cli.edn" exists
     And the isaac file "cache/cli.edn" EDN contains:
       | path    | value |
-      | version | 1     |
+      | version | 2     |
 
   Scenario: unchanged inputs hit the cache (fast path)
     Given an empty Isaac root at "/test/cli-cache-hit"
@@ -37,7 +37,7 @@ Feature: CLI startup caching
       | version | "1.0.0"   |
     And the isaac EDN file "cache/cli.edn" exists with:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | 1234567890000  |
     When isaac is run with "--version"
     Then the stdout matches:
@@ -47,7 +47,7 @@ Feature: CLI startup caching
     And the isaac file "cache/cli.edn" exists
     And the isaac file "cache/cli.edn" EDN contains:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | 1234567890000  |
 
   Scenario: config change invalidates the cache
@@ -61,7 +61,7 @@ Feature: CLI startup caching
       | version | "1.0.0"   |
     And the isaac EDN file "cache/cli.edn" exists with:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | 1111111111111  |
     And the isaac EDN file "config/isaac.edn" exists with:
       | path    | value |
@@ -74,7 +74,7 @@ Feature: CLI startup caching
     And the isaac file "cache/cli.edn" exists
     And the isaac file "cache/cli.edn" EDN contains:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | #*             |
 
   Scenario: local module manifest change invalidates the cache
@@ -88,7 +88,7 @@ Feature: CLI startup caching
       | version | "1.0.0"   |
     And the isaac EDN file "cache/cli.edn" exists with:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.local   | 1111111111111  |
     And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
       | key     | value     |
@@ -102,7 +102,7 @@ Feature: CLI startup caching
     And the isaac file "cache/cli.edn" exists
     And the isaac file "cache/cli.edn" EDN contains:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.local   | #*             |
 
   Scenario: --help also benefits from cache
@@ -116,7 +116,7 @@ Feature: CLI startup caching
       | version | "1.0.0"   |
     And the isaac EDN file "cache/cli.edn" exists with:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | 1234567890000  |
     When isaac is run with "--help"
     Then the stdout contains "Usage: isaac"
@@ -124,5 +124,5 @@ Feature: CLI startup caching
     And the isaac file "cache/cli.edn" exists
     And the isaac file "cache/cli.edn" EDN contains:
       | path          | value          |
-      | version       | 1              |
+      | version       | 2              |
       | basis.config  | 1234567890000  |

@@ -15,6 +15,7 @@
     [isaac.config.root :as root]
     [isaac.config.paths :as paths]
     [isaac.startup.cache :as cache]
+    [isaac.startup.classpath-cache :as startup-cp]
     [isaac.foundation.version :as version]))
 
 (def ^:dynamic *extra-opts* nil)
@@ -31,6 +32,9 @@
     (let [result (config-api/load-resolved {:root root :fs fs*})]
       (when-not (:missing-config? result)
         (:config result)))))
+
+(defn- command-summaries []
+  (mapv #(select-keys % [:name :summary]) (registry/all-commands)))
 
 (defn- register-module-cli-commands!
   "`:isaac/cli` is a berth, so all CLI
@@ -119,7 +123,14 @@
                                               config (System/getProperty "user.dir"))
               cache-fresh? (and (not= "modules" cmd) (cache/fresh? fs* resolved-root watched))
               fast-cmd?  (or (nil? cmd) (str/blank? cmd)
-                             (contains? #{"--help" "-h" "--version" "-V" "version"} cmd))]
+                             (contains? #{"--help" "-h" "--version" "-V" "version"} cmd))
+               cwd          (System/getProperty "user.dir")
+               compose      (when (and (not= "modules" cmd)
+                                       module-loader/*resolve-classpath?*
+                                       (not (and cache-fresh? fast-cmd?)))
+                              (startup-cp/compose-with-cache!
+                                fs* resolved-root config cwd watched))
+               pairs        (:pairs compose)]
           (if (and cache-fresh? fast-cmd?)
             (do
               (configure-cli-logging! resolved-root fs* log-file)
@@ -127,14 +138,16 @@
                 (do (println (version/version-string)) 0)
                 (do (println (usage-for (get-in (cache/read-cache fs* resolved-root) [:data :commands]))) 0)))
             (do
-              (register-module-cli-commands! resolved-root fs* cmd)
+              (binding [module-loader/*skip-preload-planned?* (boolean pairs)
+                         module-loader/*planned-classpath-pairs* pairs]
+                 (register-module-cli-commands! resolved-root fs* cmd))
               (configure-cli-logging! resolved-root fs* log-file)
-              (when (and (not cache-fresh?) (not= "modules" cmd))
-                (cache/write-cache! fs* resolved-root
-                                    {:version cache/cache-version
-                                     :basis   (cache/compute-basis fs* watched)
-                                     :data    {:commands (mapv #(select-keys % [:name :summary])
-                                                               (registry/all-commands))}}))
+              (when (and (not= "modules" cmd)
+                         (or (not cache-fresh?) (not (:from-cache? compose))))
+                (startup-cp/write-classpath-cache!
+                  fs* resolved-root watched config
+                  (or pairs [])
+                  (command-summaries)))
               (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (usage)) 0)

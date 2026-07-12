@@ -13,6 +13,11 @@
 
 (def ^:dynamic *resolve-classpath?* true)
 
+;; When bound (isaac-tki3), `preload-planned-module-deps!` skips
+;; `plan-module-classpath-pairs` and uses these pairs instead.
+(def ^:dynamic *planned-classpath-pairs* nil)
+(def ^:dynamic *skip-preload-planned?* false)
+
 (defonce ^:private activated-modules* (atom #{}))
 (defonce ^:private loaded-module-coords* (atom #{}))
 (defonce ^:private started-modules* (atom []))
@@ -534,7 +539,7 @@
                  [id coord]))
              pairs)))
 
-(defn- plan-module-classpath-pairs
+(defn plan-module-classpath-pairs
   "Every explicit :modules entry plus deps.edn-implied module coords, deduped
    to one coordinate per module id before the single tools.deps pass."
   [raw-modules cwd]
@@ -548,9 +553,24 @@
       (classpath-preload-pairs (dedupe-module-pairs (vec (concat explicit-pairs implied-pairs)))
                                ctx))))
 
+(defn apply-module-classpath-pairs!
+  "Apply a cached classpath plan without re-walking modules (isaac-tki3)."
+  [pairs]
+  (when (seq pairs)
+    (preload-module-pairs! pairs)))
+
+(defn without-preload-planned!
+  "Run `f` while suppressing discover!'s automatic planned preload (caller composed)."
+  [f]
+  (binding [*skip-preload-planned?* true]
+    (f)))
+
 (defn- preload-planned-module-deps! [raw-modules cwd]
-  (when *resolve-classpath?*
-    (preload-module-pairs! (or (plan-module-classpath-pairs raw-modules cwd) []))))
+  (when (and *resolve-classpath?* (not *skip-preload-planned?*))
+    (let [pairs (if *planned-classpath-pairs*
+                  *planned-classpath-pairs*
+                  (plan-module-classpath-pairs raw-modules cwd))]
+      (preload-module-pairs! (or pairs [])))))
 
 (defn- merge-resolved-classpath-modules [index explicit-modules context]
   (if-not *resolve-classpath?*

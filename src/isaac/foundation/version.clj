@@ -3,7 +3,7 @@
     [clojure.edn :as edn]
     [clojure.string :as str]))
 
-(defn- manifest-version []
+(defn manifest-version []
   (try
     (some (fn [url]
             (let [manifest (edn/read-string (slurp url))]
