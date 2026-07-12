@@ -12,6 +12,7 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
+    [isaac.cli.color :as color]
     [isaac.fs :as fs]
     [isaac.logs.streams :as log-streams]
     [isaac.main :as main]
@@ -66,6 +67,13 @@
 
 (defn- apply-run-wrappers [thunk]
   (reduce (fn [t wrap] (fn [] (wrap t))) thunk @isaac-run-wrappers*))
+
+(defn- without-captured-ansi [thunk]
+  "Captured stdout/stderr assertions expect plain text; disable CLI color
+   auto-detection (including FORCE_COLOR) for in-process test runs."
+  (with-redefs [color/force-color? (constantly false)
+                color/console?     (constantly false)]
+    (thunk)))
 
 (defn- interpolate-args [args]
   (cond-> args
@@ -321,10 +329,12 @@
          error-writer     (java.io.StringWriter.)]
     (binding [*out* output-writer
               *err* error-writer]
-      (if cmd-stub
-        (with-redefs [shell/cmd-available? (fn [cmd] (get cmd-stub cmd false))]
-          (run-with-stdin))
-        (run-with-stdin)))
+      (without-captured-ansi
+        (fn []
+          (if cmd-stub
+            (with-redefs [shell/cmd-available? (fn [cmd] (get cmd-stub cmd false))]
+              (run-with-stdin))
+            (run-with-stdin)))))
     (g/assoc! :output (str output-writer))
     (g/assoc! :stderr (str error-writer))
     (doseq [postflight @isaac-run-postflights*] (postflight))))
@@ -342,15 +352,16 @@
     (g/assoc! :live-error-writer error-writer)
     (future
       (let [run! (fn [run-opts]
-                   (binding [*out* output-writer
-                             *err* error-writer
-                             root/*user-home* (or (g/get :user-home) root/*user-home*)]
-                     (let [code ((apply-run-wrappers
-                                   #(if (seq run-opts)
-                                      (binding [main/*extra-opts* run-opts]
-                                        (main/run argv))
-                                      (main/run argv))))]
-                       (g/assoc! :exit-code code))))]
+                   (without-captured-ansi
+                     (binding [*out* output-writer
+                               *err* error-writer
+                               root/*user-home* (or (g/get :user-home) root/*user-home*)]
+                       (let [code ((apply-run-wrappers
+                                     #(if (seq run-opts)
+                                        (binding [main/*extra-opts* run-opts]
+                                          (main/run argv))
+                                        (main/run argv))))]
+                         (g/assoc! :exit-code code)))))]
         (if mem-fs
           (nexus/-with-nested-nexus {:fs mem-fs}
             (run! (assoc extra-opts :fs mem-fs)))
