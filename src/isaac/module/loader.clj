@@ -243,6 +243,107 @@
         :else
         (log/warn :module/no-add-deps-mechanism :deps deps-map)))))
 
+;; Accumulates classpath segments added by module add-deps (isaac-ogiu).
+;; Global so every preload path is captured — discover!, compose, apply.
+(def ^:private added-classpath-delta* (atom []))
+
+(defn- classpath-segments [cp]
+  (let [sep (System/getProperty "path.separator")]
+    (if (or (nil? cp) (str/blank? cp))
+      []
+      (vec (remove str/blank? (str/split cp (re-pattern (java.util.regex.Pattern/quote sep))))))))
+
+(defn- join-classpath [segments]
+  (let [sep (System/getProperty "path.separator")]
+    (str/join sep segments)))
+
+(defn- classpath-delta
+  "Segments added by a resolution pass. Prefer the suffix when `after` extends
+   `before` (babashka.deps appends). Fall back to multiset difference so
+   reordered classpaths still yield the new entries."
+  [before after]
+  (cond
+    (or (nil? after) (str/blank? after)) []
+    (or (nil? before) (str/blank? before)) (classpath-segments after)
+    (str/starts-with? after before)
+    (let [sep (System/getProperty "path.separator")
+          suffix (subs after (count before))]
+      (classpath-segments (if (str/starts-with? suffix sep)
+                            (subs suffix (count sep))
+                            suffix)))
+    :else
+    (let [remaining (atom (frequencies (classpath-segments before)))]
+      (vec (keep (fn [p]
+                   (let [n (get @remaining p 0)]
+                     (if (pos? n)
+                       (do (swap! remaining update p dec) nil)
+                       p)))
+                 (classpath-segments after))))))
+
+(defn current-dynamic-classpath
+  "Resolved classpath string currently visible to the runtime (isaac-ogiu).
+   Empty string when no dynamic classpath has been installed yet."
+  []
+  (or (try
+        (when-let [get-cp (requiring-resolve 'babashka.classpath/get-classpath)]
+          (get-cp))
+        (catch Exception _ nil))
+      (System/getProperty "java.class.path")
+      ""))
+
+(defn reset-added-classpath-delta!
+  "Clear the module-added classpath accumulator (start of a cold compose)."
+  []
+  (reset! added-classpath-delta* []))
+
+(defn take-added-classpath-delta!
+  "Module-added classpath string captured since last reset (isaac-ogiu).
+   Empty string when no modules were resolved. Clears the accumulator."
+  []
+  (let [segs (distinct @added-classpath-delta*)]
+    (reset! added-classpath-delta* [])
+    (join-classpath segs)))
+
+(defn- classpath-segment-ok?
+  "True when a cached classpath segment is usable. jars/files must exist;
+   source dirs must exist; tools.deps sometimes emits empty resource dirs
+   that were never created — treat a missing empty dir as skippable only
+   when its sibling src dir exists (module root still present)."
+  [path]
+  (let [f (java.io.File. path)]
+    (cond
+      (.exists f) true
+      ;; Missing empty resource/ dir: ok if parent exists (module still there).
+      (and (str/ends-with? path "/resources")
+           (.isDirectory (java.io.File. (.getParent f))))
+      true
+      :else false)))
+
+(defn apply-resolved-classpath!
+  "Install a previously-resolved classpath string without tools.deps (isaac-ogiu).
+   Prefer babashka.classpath/add-classpath; fall back to DynamicClassLoader URL
+   injection on JVM. Throws when any required segment is missing so callers can
+   fail-open. Empty/blank classpath is a no-op success (no modules)."
+  [classpath]
+  (when (and (string? classpath) (not (str/blank? classpath)))
+    (let [parts    (classpath-segments classpath)
+          missing  (vec (remove classpath-segment-ok? parts))
+          existing (vec (filter #(.exists (java.io.File. %)) parts))]
+      (when (seq missing)
+        (throw (ex-info (str "cached classpath segment missing: " (first missing))
+                        {:path (first missing) :missing missing})))
+      (let [cp-to-add (join-classpath existing)]
+        (when-not (str/blank? cp-to-add)
+          (if-let [add-cp (try (requiring-resolve 'babashka.classpath/add-classpath)
+                               (catch Exception _ nil))]
+            (add-cp cp-to-add)
+            (do
+              (ensure-dynamic-classloader!)
+              (let [cl ^clojure.lang.DynamicClassLoader
+                    (.getContextClassLoader (Thread/currentThread))]
+                (doseq [p existing]
+                  (.addURL cl (.toURL (.toURI (java.io.File. p)))))))))))))
+
 (defn- add-module-deps! [id coord]
   (invoke-add-deps! {(->lib-sym id) (classpath-coord coord)}))
 
@@ -299,8 +400,16 @@
 (defn- preload-module-pairs! [pairs]
   (let [unloaded (vec (unload-module-pairs (dedupe-module-pairs pairs)))]
     (when (seq unloaded)
-      (add-modules-deps! unloaded)
-      (mark-modules-loaded! unloaded))))
+      (let [before (current-dynamic-classpath)]
+        (add-modules-deps! unloaded)
+        (mark-modules-loaded! unloaded)
+        (let [delta (classpath-delta before (current-dynamic-classpath))]
+          (when (seq delta)
+            (swap! added-classpath-delta* (fnil into []) delta))))
+      ;; Always mark as loaded for cache invalidation even when add-deps is
+      ;; a no-op under test redefs (loader_spec spies).
+      (when (empty? unloaded)
+        nil))))
 
 (defn- ensure-module-deps! [id coord]
   (when-not (loaded-module-pair? [id coord])
@@ -313,9 +422,16 @@
     coord))
 
 (defn- local-manifest-path [root fs*]
-  (some #(when (fs/exists? fs* %) %)
-         [(str root "/resources/isaac-manifest.edn")
-          (str root "/src/isaac-manifest.edn")]))
+  ;; Prefer the runtime fs; fall back to java.io.File so mem-fs feature
+  ;; fixtures can still resolve local/root modules that live on the real
+  ;; disk (isaac-ogiu warm discover with *resolve-classpath?* false).
+  (some (fn [p]
+          (cond
+            (fs/exists? fs* p) p
+            (.exists (java.io.File. p)) (.toURL (.toURI (java.io.File. p)))
+            :else nil))
+        [(str root "/resources/isaac-manifest.edn")
+         (str root "/src/isaac-manifest.edn")]))
 
 (defn- local-root-error [context id coord]
   (when-let [declared-path (:local/root coord)]
@@ -331,12 +447,15 @@
 (defn- needs-classpath-preload? [coord]
   "True when discovery must add this coordinate to the runtime classpath.
    Mem-fs fixtures with only isaac-manifest.edn skip preload — the same
-   shortcut resolve-manifest-resource uses before ensure-module-deps!."
+   shortcut resolve-manifest-resource uses before ensure-module-deps!.
+   Check real disk for deps.edn too (mem-fs fixtures for local modules)."
   (when (map? coord)
     (if (:local/root coord)
-      (let [fs* (runtime-fs)
-            root (:local/root coord)]
-        (or (fs/exists? fs* (str root "/deps.edn"))
+      (let [fs*  (runtime-fs)
+            root (:local/root coord)
+            deps (str root "/deps.edn")]
+        (or (fs/exists? fs* deps)
+            (.exists (java.io.File. deps))
             (not (local-manifest-path root fs*))))
       (or (contains? coord :mvn/version)
           (contains? coord :git/url)
@@ -456,8 +575,12 @@
 (defn resolve-manifest-resource [id coord]
   (let [fs* (runtime-fs)]
     (or (when-let [root (:local/root coord)]
-          (when-not (fs/exists? fs* (str root "/deps.edn"))
-            (local-manifest-path root fs*)))
+          ;; Prefer on-disk manifest for local roots (isaac-ogiu warm path
+          ;; discovers with *resolve-classpath?* false after apply-cp — still
+          ;; need to read the module's isaac-manifest.edn from local/root).
+          (or (local-manifest-path root fs*)
+              (when-not (fs/exists? fs* (str root "/deps.edn"))
+                nil)))
         (when *resolve-classpath?*
           (manifest-resource id)))))
 
@@ -558,6 +681,12 @@
   [pairs]
   (when (seq pairs)
     (preload-module-pairs! pairs)))
+
+(defn mark-module-pairs-loaded!
+  "Record pairs as loaded without tools.deps resolution (isaac-ogiu warm path)."
+  [pairs]
+  (when (seq pairs)
+    (mark-modules-loaded! (dedupe-module-pairs pairs))))
 
 (defn without-preload-planned!
   "Run `f` while suppressing discover!'s automatic planned preload (caller composed)."

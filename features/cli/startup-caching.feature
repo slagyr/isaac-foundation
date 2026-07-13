@@ -39,6 +39,31 @@ Feature: CLI startup caching
     Then the exit code is 0
     And the classpath plan spy was invoked exactly 0 times
 
+  Scenario: warm cache stores resolved classpath string after cold run (isaac-ogiu)
+    Given an empty Isaac root at "target/test-startup-cache"
+    And a warm classpath cache exists from a prior non-fast-path run
+    Then the classpath cache stores a resolved classpath string
+
+  Scenario: warm hit with resolved classpath skips add-deps (isaac-ogiu)
+    Given an empty Isaac root at "target/test-startup-cache"
+    And a warm classpath cache exists from a prior non-fast-path run
+    And the add-deps spy is armed
+    When isaac is run with "logs --list"
+    Then the exit code is 0
+    And the add-deps spy was invoked exactly 0 times
+
+  Scenario: missing cached classpath segment fails open and replans (isaac-ogiu)
+    Given an empty Isaac root at "target/test-startup-cache"
+    And the isaac EDN file "isaac.edn" exists with:
+      | modules | {} |
+    And a warm classpath cache exists from a prior non-fast-path run
+    And the classpath plan spy is armed
+    And the cached classpath references a missing artifact
+    When isaac is run with "logs --list"
+    Then the exit code is 0
+    And the classpath plan spy was invoked at least 1 times
+    And the classpath cache was refreshed after replan
+
   Scenario: corrupted classpath cache fails open replans and refreshes basis
     Given an empty Isaac root at "target/test-startup-cache"
     And the isaac EDN file "isaac.edn" exists with:

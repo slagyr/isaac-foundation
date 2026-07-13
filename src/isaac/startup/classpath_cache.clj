@@ -1,5 +1,6 @@
 (ns isaac.startup.classpath-cache
   (:require
+    [clojure.string :as str]
     [isaac.foundation.version :as version]
     [isaac.module.loader :as module-loader]
     [isaac.startup.cache :as cache]))
@@ -51,6 +52,17 @@
     (when (and (= cache/cache-version (:version c)) (identity-fresh? c config))
       (:classpath-pairs (:data c)))))
 
+(defn read-resolved-classpath
+  "Resolved -cp string from a fresh identity-matching cache (isaac-ogiu).
+   Returns the string when the key is present (including empty = no modules).
+   Returns nil when the key is absent (legacy tki3 cache → fall back to pairs)."
+  [fs* root config]
+  (when-let [c (cache/read-cache fs* root)]
+    (when (and (= cache/cache-version (:version c)) (identity-fresh? c config))
+      (when (contains? (:data c) :classpath)
+        (let [cp (get-in c [:data :classpath])]
+          (if (string? cp) cp ""))))))
+
 (defn try-apply-cached-pairs! [fs* root config _cwd]
   (let [t0 (System/nanoTime)]
     (try
@@ -61,26 +73,61 @@
         false)
       (catch Exception _ false))))
 
-(defn write-classpath-cache! [fs* root watched config pairs commands]
-  (cache/write-cache! fs* root
-                      {:version cache/cache-version
-                       :basis   (merge (cache/compute-basis fs* watched)
-                                       (identity-basis config))
-                       :data    {:classpath-pairs pairs :commands commands}}))
+(defn try-apply-cached-classpath!
+  "Prefer the resolved classpath string (skip add-deps). Fall back to pairs.
+   Returns {:ok? bool :via :classpath|:pairs|nil}."
+  [fs* root config]
+  (let [t0 (System/nanoTime)
+        cp (read-resolved-classpath fs* root config)]
+    (if (some? cp)
+      (try
+        (module-loader/apply-resolved-classpath! cp)
+        (when-let [pairs (read-classpath-pairs fs* root config)]
+          (module-loader/mark-module-pairs-loaded! pairs))
+        (record-phase! :apply-cached-classpath t0)
+        {:ok? true :via :classpath}
+        (catch Exception _
+          {:ok? false :via :classpath}))
+      (if (try-apply-cached-pairs! fs* root config nil)
+        {:ok? true :via :pairs}
+        {:ok? false :via nil}))))
+
+(defn write-classpath-cache!
+  ([fs* root watched config pairs commands]
+   (write-classpath-cache! fs* root watched config pairs commands nil))
+  ([fs* root watched config pairs commands classpath]
+   (cache/write-cache! fs* root
+                       {:version cache/cache-version
+                        :basis   (merge (cache/compute-basis fs* watched)
+                                        (identity-basis config))
+                        :data    (cond-> {:classpath-pairs pairs
+                                          :commands        commands}
+                                   ;; Persist empty string too — means "no modules,
+                                   ;; resolved, skip add-deps on warm" (isaac-ogiu).
+                                   (string? classpath)
+                                   (assoc :classpath classpath))})))
 
 (defn plan-and-compose! [config cwd]
   (let [t0 (System/nanoTime)]
     (module-loader/compose-config-modules! config cwd)
     (record-phase! :plan-compose t0)
-    (or (module-loader/plan-module-classpath-pairs (:modules config) cwd) [])))
+    (let [pairs (or (module-loader/plan-module-classpath-pairs (:modules config) cwd) [])
+          ;; Module-added segments only (not the process bb.edn classpath).
+          cp    (module-loader/take-added-classpath-delta!)]
+      {:pairs pairs :classpath cp})))
 
 (defn compose-with-cache! [fs* root config cwd watched]
   (if (and (cache/fresh? fs* root watched)
            (let [c (cache/read-cache fs* root)] (and c (identity-fresh? c config)))
-           (try-apply-cached-pairs! fs* root config cwd))
+           (:ok? (try-apply-cached-classpath! fs* root config)))
     (do (record-phase! :cache-hit (System/nanoTime))
-        {:pairs (read-classpath-pairs fs* root config) :from-cache? true})
-    (let [t0 (System/nanoTime)
-          pairs (plan-and-compose! config cwd)]
+        {:pairs     (read-classpath-pairs fs* root config)
+         :classpath (read-resolved-classpath fs* root config)
+         :from-cache? true})
+    ;; Do NOT reset the delta accumulator: an earlier path (e.g. registry
+    ;; require / discover!) may already have resolved modules via add-deps.
+    ;; plan-and-compose! takes whatever has been accumulated this process.
+    (let [t0     (System/nanoTime)
+          result (plan-and-compose! config cwd)]
       (record-phase! :cold-plan t0)
-      {:pairs pairs :from-cache? false})))
+      (assoc result :from-cache? false))))

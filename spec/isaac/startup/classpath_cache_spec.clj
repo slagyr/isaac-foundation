@@ -14,7 +14,7 @@
                        :basis   basis
                        :data    data}))
 
-(describe "classpath cache (isaac-tki3)"
+(describe "classpath cache (isaac-tki3 + isaac-ogiu)"
 
   (describe "identity basis"
 
@@ -37,6 +37,42 @@
     (around [example]
       (nexus/-with-nexus {:fs (fs/mem-fs)}
         (example)))
+
+    (it "applies cached resolved classpath without plan or add-deps on warm hit (isaac-ogiu)"
+      (let [fs*     (nexus/get :fs)
+            root    "/ogiu/warm"
+            config  {:modules {}}
+            watched {:config [(str root "/config/isaac.edn")]}
+            pairs   [[:cached-mod {:local/root "/tmp/mod"}]]
+            cp      "/tmp/mod/src:/tmp/mod/resources"
+            applied (atom nil)
+            t0      1000000000000]
+        (fs/mkdirs fs* (str root "/cache"))
+        (fs/mkdirs fs* (str root "/config"))
+        (fs/spit fs* (str root "/config/isaac.edn") "{}")
+        (write-v2-cache! fs* root
+                         (merge {:config t0} (sut/identity-basis config))
+                         {:classpath-pairs pairs
+                          :classpath       cp
+                          :commands        []})
+        (with-redefs [fs/modified (fn [_ path]
+                                    (cond
+                                      (= path (str root "/cache/cli.edn")) t0
+                                      (= path (str root "/config/isaac.edn")) t0
+                                      :else nil))
+                      module-loader/plan-module-classpath-pairs
+                      (fn [& _] (throw (ex-info "plan should not run" {})))
+                      module-loader/compose-config-modules!
+                      (fn [& _] (throw (ex-info "compose should not run" {})))
+                      module-loader/apply-module-classpath-pairs!
+                      (fn [_] (throw (ex-info "pairs apply should not run when classpath cached" {})))
+                      module-loader/apply-resolved-classpath!
+                      (fn [s] (reset! applied s))]
+          (let [result (sut/compose-with-cache! fs* root config "/cwd" watched)]
+            (should (:from-cache? result))
+            (should= pairs (:pairs result))
+            (should= cp (:classpath result))
+            (should= cp @applied)))))
 
     (it "skips plan-module-classpath-pairs on a warm timestamp-fresh cache hit"
       (let [fs*    (nexus/get :fs)
@@ -79,14 +115,17 @@
         (write-v2-cache! fs* root
                          (merge {:config t0} (sut/identity-basis config))
                          {:classpath-pairs [[:m {:local/root "/stale"}]]
+                          :classpath       "/missing/artifact.jar"
                           :commands        []})
         (with-redefs [fs/modified (fn [_ path]
                                     (cond
                                       (str/ends-with? path "cli.edn") t0
                                       (str/includes? path "isaac.edn") t0
                                       :else nil))
-                      module-loader/apply-module-classpath-pairs!
+                      module-loader/apply-resolved-classpath!
                       (fn [_] (throw (ex-info "missing artifact" {})))
+                      module-loader/apply-module-classpath-pairs!
+                      (fn [_] (throw (ex-info "should not fall through to pairs after classpath throw" {})))
                       module-loader/compose-config-modules! (fn [& _] nil)
                       module-loader/plan-module-classpath-pairs
                       (fn [_ _] (reset! planned :ran) [[:m {:local/root "/mod"}]])]
@@ -108,4 +147,32 @@
                         module-loader/plan-module-classpath-pairs (constantly [])]
             (sut/compose-with-cache! fs* root config "/cwd" watched)))
         (should (pos? (count @samples)))
-        (should (some #(= :cold-plan (:phase %)) @samples))))))
+        (should (some #(= :cold-plan (:phase %)) @samples))))
+
+    (it "write-classpath-cache! persists resolved classpath string (isaac-ogiu)"
+      (let [fs*     (nexus/get :fs)
+            root    "/ogiu/write"
+            config  {:modules {}}
+            watched {:config [(str root "/config/isaac.edn")]}
+            pairs   [[:m {:local/root "/mod"}]]
+            cp      "/mod/src:/mod/resources"]
+        (fs/mkdirs fs* (str root "/config"))
+        (fs/spit fs* (str root "/config/isaac.edn") "{}")
+        (with-redefs [fs/modified (constantly 1)]
+          (sut/write-classpath-cache! fs* root watched config pairs [] cp)
+          (let [c (cache/read-cache fs* root)]
+            (should= pairs (get-in c [:data :classpath-pairs]))
+            (should= cp (get-in c [:data :classpath]))))))
+
+    (it "write-classpath-cache! persists empty classpath for no-module configs"
+      (let [fs*     (nexus/get :fs)
+            root    "/ogiu/empty-cp"
+            config  {}
+            watched {:config [(str root "/config/isaac.edn")]}]
+        (fs/mkdirs fs* (str root "/config"))
+        (fs/spit fs* (str root "/config/isaac.edn") "{}")
+        (with-redefs [fs/modified (constantly 1)]
+          (sut/write-classpath-cache! fs* root watched config [] [] "")
+          (let [c (cache/read-cache fs* root)]
+            (should (contains? (:data c) :classpath))
+            (should= "" (get-in c [:data :classpath]))))))))

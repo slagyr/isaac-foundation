@@ -27,11 +27,16 @@
   ;; fs/instance, which now throws when no fs is available.
   (or (:fs extra-opts) (nexus/get :fs) (fs/real-fs)))
 
-(defn- read-user-config [root fs*]
+(defn- read-user-config
+  "Load config without tools.deps module resolution. Startup classpath work is
+   owned by compose-with-cache! / the resolved-classpath cache (isaac-ogiu);
+   load-config-result's discover! must not re-resolve modules on every read."
+  [root fs*]
   (when root
-    (let [result (config-api/load-resolved {:root root :fs fs*})]
-      (when-not (:missing-config? result)
-        (:config result)))))
+    (binding [module-loader/*resolve-classpath?* false]
+      (let [result (config-api/load-resolved {:root root :fs fs*})]
+        (when-not (:missing-config? result)
+          (:config result))))))
 
 (defn- command-summaries []
   (mapv #(select-keys % [:name :summary]) (registry/all-commands)))
@@ -48,8 +53,10 @@
    run AFTER the wrap exits or its side-effects (CLI registry
    installations) would be inside the wrap's restore scope.
 
-   For `isaac modules` (config-only), skip remote classpath resolution
-   so install/list never pull git coordinates onto the classpath."
+   Classpath resolution is owned by compose-with-cache! (isaac-ogiu).
+   Here we skip tools.deps and only discover manifests already on the
+   classpath (seeded by the warm resolved-cp or cold add-deps path).
+   For `isaac modules` (config-only), skip remote resolution too."
   [root fs* cmd]
   (try
     (with-redefs [log/log* (fn [& _])]
@@ -57,7 +64,10 @@
             context {:cwd (System/getProperty "user.dir")}
             {:keys [index]}
             (nexus/-with-nested-nexus {:fs fs*}
-              (module-loader/discover! config context))]
+              ;; Classpath already composed; do not re-add-deps.
+              (binding [module-loader/*resolve-classpath?* false
+                        module-loader/*skip-preload-planned?* true]
+                (module-loader/discover! config context)))]
         (registry/clear-berth-commands!)
         (module-loader/reconcile-modules! index)
         (module-loader/process-manifest-berths! index)))
@@ -130,7 +140,8 @@
                                        (not (and cache-fresh? fast-cmd?)))
                               (startup-cp/compose-with-cache!
                                 fs* resolved-root config cwd watched))
-               pairs        (:pairs compose)]
+               pairs        (:pairs compose)
+               cached-cp    (:classpath compose)]
           (if (and cache-fresh? fast-cmd?)
             (do
               (configure-cli-logging! resolved-root fs* log-file)
@@ -142,12 +153,20 @@
                          module-loader/*planned-classpath-pairs* pairs]
                  (register-module-cli-commands! resolved-root fs* cmd))
               (configure-cli-logging! resolved-root fs* log-file)
-              (when (and (not= "modules" cmd)
-                         (or (not cache-fresh?) (not (:from-cache? compose))))
-                (startup-cp/write-classpath-cache!
-                  fs* resolved-root watched config
-                  (or pairs [])
-                  (command-summaries)))
+              ;; Rewrite cache on cold path OR when warm hit lacked a resolved
+              ;; classpath string (legacy tki3 caches → seed isaac-ogiu field).
+              ;; Empty string is a valid resolved value (no modules).
+              (let [need-write? (and (not= "modules" cmd)
+                                     (or (not cache-fresh?)
+                                         (not (:from-cache? compose))
+                                         (nil? cached-cp)))
+                    resolved-cp (if (nil? cached-cp) "" cached-cp)]
+                (when need-write?
+                  (startup-cp/write-classpath-cache!
+                    fs* resolved-root watched config
+                    (or pairs [])
+                    (command-summaries)
+                    resolved-cp)))
               (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (usage)) 0)
@@ -164,7 +183,13 @@
 
         :else
         (if-let [command (registry/get-command cmd)]
-          (binding [root/*root* resolved-root]
+          (binding [root/*root* resolved-root
+                    ;; Command handlers re-load config via load-config-result
+                    ;; (which discover!s). Classpath is already composed —
+                    ;; suppress tools.deps for the remainder of the command
+                    ;; so warm hits stay warm (isaac-ogiu).
+                    module-loader/*resolve-classpath?* false
+                    module-loader/*skip-preload-planned?* true]
             (nexus/-with-nested-nexus {:fs fs*}
               (nexus/init! {:fs fs* :root resolved-root})
               (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
