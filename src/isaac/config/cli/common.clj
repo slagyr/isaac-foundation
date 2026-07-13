@@ -2,7 +2,6 @@
 (ns isaac.config.cli.common
   "Shared helpers for the isaac.config.cli.* subcommand namespaces."
   (:require
-    [clojure.pprint :as pprint]
     [clojure.string :as str]
     [clojure.tools.cli :as tools-cli]
     [clojure.walk :as walk]
@@ -11,7 +10,8 @@
     [isaac.config.schema.resolve :as schema-resolve]
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]
-    [isaac.config.root :as root]))
+    [isaac.config.root :as root]
+    [isaac.util.edn :as edn-pretty]))
 
 ;; region ----- Option parsing -----
 
@@ -136,10 +136,7 @@
     (println line)))
 
 (defn print-edn! [value]
-  (if (coll? value)
-    (binding [pprint/*print-right-margin* 20]
-      (pprint/pprint value))
-    (pprint/pprint value)))
+  (println (edn-pretty/pretty value)))
 
 (defn print-errors! [entries label]
   (binding [*out* *err*]

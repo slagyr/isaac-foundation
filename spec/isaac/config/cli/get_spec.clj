@@ -92,7 +92,7 @@
       (should= 1 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate ".nope")]))
       (should-contain (str "not found: berths." marigold/first-mate ".nope") (str *err*)))
 
-    (it "prints nested values across multiple lines"
+    (it "prints nested map values via pretty (inline when they fit)"
       (write-config! (str test-root "/config/isaac.edn")
                      {:watch  {:berth (keyword marigold/captain) :gauge test-gauge}
                       :berths {(keyword marigold/captain) {}
@@ -100,7 +100,23 @@
                       :gauges {test-gauge (gauge-cfg test-foundry "helm-mk-3-1.0")}
                       :foundries {test-foundry {}}})
       (should= 0 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate)]))
-      (should (<= 2 (count (str/split-lines (str *out*))))))
+      (let [out (str/trim (str *out*))]
+        (should-contain ":gauge" out)
+        (should-contain ":ledger" out)))
+
+    (it "renders map values via isaac.util.edn/pretty block form (isaac-524u)"
+      (write-config! (str test-root "/config/isaac.edn")
+                     {:foundries {(keyword marigold/quantum-anvil)
+                                  {:api      "responses"
+                                   :base-url "https://api.x.ai/v1"
+                                   :auth     "api-key"
+                                   :api-key  "${XAI_API_KEY}"}}})
+      (should= 0 (sut/run {:root test-root} ["get" (str "foundries." marigold/quantum-anvil)]))
+      (let [out (str/trim (str *out*))]
+        (should-contain "{\n" out)
+        (should-contain ":api" out)
+        (should-contain ":base-url" out)
+        (should (str/includes? out "  :"))))
 
     (it "prints foundry auth when configured"
       (write-config! (str test-root "/config/isaac.edn")
