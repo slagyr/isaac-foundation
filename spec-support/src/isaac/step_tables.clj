@@ -5,12 +5,16 @@
 ;; region ----- Path Parsing -----
 
 (defn- parse-segment [s]
-  (let [parts (re-seq #"([\w-]+)|\[(\d+)\]" s)]
-    (mapv (fn [[_ key idx]]
-            (if key
-              [:key key]
-              [:idx (parse-long idx)]))
-          parts)))
+  (cond
+    (= "#count" s) [[:count]]
+    (re-matches #"\d+" s) [[:idx (parse-long s)]]
+    :else
+    (let [parts (re-seq #"([\w-]+)|\[(\d+)\]" s)]
+      (mapv (fn [[_ key idx]]
+              (if key
+                [:key key]
+                [:idx (parse-long idx)]))
+            parts))))
 
 (defn parse-path [path]
   (mapcat parse-segment (str/split path #"\.")))
@@ -20,7 +24,9 @@
     (fn [obj [tag v]]
       (case tag
         :key (get obj (keyword v))
-        :idx (nth obj v nil)))
+        :idx (nth obj v nil)
+        :count (when (or (sequential? obj) (map? obj) (string? obj))
+                 (count obj))))
     entity
     (parse-path path-str)))
 
