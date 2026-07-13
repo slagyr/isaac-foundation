@@ -1,6 +1,8 @@
 (ns isaac.config.cli.get-spec
   (:require
+     [cheshire.core :as json]
      [c3kit.apron.env :as c3env]
+     [clojure.edn :as edn]
      [clojure.string :as str]
      [isaac.config.cli.common :as common]
      [isaac.config.cli.command :as sut]
@@ -113,4 +115,22 @@
       (binding [*in* (BufferedReader. (StringReader. "REVEAL\n"))]
         (should= 0 (sut/run {:root test-root} ["get" (str "foundries." marigold/helm-systems ".api-key") "--reveal"])))
       (should-contain "type REVEAL to confirm:" (str *err*))
-      (should-contain "sk-test-123" (str *out*)))))
+      (should-contain "sk-test-123" (str *out*))))
+
+  (describe "structured output (isaac-0jse)"
+
+    (it "get --json emits parseable JSON for a map subtree"
+      (write-berth-with-ledger! test-berth {} "You are Cordelia.")
+      (should= 0 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate) "--json"]))
+      (let [parsed (json/parse-string (str/trim (str *out*)))]
+        (should (map? parsed))))
+
+    (it "get --edn round-trips the subtree"
+      (write-berth-with-ledger! test-berth {} "You are Cordelia.")
+      (should= 0 (sut/run {:root test-root} ["get" (str "berths." marigold/first-mate) "--edn"]))
+      (let [parsed (edn/read-string (str/trim (str *out*)))]
+        (should (map? parsed))))
+
+    (it "rejects unknown flags cleanly"
+      (should= 1 (sut/run {:root test-root} ["get" "models" "--nope"]))
+      (should-contain "Unknown option" (str *err*)))))

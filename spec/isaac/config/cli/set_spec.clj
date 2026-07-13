@@ -5,6 +5,7 @@
     [isaac.config.marigold :as config-marigold]
     [isaac.marigold :as marigold]
     [isaac.config.mutate :as mutate]
+
     [speclj.core :refer :all])
   (:import (java.io StringWriter)))
 
@@ -41,4 +42,13 @@
                                         (reset! captured [path value])
                                         {:status :ok :warnings [] :file "isaac.edn"})]
         (should= 0 (sut/run {:root test-root} ["set" (str "berths." marigold/first-mate ".ledger") "--raw"])))
-      (should= [(str "berths." marigold/first-mate ".ledger") "--raw"] @captured))))
+      (should= [(str "berths." marigold/first-mate ".ledger") "--raw"] @captured)))
+
+  (it "set --json emits structured mutation result (isaac-0jse)"
+    (config-marigold/write-baseline!)
+    (config-marigold/write-berth! marigold/first-mate {:gauge marigold/helm-mark-iii} :ledger "Old ledger.")
+    (let [path (str "berths." marigold/first-mate ".ledger")]
+      (should= 0 (sut/run {:root marigold/root} ["set" path "New ledger." "--json"]))
+      (should-contain "\"ok\"" (str *out*))
+      (should-contain path (str *out*)))))
+

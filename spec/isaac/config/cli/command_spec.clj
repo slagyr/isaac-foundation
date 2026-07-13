@@ -32,6 +32,10 @@
       (should= 1 (sut/run {:root test-root} ["--sources"]))
       (should-contain "Unknown option: \"--sources\"" (str *err*)))
 
+    (it "rejects unknown flags on get subcommand"
+      (should= 1 (sut/run {:root test-root} ["get" "models" "--not-a-flag"]))
+      (should-contain "Unknown option" (str *err*)))
+
     (it "routes 'help <subcommand>' to the subcommand's own help page"
       (should= 0 (sut/run {:root test-root} ["help" "validate"]))
       (should-contain "Usage: isaac config validate" (str *out*))))
@@ -48,7 +52,12 @@
         (should-contain "config path" output)
         (should-contain "schema path" output)
         (should-contain "slash-mode" output)
-        (should-contain "/crew/Almighty Bob/model" output))))
+        (should-contain "/crew/Almighty Bob/model" output)))
+
+    (it "lists --edn and --json in top-level Options (isaac-0jse)"
+      (let [output (with-out-str (should= 0 (sut/run {:root test-root} ["--help"])))]
+        (should-contain "--json" output)
+        (should-contain "--edn" output))))
 
   (describe "registry integration"
 

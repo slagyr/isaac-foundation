@@ -54,4 +54,15 @@
     (binding [*in* (BufferedReader. (StringReader. "{:ledger \"You are Atticus.\"}"))]
       (let [result (sut/run {:root test-root} ["validate" "--as" (str "berths." marigold/captain) "-"])]
         (should= 0 result))
-      (should-contain "OK" (str *out*)))))
+      (should-contain "OK" (str *out*))))
+
+  (it "validate --json still emits structured warnings on success"
+    (write-config! (str test-root "/config/isaac.edn")
+                   {:defaults     {:crew :main :model :llama}
+                    :crew         {:main {}}
+                    :models       {:llama {:model "llama3.3:1b" :provider :anthropic}}
+                    :providers    {:anthropic {}}
+                    :experimental {:feature-flag true}})
+    (should= 0 (sut/run {:root test-root} ["validate" "--json"]))
+    (should-contain "\"warnings\"" (str *out*))
+    (should-contain "\"ok\"" (str *out*))))

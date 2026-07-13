@@ -1,5 +1,7 @@
 (ns isaac.config.cli.sources-spec
   (:require
+     [cheshire.core :as json]
+     [clojure.string :as str]
      [c3kit.apron.env :as c3env]
      [isaac.config.cli.command :as sut]
      [isaac.config.cli.spec-support :as support]
@@ -36,3 +38,10 @@
     (should-contain "~/.config/isaac.edn" (str *out*))
     (should-contain "config/isaac.edn" (str *out*))
     (should-contain (str "config/berths/" marigold/first-mate ".edn") (str *out*))))
+
+  (it "sources --json emits structured precedence and sources"
+    (write-config! (str test-root "/config/isaac.edn") {:berths {(keyword marigold/captain) {}}})
+    (should= 0 (sut/run {:root test-root} ["sources" "--json"]))
+    (let [parsed (json/parse-string (str/trim (str *out*)) true)]
+      (should (vector? (:precedence parsed)))
+      (should (vector? (:sources parsed)))))

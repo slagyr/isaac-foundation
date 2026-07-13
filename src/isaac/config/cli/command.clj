@@ -11,10 +11,11 @@
     [isaac.config.cli.set :as set-cmd]
     [isaac.config.cli.sources :as sources-cmd]
     [isaac.config.cli.unset :as unset-cmd]
+    [isaac.config.cli.inspect :as inspect]
     [isaac.config.cli.validate :as validate-cmd]))
 
 (def option-spec
-  [["-h" "--help" "Show help"]])
+  inspect/structured-option-spec)
 
 (def ^:private subcommands
   {"get"      get-cmd/subcommand
@@ -66,8 +67,11 @@
   (println (if help-fn (help-fn) (config-help)))
   0)
 
-(defn- run-parsed-subcommand [opts sub-args {:keys [option-spec parse-args runner help-text]}]
-  (let [{:keys [arguments errors options]} (apply common/parse-option-map sub-args option-spec parse-args)]
+(defn- run-parsed-subcommand [opts sub-args {:keys [option-spec parse-args parse-fn runner help-text]}]
+  (let [{:keys [arguments errors options]}
+        (if parse-fn
+          (parse-fn sub-args option-spec)
+          (apply common/parse-option-map sub-args option-spec parse-args))]
     (cond
       (:help options) (print-subcommand-help! help-text)
       (seq errors)    (common/print-cli-errors! errors)
