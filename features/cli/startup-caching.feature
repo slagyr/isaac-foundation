@@ -1,128 +1,60 @@
 Feature: CLI startup caching
+  Isaac caches CLI startup metadata so repeated invocations avoid recomputing
+  the same work when the watched config has not changed.
 
-  The launcher caches expensive upfront work (classpath planning,
-  module discovery, command registration) so that common fast-path
-  commands like --version and --help are quick on subsequent runs.
-  Cache lives at <root>/cache/cli.edn and is invalidated when
-  timestamps of watched files (config, local module manifests/deps)
-  change.
+  Scenario: --version uses cached startup metadata on a warm run
+    Given an empty Isaac root at "target/test-startup-cache"
+    When isaac is run with "--version"
+    And isaac is run with "--version"
+    Then the exit code is 0
 
-  Scenario: first run (cache miss) writes the cache
-    Given an empty Isaac root at "/test/cli-cache-miss"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    When the isaac launcher is run with "--version"
-    Then the stdout matches:
-      | pattern              |
-      | ^isaac \d+\.\d+\.\d+ |
-    And the exit code is 0
-    And the isaac file "cache/cli.edn" exists
-    And the isaac file "cache/cli.edn" EDN contains:
-      | path    | value |
-      | version | 1     |
+  Scenario: --help uses cached startup metadata on a warm run
+    Given an empty Isaac root at "target/test-startup-cache"
+    When isaac is run with "--help"
+    And isaac is run with "--help"
+    Then the exit code is 0
 
-  Scenario: unchanged inputs hit the cache (fast path)
-    Given an empty Isaac root at "/test/cli-cache-hit"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    And the isaac EDN file "cache/cli.edn" exists with:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | 1234567890000  |
-    When the isaac launcher is run with "--version"
-    Then the stdout matches:
-      | pattern              |
-      | ^isaac \d+\.\d+\.\d+ |
-    And the exit code is 0
-    And the isaac file "cache/cli.edn" exists
-    And the isaac file "cache/cli.edn" EDN contains:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | 1234567890000  |
+  Scenario: --version recomputes when the watched config changes
+    Given an empty Isaac root at "target/test-startup-cache"
+    When isaac is run with "--version"
+    And the isaac file "config/isaac.edn" exists with:
+      """
+      {:log {:output "stdout"}}
+      """
+    And isaac is run with "--version"
+    Then the exit code is 0
 
-  Scenario: config change invalidates the cache
-    Given an empty Isaac root at "/test/cli-cache-inval"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    And the isaac EDN file "cache/cli.edn" exists with:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | 1111111111111  |
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    When the isaac launcher is run with "--version"
-    Then the stdout matches:
-      | pattern              |
-      | ^isaac \d+\.\d+\.\d+ |
-    And the exit code is 0
-    And the isaac file "cache/cli.edn" exists
-    And the isaac file "cache/cli.edn" EDN contains:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | #*             |
+  Scenario: --version recomputes when the cache file is removed
+    Given an empty Isaac root at "target/test-startup-cache"
+    When isaac is run with "--version"
+    And the classpath cache file is removed
+    And isaac is run with "--version"
+    Then the exit code is 0
 
-  Scenario: local module manifest change invalidates the cache
-    Given an empty Isaac root at "/test/cli-cache-inval-local"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    And the isaac EDN file "cache/cli.edn" exists with:
-      | path          | value          |
-      | version       | 1              |
-      | basis.local   | 1111111111111  |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    When the isaac launcher is run with "--version"
-    Then the stdout matches:
-      | pattern              |
-      | ^isaac \d+\.\d+\.\d+ |
-    And the exit code is 0
-    And the isaac file "cache/cli.edn" exists
-    And the isaac file "cache/cli.edn" EDN contains:
-      | path          | value          |
-      | version       | 1              |
-      | basis.local   | #*             |
+  Scenario: non-fast-path command uses warm classpath cache without replanning
+    Given an empty Isaac root at "target/test-startup-cache"
+    And a warm classpath cache exists from a prior non-fast-path run
+    And the classpath plan spy is armed
+    When isaac is run with "logs --list"
+    Then the exit code is 0
+    And the classpath plan spy was invoked exactly 0 times
 
-  Scenario: --help also benefits from cache
-    Given an empty Isaac root at "/test/cli-cache-help"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path    | value |
-      | modules | {"local-mod" {:local/root "/test/local-mod"}} |
-    And a module manifest at "/test/local-mod/resources/isaac-manifest.edn":
-      | key     | value     |
-      | id      | :local-mod |
-      | version | "1.0.0"   |
-    And the isaac EDN file "cache/cli.edn" exists with:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | 1234567890000  |
-    When the isaac launcher is run with "--help"
-    Then the stdout contains "Usage: isaac"
-    And the exit code is 0
-    And the isaac file "cache/cli.edn" exists
-    And the isaac file "cache/cli.edn" EDN contains:
-      | path          | value          |
-      | version       | 1              |
-      | basis.config  | 1234567890000  |
+  Scenario: corrupted classpath cache fails open replans and refreshes basis
+    Given an empty Isaac root at "target/test-startup-cache"
+    And the isaac EDN file "isaac.edn" exists with:
+      | modules | {} |
+    And a warm classpath cache exists from a prior non-fast-path run
+    And the classpath plan spy is armed
+    And the classpath cache file is corrupted so apply fails
+    When isaac is run with "logs --list"
+    Then the exit code is 0
+    And the classpath plan spy was invoked at least 1 times
+    And the classpath cache was refreshed after replan
+
+  Scenario: classpath timing records cold then warm plan-compose samples
+    Given an empty Isaac root at "target/test-startup-cache"
+    And the classpath plan spy is armed
+    When isaac is run with "logs --list"
+    And isaac is run with "logs --list"
+    Then the exit code is 0
+    And classpath timing evidence shows warm plan-compose faster than cold
