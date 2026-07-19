@@ -1,10 +1,20 @@
-# Isaac Foundation
+# 🍏 Isaac Foundation 🪨
 
 <img align="left" width="200" src="https://raw.githubusercontent.com/slagyr/isaac-foundation/main/isaac-foundation.png" alt="isaac-foundation" style="margin-right: 20px; margin-bottom: 10px;">
 
-The seed of the Isaac platform: a CLI dispatcher, a module loader, and the
+The seed of the Isaac platform: the CLI dispatcher, config management, module loader, and the
 berth extension machinery — and not much else. Everything else (the server,
 sessions, LLM dispatch, tools, comms) is a module that plugs in.
+
+<br>
+
+[![Foundation](https://github.com/slagyr/isaac-foundation/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/slagyr/isaac-foundation/actions/workflows/ci-tests.yml) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Clojure](https://img.shields.io/badge/Clojure-1.11%2B-blue?logo=clojure)](https://clojure.org)
+[![Babashka](https://img.shields.io/badge/Babashka-1.3%2B-red?logo=clojure)](https://babashka.org)
+[![Java](https://img.shields.io/badge/Java-21%2B-orange?logo=openjdk)](https://openjdk.org/)
+
+<br clear="left">
 
 Install the foundation, then grow it by adding modules to your config:
 
