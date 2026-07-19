@@ -1,5 +1,7 @@
 # Isaac Foundation
 
+<img align="left" width="200" src="https://raw.githubusercontent.com/slagyr/isaac-foundation/main/isaac-foundation.png" alt="isaac-foundation" style="margin-right: 20px; margin-bottom: 10px;">
+
 The seed of the Isaac platform: a CLI dispatcher, a module loader, and the
 berth extension machinery — and not much else. Everything else (the server,
 sessions, LLM dispatch, tools, comms) is a module that plugs in.
