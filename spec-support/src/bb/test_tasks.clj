@@ -1,11 +1,19 @@
 (ns bb.test-tasks
-  "Foundation-local re-export of the shared native runners.
-  Canonical home: isaac-foundation-test-support (spec-support/src/bb/).
-  Kept so foundation's :paths [\".\"] continue to resolve bb.test-tasks
-  without depending on its own test-support coord (isaac-x5ru).
+  "Shared native babashka runners for `bb spec` / `bb features` / `bb ci`.
 
-  Prefer editing the canonical copy under spec-support/src/bb/ and
-  mirroring here when foundation-local resolution is still needed."
+  Homed in isaac-foundation-test-support (deps/root `spec-support`) so every
+  isaac module can `:require ([bb.test-tasks :as tests])` without copy-paste
+  (isaac-x5ru). Foundation itself resolves the same namespace via its own
+  `bb/` path (kept as a thin re-export) so both consumers and foundation
+  share one implementation.
+
+  Defaults match the common module layout:
+    - specs under `spec/`
+    - features under `features/`
+    - step namespaces matching `isaac.**-steps`
+
+  Override via dynamic vars when a consumer differs (e.g. extra step ns,
+  alternate features dir, or foundation's per-module `modules/*/spec`)."
   (:require
     [babashka.fs :as fs]
     [babashka.process :as process]

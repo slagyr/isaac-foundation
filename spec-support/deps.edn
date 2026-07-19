@@ -5,8 +5,37 @@
 ;;      :git/sha "..."
 ;;      :deps/root "spec-support"}
 ;;
-;; Includes isaac.foundation.config-bypass-lint — run via module bb.edn
-;; config-bypass-lint task (requires this coord on the bb classpath).
+;; Includes:
+;;   - isaac.foundation.config-bypass-lint — run via module bb.edn
+;;     config-bypass-lint task (requires this coord on the bb classpath).
+;;   - bb.test-tasks / bb.test-timeout — shared native babashka runners for
+;;     `bb spec` / `bb features` / `bb ci` (isaac-x5ru). Consumer bb.edn:
+;;
+;;       {:paths ["src" "resources" "spec"]
+;;        :deps  {io.github.slagyr/isaac-foundation-test-support
+;;                {:git/url "https://github.com/slagyr/isaac-foundation.git"
+;;                 :git/sha "<this-sha>"
+;;                 :deps/root "spec-support"}
+;;                speclj/speclj {:mvn/version "3.13.0"}
+;;                io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+;;                babashka/process {:mvn/version "0.5.22"}
+;;                ;; plus the module's own runtime deps}
+;;        :tasks {spec     {:requires ([bb.test-tasks :as tests])
+;;                          :task (apply tests/run-spec! *command-line-args*)}
+;;                features {:requires ([bb.test-tasks :as tests])
+;;                          :task (apply tests/run-features! *command-line-args*)}
+;;                ci       {:requires ([bb.test-tasks :as tests])
+;;                          :task (do (run 'config-bypass-lint)
+;;                                    (tests/run-ci!))}
+;;                jvm-spec {:requires ([bb.test-tasks :as tests])
+;;                          :task (apply tests/run-jvm-spec! *command-line-args*)}
+;;                jvm-features {:requires ([bb.test-tasks :as tests])
+;;                              :task (apply tests/run-jvm-features! *command-line-args*)}}}
+;;
+;;     Defaults: specs in `spec/`, features in `features/`, step globs
+;;     `["isaac.**-steps"]`. Override via bb.test-tasks/*spec-dir*,
+;;     *features-dir*, *step-globs*, *jvm-spec-cmd*, *jvm-features-cmd*.
+;;     Do NOT copy test_tasks.clj into consumer repos — require this coord.
 {:paths ["src"]
  :deps  {speclj/speclj                       {:mvn/version "3.13.0"}
          babashka/process                    {:mvn/version "0.5.22"}

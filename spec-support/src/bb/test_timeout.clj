@@ -1,8 +1,7 @@
 (ns bb.test-timeout
-  "Foundation-local re-export of the shared timeout helpers.
-  Canonical home: isaac-foundation-test-support (spec-support/src/bb/).
-  Kept so foundation's :paths [\".\"] continue to resolve bb.test-timeout
-  without depending on its own test-support coord (isaac-x5ru)."
+  "Shared test-suite timeout helpers for isaac module bb.edn tasks.
+  Homed in isaac-foundation-test-support (deps/root spec-support) so
+  every consumer can :require it without copy-paste (isaac-x5ru)."
   (:require
     [babashka.process :as process]))
 
