@@ -138,7 +138,9 @@
            (contains? coord :git/tag)
            (contains? coord :git/sha))))
 
-(defn- coord-shape-valid? [coord]
+(defn coord-shape-valid?
+  "Public for discovery/versions mediation (same predicate as valid-module-coord?)."
+  [coord]
   (valid-module-coord? coord))
 
 (defn- real-dir? [path]
@@ -186,10 +188,11 @@
         (not (or (real-dir? root) (fs/dir? fs* root)))
         {:key (mod-error-key id) :value "local/root path does not resolve"}))))
 
-(defn- needs-classpath-preload? [coord]
+(defn needs-classpath-preload?
   "True when discovery must add this coordinate to the runtime classpath.
    Mem-fs fixtures with only isaac-manifest.edn skip preload — the same
    shortcut resolve-manifest-resource uses before ensure-module-deps!."
+  [coord]
   (when (map? coord)
     (if (:local/root coord)
       (let [fs* (runtime-fs)
