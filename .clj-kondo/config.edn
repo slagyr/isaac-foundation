@@ -1,0 +1,25 @@
+{:lint-as {speclj.core/with clojure.core/def
+           speclj.core/with! clojure.core/def
+           speclj.core/with-all clojure.core/def
+           speclj.core/with-all! clojure.core/def}
+ :linters
+ {:unresolved-symbol
+  {:exclude [describe context it xit focus-it focus-describe focus-context
+             before after around redefs-around before-all after-all around-all
+             with with! with-all with-all!
+             should should-not should= should-not=
+             should-be should-not-be should-be-same should-not-be-same
+             should-be-nil should-not-be-nil
+             should-contain should-not-contain
+             should-have-count should-not-have-count
+             should-start-with should-not-start-with
+             should-end-with should-not-end-with
+             should== should-not==
+             should-fail should-throw should-not-throw
+             should-be-a should-not-be-a
+             pending tags with-stubs stub
+             should-have-invoked should-not-have-invoked
+             should-invoke should-not-invoke
+             should< should> should<= should>=
+             run-specs example]}
+  :refer-all {:exclude [speclj.core]}}}
