@@ -2,13 +2,14 @@
   (:require
     [isaac.config.api :as sut]
     [isaac.config.loader :as loader]
+    [isaac.config.env :as env]
 
     [speclj.core :refer :all]))
 
 (describe "config api"
 
-  (before (loader/clear-env-overrides!))
-  (after  (loader/clear-env-overrides!))
+  (before (env/clear-env-overrides!))
+  (after  (env/clear-env-overrides!))
 
   (it "load-resolved delegates to the loader"
     (with-redefs [loader/load-config-result (fn [& _] {:config {:a 1} :errors []})]

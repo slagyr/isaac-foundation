@@ -4,7 +4,7 @@
     [isaac.cli.api :as cli-api]
     [isaac.cli.registry :as registry]
     [isaac.config.api :as config-api]
-    [isaac.config.loader :as loader]
+    [isaac.config.env :as env]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
     [isaac.log.file :as lfile]
@@ -235,7 +235,7 @@
       (should= "/tmp/isaac-cli-root/custom/cmd.log" (log/log-file)))
 
     (it "honors ISAAC_LOG_FILE when no --log-file is passed"
-      (with-redefs [loader/env (fn [v] (when (= v "ISAAC_LOG_FILE") "env/cmd.log"))]
+      (with-redefs [env/env (fn [v] (when (= v "ISAAC_LOG_FILE") "env/cmd.log"))]
         (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) nil)
         (should= :file (log/output))
         (should= "/tmp/isaac-cli-root/env/cmd.log" (log/log-file))))

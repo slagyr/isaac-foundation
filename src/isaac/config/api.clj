@@ -13,6 +13,7 @@
    Each fn delegates to `isaac.config.loader` at call time, so `with-redefs` on the
    underlying fn still takes effect for callers through this API."
   (:require
+    [isaac.config.env :as env]
     [isaac.config.loader :as loader]))
 
 (defn load-resolved
@@ -44,9 +45,9 @@
 (defn set-env-override!
   "Sets an env-var override (test support). Clears the load cache."
   [name value]
-  (loader/set-env-override! name value))
+  (env/set-env-override! name value))
 
 (defn clear-env-overrides!
   "Clears all env-var overrides and the .env snapshot (test support)."
   []
-  (loader/clear-env-overrides!))
+  (env/clear-env-overrides!))

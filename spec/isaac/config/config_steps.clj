@@ -6,6 +6,7 @@
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.config.berths :as berths]
     [isaac.config.loader :as loader]
+    [isaac.config.env :as env]
     [isaac.config.marigold :as config-marigold]
     [isaac.fs :as fs]
     [isaac.module.berths :as module-berths]
@@ -189,7 +190,7 @@
         (fs/spit   fs* full-path (str/trim content))))))
 
 (defn environment-variable-is [name value]
-  (loader/set-env-override! name value)
+  (env/set-env-override! name value)
   (c3env/override! name value))
 
 (defn chartroom-modules-available []

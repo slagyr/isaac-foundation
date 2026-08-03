@@ -6,6 +6,7 @@
     [clojure.tools.cli :as tools-cli]
     [clojure.walk :as walk]
     [isaac.cli.color :as color]
+    [isaac.config.env :as env]
     [isaac.config.loader :as loader]
     [isaac.config.schema.resolve :as schema-resolve]
     [isaac.fs :as fs]
@@ -208,7 +209,7 @@
     (map? value)        (into {} (map (fn [[k v]] [k (resolve-env-values v)]) value))
     (sequential? value) (mapv resolve-env-values value)
     :else               (if-let [token (env-token value)]
-                          (or (loader/env token) value)
+                          (or (env/env token) value)
                           value)))
 
 ;; endregion ^^^^^ Reveal / env substitution ^^^^^

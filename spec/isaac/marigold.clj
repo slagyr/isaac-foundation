@@ -12,6 +12,7 @@
     [c3kit.apron.env :as c3env]
     [clojure.string :as str]
     [isaac.config.loader :as loader]
+    [isaac.config.env :as env]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.fs :as fs]
     [isaac.module.classpath :as classpath]
@@ -233,7 +234,7 @@
       (nexus/-with-nested-nexus {:fs mem}
         (binding [discovery/*foundation-index-override* baseline-foundation-index]
           (reset! c3env/-overrides {})
-          (loader/clear-env-overrides!)
+          (env/clear-env-overrides!)
           (schema-compose/clear-cache!)
           (example))))))
 

@@ -4,7 +4,7 @@
     [clojure.string :as str]
     [isaac.cli.registry :as registry]
     [isaac.config.api :as config-api]
-    [isaac.config.loader :as loader]
+    [isaac.config.env :as env]
     [isaac.fs :as fs]
     [isaac.log.output :as log-output]
     [isaac.logger :as log]
@@ -67,7 +67,7 @@
       nil)))
 
 (defn- env-log-file []
-  (let [v (loader/env "ISAAC_LOG_FILE")]
+  (let [v (env/env "ISAAC_LOG_FILE")]
     (when-not (str/blank? v) v)))
 
 (defn- configure-cli-logging! [root fs* log-file-path]
