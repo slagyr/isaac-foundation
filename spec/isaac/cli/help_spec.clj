@@ -3,7 +3,6 @@
     [isaac.cli.api :as api]
     [isaac.cli.help :as sut]
     [isaac.cli.registry :as registry]
-    [isaac.main :as main]
     [speclj.core :refer :all]))
 
 (describe "cli help command"

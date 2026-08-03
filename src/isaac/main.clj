@@ -6,7 +6,6 @@
     [isaac.config.api :as config-api]
     [isaac.config.loader :as loader]
     [isaac.fs :as fs]
-    [isaac.log.file :as lfile]
     [isaac.log.output :as log-output]
     [isaac.logger :as log]
     [isaac.module.loader :as module-loader]
@@ -50,7 +49,7 @@
 
    For `isaac modules` (config-only), skip remote classpath resolution
    so install/list never pull git coordinates onto the classpath."
-  [root fs* cmd]
+  [root fs* _cmd]
   (try
     (with-redefs [log/log* (fn [& _])]
       (let [config  (or (read-user-config root fs*) {})

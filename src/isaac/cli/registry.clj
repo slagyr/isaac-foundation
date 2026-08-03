@@ -221,24 +221,24 @@
    command (last-wins, per the module-contribution collision policy);
    the berth pass surfaces the swap as a :cli/override warning."
   [[id {:keys [usage summary namespace]}]]
-  (let [name (clojure.core/name id)]
-    (let [cmd    {:name      name
-                  :id        id
-                  :usage     usage
-                  :summary   summary
-                  :namespace namespace}
-          run-fn (fn [{:keys [_raw-args] :as opts}]
-                   (if (#{"--help" "-h"} (first (or _raw-args [])))
-                     (do (println (command-help cmd)) 0)
-                     (do (ensure-impl! cmd)
-                         (if (get-method api/run id)
-                           (api/run id opts)
-                           (binding [*out* *err*]
-                             (println (str "command " id " (" namespace
-                                           ") implements no isaac.cli.api/run"))
-                             1)))))]
-      (swap! berth-command-names* conj name)
-      (register! (assoc cmd :run-fn run-fn)))))
+  (let [name   (clojure.core/name id)
+        cmd    {:name      name
+                :id        id
+                :usage     usage
+                :summary   summary
+                :namespace namespace}
+        run-fn (fn [{:keys [_raw-args] :as opts}]
+                 (if (#{"--help" "-h"} (first (or _raw-args [])))
+                   (do (println (command-help cmd)) 0)
+                   (do (ensure-impl! cmd)
+                       (if (get-method api/run id)
+                         (api/run id opts)
+                         (binding [*out* *err*]
+                           (println (str "command " id " (" namespace
+                                         ") implements no isaac.cli.api/run"))
+                           1)))))]
+    (swap! berth-command-names* conj name)
+    (register! (assoc cmd :run-fn run-fn))))
 
 ;; endregion ^^^^^ Berth registration factory -----
 
