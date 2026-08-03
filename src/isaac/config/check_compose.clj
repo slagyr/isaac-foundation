@@ -1,6 +1,6 @@
 (ns isaac.config.check-compose
   (:require
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [isaac.schema.registered-in :as registered-in]))
 
 (def ^:private berth-key :isaac.config/check)
@@ -26,8 +26,9 @@
                     :module-id  module-id})))
        (sort-by (juxt #(id-str (:module-id %)) #(id-str (:check-id %))))))
 
-(defn- resolve-check-fn [{:keys [fn fn-sym]}]
-  (let [sym      (or fn fn-sym
+(defn- resolve-check-fn [descriptor]
+  ;; SCI-hostile: never destructure {:keys [fn ...]} — `fn` is special in SCI.
+  (let [sym      (or (:fn descriptor) (:fn-sym descriptor)
                      (throw (ex-info "config-check missing :fn symbol"
                                      {:type :config-check/missing-fn})))
         resolved (cond
@@ -56,15 +57,17 @@
 
 (defn run-checks
   ([ctx]
-   (run-checks (module-loader/builtin-index) ctx))
+   (run-checks (discovery/builtin-index) ctx))
   ([module-index ctx]
-   (binding [registered-in/*module-index* (merge (module-loader/builtin-index)
+   (binding [registered-in/*module-index* (merge (discovery/builtin-index)
                                                  module-index)
              registered-in/*config*       (or (:raw (:config ctx)) (:config ctx))]
-     (reduce (fn [{:keys [errors warnings]} {:keys [fn]}]
-               (let [{check-errors :errors check-warnings :warnings}
-                     (fn ctx)]
-                 {:errors   (into errors check-errors)
-                  :warnings (into warnings check-warnings)}))
+     (reduce (fn [{:keys [errors warnings]} check]
+               (let [check-fn (get check :fn)
+                     result (check-fn ctx)
+                     check-errors (:errors result)
+                     check-warnings (:warnings result)]
+                 {:errors   (into errors (or check-errors []))
+                  :warnings (into warnings (or check-warnings []))}))
              {:errors [] :warnings []}
              (:checks (merge-contributions module-index))))))

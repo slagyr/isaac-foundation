@@ -1,7 +1,9 @@
 (ns isaac.startup.classpath-cache
   (:require
     [isaac.foundation.version :as version]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.loader :as loader]
     [isaac.startup.cache :as cache]))
 
 (def ^:dynamic *timing-samples*
@@ -55,7 +57,7 @@
   (let [t0 (System/nanoTime)]
     (try
       (if-let [pairs (read-classpath-pairs fs* root config)]
-        (do (module-loader/apply-module-classpath-pairs! pairs)
+        (do (classpath/apply-module-classpath-pairs! pairs)
             (record-phase! :apply-cached t0)
             true)
         false)
@@ -70,9 +72,9 @@
 
 (defn plan-and-compose! [config cwd]
   (let [t0 (System/nanoTime)]
-    (module-loader/compose-config-modules! config cwd)
+    (loader/compose-config-modules! config cwd)
     (record-phase! :plan-compose t0)
-    (or (module-loader/plan-module-classpath-pairs (:modules config) cwd) [])))
+    (or (discovery/plan-module-classpath-pairs (:modules config) cwd) [])))
 
 (defn compose-with-cache! [fs* root config cwd watched]
   (if (and (cache/fresh? fs* root watched)

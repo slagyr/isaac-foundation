@@ -16,7 +16,7 @@
     [isaac.config.validation :as validation]
     [isaac.config.validation-lexicon :as vlex]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [speclj.core :refer :all]))
 
 (defn- with-config-slot [f]
@@ -114,7 +114,7 @@
   (schema-compose/effective-root-schema extended-config-index))
 
 (defn- with-config-index [config-index f]
-  (binding [module-loader/*foundation-index-override* config-index]
+  (binding [discovery/*foundation-index-override* config-index]
     (schema-compose/clear-cache!)
     (try
       (f)
@@ -475,7 +475,7 @@
             events  (atom [])]
         (fs/mkdirs mem root)
         (fs/spit mem path (pr-str {:modules modules}))
-        (with-redefs [module-loader/discover! (fn [config _context]
+        (with-redefs [discovery/discover! (fn [config _context]
                                                 (swap! events conj [:discover (:modules config)])
                                                 {:index {} :errors []})
                       lexicon/conform              (fn [_ data]

@@ -17,7 +17,8 @@
     [isaac.config.validation :as validation]
     [isaac.fs :as fs]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.nexus :as nexus]))
 
 ;; region ----- Helpers -----
@@ -813,7 +814,7 @@
   (try [(schema-compose/cache-composed! module-index) nil]
        (catch clojure.lang.ExceptionInfo e
          (if (compose-error-types (:type (ex-data e)))
-           [(schema-compose/cache-composed! (module-loader/builtin-index))
+           [(schema-compose/cache-composed! (discovery/builtin-index))
             (collision-error-row "config-schema" :config-key e)]
            (throw e)))))
 
@@ -836,7 +837,7 @@
                                         root-data       (:data root-read)
                                         discovery-input (cond-> {}
                                                           (contains? root-data :modules) (assoc :modules (:modules root-data)))
-                                        discovery       (module-loader/discover! discovery-input {:root root
+                                        discovery       (discovery/discover! discovery-input {:root root
                                                                                                   :cwd  (System/getProperty "user.dir")})
                                         [effective-schema compose-error] (compose-or-fallback (:index discovery))
                                         {root-errors :errors root-warnings :warnings root-sources :sources}
@@ -963,7 +964,7 @@
       (throw (ex-info (str "invalid configuration in " root)
                       {:errors errors :root root})))
     (when (:module-index config)
-      (module-loader/reconcile-modules! (:module-index config)))
+      (lifecycle/reconcile-modules! (:module-index config)))
     (set-snapshot! config reason)
     config))
 
@@ -1016,7 +1017,7 @@
 
 ;; Module-loader registration: dispatched by module.loader when reading
 ;; user-supplied config for a module's :tools or :slash-commands entry.
-(module-loader/register-handler! :user-config
+(lifecycle/register-handler! :user-config
                                  (fn [root-key entry-id]
                                    (let [snap (snapshot "module :user-config handler — ambient config lookup")]
                                      (or (get-in snap [root-key entry-id])

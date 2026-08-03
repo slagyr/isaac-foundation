@@ -8,7 +8,10 @@
     [isaac.config.loader :as loader]
     [isaac.config.marigold :as config-marigold]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.berths :as module-berths]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.nexus :as nexus]))
 
 (helper! isaac.config.config-steps)
@@ -56,8 +59,8 @@
       :else nil)))
 
 (defn- load-config-result []
-  (let [real-manifest-resource @#'isaac.module.loader/manifest-resource
-         real-resolve           module-loader/resolve-manifest-resource
+  (let [real-manifest-resource @#'isaac.module.discovery/manifest-resource
+         real-resolve           discovery/resolve-manifest-resource
          base-cwd               (System/getProperty "user.dir")
          override               (g/get :effective-cwd)
          effective-cwd          (when override
@@ -79,14 +82,14 @@
     (try
       (when effective-cwd
         (System/setProperty "user.dir" effective-cwd))
-	      (with-redefs [module-loader/invoke-add-deps! (fn [_])
-	                    module-loader/manifest-resource (fn [id]
+	      (with-redefs [classpath/invoke-add-deps! (fn [_])
+	                    discovery/manifest-resource (fn [id]
 	                                                      (or (some-> (module-manifest-path id) manifest-reference)
 	                                                          (real-manifest-resource id)))
                     ;; Test envs don't have a real classpath, so always try
                     ;; the coord's :local/root manifest first; only fall back
                     ;; to the upstream resolver (id-based search) if it fails.
-                    module-loader/resolve-manifest-resource (fn [id coord]
+                    discovery/resolve-manifest-resource (fn [id coord]
                                                               (or (coord-manifest-path coord)
                                                                   (real-resolve id coord)))]
         (loader/load-config-result {:root (root) :fs fs*}))
@@ -101,7 +104,7 @@
     ;; ambient nexus (the wrap's install!/restore would otherwise
     ;; discard them). When no errors slipped through, fire the pass.
     (when (and module-index (empty? (:errors result)))
-      (module-loader/process-manifest-berths! module-index))
+      (module-berths/process-manifest-berths! module-index))
     result))
 
 (defn load-result []
@@ -110,7 +113,7 @@
       ;; berth (e.g. the chartroom signals/foundries tables), the override
       ;; supplies those berth declarations for the whole load.
       (if-let [override (g/get :foundation-index-override)]
-        (binding [module-loader/*foundation-index-override* override]
+        (binding [discovery/*foundation-index-override* override]
           (load-result*))
         (load-result*))))
 
@@ -220,14 +223,14 @@
 ;; stays cheap and these steps stay self-contained.
 
 (defn- loaded-module-index []
-  (merge (module-loader/foundation-index)
+  (merge (discovery/foundation-index)
          (get-in (g/get :loaded-config-result) [:config :module-index])))
 
 (defn- ensure-config-berths-installed! []
   (when-not (g/get :config-berths-installed?)
     (when-let [loaded (g/get :loaded-config-result)]
       (let [module-index (loaded-module-index)]
-        (module-loader/reconcile-modules! module-index)
+        (lifecycle/reconcile-modules! module-index)
         (berths/install! {:config       (:config loaded)
                           :module-index module-index}))
       (g/assoc! :config-berths-installed? true))))

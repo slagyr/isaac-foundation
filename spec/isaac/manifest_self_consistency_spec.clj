@@ -2,7 +2,7 @@
   (:require
     [clojure.edn :as edn]
     [isaac.config.berths :as berths]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [clojure.java.io :as io]
     [clojure.string :as str]
     [speclj.core :refer :all]))
@@ -39,7 +39,7 @@
 (describe "manifest self-consistency"
 
   (it "no config path is claimed twice — one schema owner per path (berth :config XOR :isaac.config/schema factory)"
-    (let [paths (berths/config-paths (module-loader/builtin-index))]
+    (let [paths (berths/config-paths (discovery/builtin-index))]
       (should= [] (->> paths frequencies (keep (fn [[p n]] (when (> n 1) p))) vec))))
 
   (it "resolves every declared :isaac/factory and :bootstrap symbol"

@@ -119,9 +119,16 @@
                       {:isaac/manifest-errors (vec errs)
                        :path                  path})))))
 
+(defn- slurp-manifest [path fs*]
+  (cond
+    (not (string? path)) (slurp path)
+    (fs/exists? fs* path) (fs/slurp fs* path)
+    (.isFile (java.io.File. path)) (slurp path)
+    :else (fs/slurp fs* path)))
+
 (defn read-manifest
   [path fs*]
-  (let [raw (edn/read-string (if (string? path) (fs/slurp fs* path) (slurp path)))]
+  (let [raw (edn/read-string (slurp-manifest path fs*))]
      (when (contains? raw :entry)
        (throw (ex-info "entry is not supported; use :bootstrap"
                        {:field :entry :path path})))
@@ -145,7 +152,7 @@
            ;; lexicon/conform! drops keys the schema doesn't name. Namespaced
            ;; top-level keys not in known-keys are berth contributions —
            ;; preserve them so the post-discovery contribution-validation
-           ;; pass (isaac.module.loader/validate-contributions!) can find
+           ;; pass (isaac.module.lifecycle/validate-contributions!) can find
            ;; them.
            contributions (into {} (filter (fn [[k _]]
                                             (and (qualified-keyword? k)

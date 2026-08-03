@@ -3,7 +3,8 @@
     [gherclj.core :as g :refer [defgiven defwhen defthen helper!]]
     [isaac.fs :as fs]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.berths :as berths]
+    [isaac.module.discovery :as discovery]
     [isaac.nexus :as nexus]))
 
 (helper! isaac.module.berth-registration-steps)
@@ -37,8 +38,8 @@
 (defn server-boots []
   (log/clear-entries!)
   (let [index (or (g/get :berth-registration-index)
-                  (module-loader/builtin-index))]
-    (module-loader/process-manifest-berths! index)))
+                  (discovery/builtin-index))]
+    (berths/process-manifest-berths! index)))
 
 (defn berth-registration-summary-present []
   (let [summary (first (filter #(= :berth/registration-summary (:event %))

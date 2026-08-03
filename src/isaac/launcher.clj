@@ -7,7 +7,6 @@
     [isaac.config.root :as root]
     [isaac.fs :as fs]
     [isaac.config.paths :as paths]
-    [isaac.module.loader :as module-loader]
     [isaac.nexus :as nexus]
     [isaac.startup.cache :as cache]
     [isaac.startup.classpath-cache :as startup-cp]))

@@ -190,7 +190,7 @@
 ;;
 ;; `:isaac/cli` is a berth declared by
 ;; isaac.foundation's manifest. The berth's per-entry factory (called by
-;; isaac.module.loader/process-manifest-berths!) is this fn. It
+;; isaac.module.berths/process-manifest-berths!) is this fn. It
 ;; resolves the entry's symbol-valued :run-fn / :help-text and
 ;; registers a command spec with the registry above.
 
@@ -270,7 +270,7 @@
     (swap! commands #(apply dissoc % names))
     (reset! module-command-names* #{})))
 
-((requiring-resolve 'isaac.module.loader/register-handler!)
+((requiring-resolve 'isaac.module.lifecycle/register-handler!)
  :clear-registrations clear-module-commands!)
 
 ;; endregion ^^^^^ Module Command Management ^^^^^

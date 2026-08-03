@@ -13,7 +13,10 @@
     [isaac.config.paths :as paths]
     [isaac.cli.table :as table]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.coords :as coords]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.loader :as loader]
     [isaac.modules.registry :as registry]
     [isaac.shell :as shell]))
 
@@ -106,7 +109,7 @@
 
 (defn- read-root-config [root]
   (when root
-    (binding [module-loader/*resolve-classpath?* false]
+    (binding [classpath/*resolve-classpath?* false]
       (let [result (config-api/load-resolved {:root root :fs (fs/instance)})]
         (when-not (:missing-config? result)
           (:config result))))))
@@ -291,7 +294,7 @@
       (let [config  (or (read-root-config (:root opts)) {})
             context {:cwd (System/getProperty "user.dir")}
             {:keys [modules conflicts drift]}
-            (module-loader/list-configured-modules config context)]
+            (loader/list-configured-modules config context)]
         (cond
           (or edn json) (print-structured! edn json (cond-> {:modules modules}
                                                       (seq conflicts) (assoc :conflicts conflicts)
@@ -305,7 +308,7 @@
       (common/print-cli-error! "choose one of --edn or --classpath")
       (let [config      (or (read-root-config (:root opts)) {})
             cwd         (System/getProperty "user.dir")
-            launch-deps (module-loader/config->launch-deps config cwd)]
+            launch-deps (loader/config->launch-deps config cwd)]
         (if classpath
           (if-not (shell/cmd-available? "clojure")
             (common/print-cli-error!
@@ -357,7 +360,7 @@
             error
             {:error error}
 
-            (not (module-loader/valid-module-coord? coord))
+            (not (coords/valid-module-coord? coord))
             {:error (str "Registry entry for " name " has invalid coordinate")}
 
             :else
@@ -478,7 +481,7 @@
             config   (or (read-root-config root) {})
             context  {:cwd (System/getProperty "user.dir")}
             {:keys [modules]}
-            (module-loader/list-configured-modules config context)
+            (loader/list-configured-modules config context)
             module   (find-module-by-name modules module-name)]
         (if-not module
           (common/print-cli-error! (str "Unknown module: " module-name))

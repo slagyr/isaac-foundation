@@ -8,7 +8,7 @@
     [isaac.comm.registry :as comm-registry]
     [isaac.config.schema-base :as schema-base]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.schema.registered-in :as registered-in]))
 
 (defn impl-id
@@ -44,7 +44,7 @@
   [module-index impl-key]
   (when-let [[module-id entry] (contribution module-index impl-key)]
     (let [activated (try
-                      (module-loader/activate! module-id module-index)
+                      (lifecycle/activate! module-id module-index)
                       (catch clojure.lang.ExceptionInfo _ :failed))
           required  (when-not (get-method create impl-key)
                       (when-let [ns-sym (:namespace entry)]

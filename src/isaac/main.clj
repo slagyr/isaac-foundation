@@ -8,7 +8,10 @@
     [isaac.fs :as fs]
     [isaac.log.output :as log-output]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.berths :as berths]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.nexus :as nexus]
     [isaac.cli.args :as cli-args]
     [isaac.config.root :as root]
@@ -56,10 +59,10 @@
             context {:cwd (System/getProperty "user.dir")}
             {:keys [index]}
             (nexus/-with-nested-nexus {:fs fs*}
-              (module-loader/discover! config context))]
+              (discovery/discover! config context))]
         (registry/clear-berth-commands!)
-        (module-loader/reconcile-modules! index)
-        (module-loader/process-manifest-berths! index)))
+        (lifecycle/reconcile-modules! index)
+        (berths/process-manifest-berths! index)))
     (catch Exception _
       nil)))
 
@@ -96,7 +99,7 @@
         fs*           (startup-fs extra-opts)
         resolved-root (root/resolve-root root (:root extra-opts) fs*)]
     (nexus/-with-nested-nexus {:fs fs*}
-      (binding [module-loader/*resolve-classpath?* (not= "modules" cmd)]
+      (binding [classpath/*resolve-classpath?* (not= "modules" cmd)]
         ;; Startup cache (isaac-clic): when nothing the CLI plans from has
         ;; changed, the fast-path commands (--version, --help) skip module
         ;; discovery/registration entirely and serve from the cache.
@@ -108,7 +111,7 @@
                              (contains? #{"--help" "-h" "--version" "-V" "version"} cmd))
                cwd          (System/getProperty "user.dir")
                compose      (when (and (not= "modules" cmd)
-                                       module-loader/*resolve-classpath?*
+                                       classpath/*resolve-classpath?*
                                        (not (and cache-fresh? fast-cmd?)))
                               (startup-cp/compose-with-cache!
                                 fs* resolved-root config cwd watched))
@@ -122,8 +125,8 @@
                                (get-in (cache/read-cache fs* resolved-root) [:data :commands])))
                     0)))
             (do
-              (binding [module-loader/*skip-preload-planned?* (boolean pairs)
-                         module-loader/*planned-classpath-pairs* pairs]
+              (binding [classpath/*skip-preload-planned?* (boolean pairs)
+                         classpath/*planned-classpath-pairs* pairs]
                  (register-module-cli-commands! resolved-root fs* cmd))
               (configure-cli-logging! resolved-root fs* log-file)
               (when (and (not= "modules" cmd)
