@@ -15,6 +15,7 @@
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
     [isaac.logger :as log]
+    [isaac.module.classpath :as classpath]
     [isaac.module.lifecycle :as lifecycle]
     [isaac.modules.registry :as modules-registry]
     [isaac.nexus :as nexus]))
@@ -115,6 +116,7 @@
     (config/clear-env-overrides!)
     (nexus/reset!)
     (lifecycle/clear-activations!)
+    (classpath/clear-loaded-coords!)
     (lfile/clear-sink-config!)
     (log/set-output! :memory)
     (log/clear-entries!)

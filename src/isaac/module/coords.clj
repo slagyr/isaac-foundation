@@ -149,10 +149,31 @@
     (assoc coord :local/root (abs-path cwd root))
     coord))
 
-(defn local-manifest-path [root fs*]
-  (some #(when (fs/exists? fs* %) %)
-         [(str root "/resources/isaac-manifest.edn")
-          (str root "/src/isaac-manifest.edn")]))
+(defn local-manifest-path
+  "Prefer ambient fs*, but fall back to java.io.File when the path is a real
+   on-disk module tree. Feature runs often install mem-fs into the nexus while
+   modules/* fixtures remain on the real disk — without the fallback, version
+   mediation and deps.edn walks see no trees and drop :conflicts."
+  [root fs*]
+  (let [candidates [(str root "/resources/isaac-manifest.edn")
+                    (str root "/src/isaac-manifest.edn")]]
+    (or (some #(when (fs/exists? fs* %) %) candidates)
+        (some #(when (.isFile (java.io.File. %)) %) candidates))))
+
+(defn read-text-file
+  "Slurp path via fs* when present; otherwise via java.io when the file exists
+   on the real disk (same mem-fs + real modules/* seam as local-manifest-path)."
+  [fs* path]
+  (cond
+    (fs/exists? fs* path) (fs/slurp fs* path)
+    (.isFile (java.io.File. path)) (slurp path)
+    :else nil))
+
+(defn path-exists?
+  "True when path exists on fs* or as a real java.io file/dir."
+  [fs* path]
+  (or (fs/exists? fs* path)
+      (.exists (java.io.File. path))))
 
 (defn local-root-error [context id coord]
   (when-let [declared-path (:local/root coord)]
@@ -173,7 +194,7 @@
     (if (:local/root coord)
       (let [fs* (runtime-fs)
             root (:local/root coord)]
-        (or (fs/exists? fs* (str root "/deps.edn"))
+        (or (path-exists? fs* (str root "/deps.edn"))
             (not (local-manifest-path root fs*))))
       (or (contains? coord :mvn/version)
           (contains? coord :git/url)

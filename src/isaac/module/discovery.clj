@@ -29,9 +29,9 @@
   (when-let [dir (coords/coord-directory coord context)]
     (let [fs*       (coords/runtime-fs)
           deps-file (str dir "/deps.edn")]
-      (when (fs/exists? fs* deps-file)
+      (when-let [body (coords/read-text-file fs* deps-file)]
         (try
-          (:deps (edn/read-string (fs/slurp fs* deps-file)))
+          (:deps (edn/read-string body))
           (catch Exception _ nil))))))
 
 (defn module-id-from-dep-coord [coord context]

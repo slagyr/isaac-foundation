@@ -70,4 +70,21 @@
                 {:mod.shared {:local/root (mod-root :mod.shared.base)}
                  :mod.consumer.old {:local/root (mod-root :mod.consumer.old)}
                  :mod.consumer.new {:local/root (mod-root :mod.consumer.new)}}
-                ctx)))))
+                ctx))))
+  (it "mem-fs ambient still reads real local/root deps trees for conflicts"
+    ;; Feature roots often install mem-fs into the nexus while module fixtures
+    ;; live on the real disk under modules/. Version mediation must still see
+    ;; those deps.edn trees or modules list --edn loses :conflicts.
+    (let [cwd (System/getProperty "user.dir")
+          ctx {:cwd cwd}
+          explicit {:marigold.app.server.conflict
+                    {:local/root (str cwd "/modules/marigold.app.server.conflict")}
+                    :marigold.app2.server.conflict
+                    {:local/root (str cwd "/modules/marigold.app2.server.conflict")}}]
+      (should= {:conflicts [{:id :isaac.server
+                             :chosen "0.1.0"
+                             :requested [{:version "0.1.4"
+                                          :required-by [:marigold.app2.server.conflict]}]}]
+                 :drift []}
+               (versions/module-version-divergences explicit ctx))))
+)
