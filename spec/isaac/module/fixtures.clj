@@ -1,6 +1,5 @@
-(ns isaac.module.loader-fixtures
-  "Shared fixture builders for the isaac.module.loader spec suite
-   (loader-discovery-spec, loader-compose-spec)."
+(ns isaac.module.fixtures
+  "Shared fixture builders for the isaac.module.* spec suite."
   (:require
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]))

@@ -1,10 +1,10 @@
-(ns isaac.module.loader-discovery-spec
+(ns isaac.module.discovery-spec
   (:require
     [clojure.java.io :as io]
     [isaac.fs :as fs]
-    [isaac.module.loader-fixtures :refer [ctx mod-coord mod-deps! mod-dir!
-                                          mod-manifest! mod-root
-                                          valid-comm-manifest write-local-module!]]
+    [isaac.module.fixtures :refer [ctx mod-coord mod-deps! mod-dir!
+                                   mod-manifest! mod-root
+                                   valid-comm-manifest write-local-module!]]
     [isaac.module.manifest]
     [isaac.module.classpath :as classpath]
     [isaac.module.discovery :as discovery]
@@ -34,7 +34,7 @@
           [(fixture-url "spec/isaac/module/fixtures/builtin/resources/isaac-manifest.edn")
            (fixture-url "spec/isaac/module/fixtures/unflagged/resources/isaac-manifest.edn")]))
 
-(describe "module loader discovery"
+(describe "module discovery"
 
   (describe "foundation-index"
 

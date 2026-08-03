@@ -1,4 +1,4 @@
-(ns isaac.module.loader-berths-spec
+(ns isaac.module.berths-spec
   (:require
     [isaac.fs :as fs]
     [isaac.logger :as log]
@@ -11,7 +11,7 @@
 ;; The loader's `resolve-symbol!` is `requiring-resolve`, so test
 ;; factories need to be real namespaced fns. These live at the spec
 ;; namespace's top level so symbols like
-;; isaac.module.loader-berths-spec/record-route! resolve cleanly during tests.
+;; isaac.module.berths-spec/record-route! resolve cleanly during tests.
 
 (def ^:dynamic *factory-calls* nil)
 
@@ -55,7 +55,7 @@
   (it "invokes the entry-level factory once per contribution entry"
     (let [module-index (index-with-berth+contributions
                          :provider/routes
-                         'isaac.module.loader-berths-spec/record-route!
+                         'isaac.module.berths-spec/record-route!
                          {:consumer-a [{:method :get  :path "/a" :handler 'consumer-a/a-handler}]
                           :consumer-b [{:method :post :path "/b" :handler 'consumer-b/b-handler}
                                        {:method :put  :path "/c" :handler 'consumer-b/c-handler}]})]
@@ -66,7 +66,7 @@
   (it "writes each entry's registration into the ambient nexus"
     (let [module-index (index-with-berth+contributions
                          :provider/routes
-                         'isaac.module.loader-berths-spec/record-route!
+                         'isaac.module.berths-spec/record-route!
                          {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]})]
       (berths/process-manifest-berths! module-index)
       (should= 'consumer-a/a-handler (nexus/get-in [::test-berth [:get "/a"]]))))
@@ -83,7 +83,7 @@
   (it "skips berths that also declare a :config slot (not manifest-only)"
     (let [module-index (-> (index-with-berth+contributions
                              :provider/routes
-                             'isaac.module.loader-berths-spec/record-route!
+                             'isaac.module.berths-spec/record-route!
                              {:consumer-a [{:method :get :path "/a"}]})
                            (assoc-in [:provider :manifest :berths :provider/routes :config]
                                      {:path [:routes]}))]
@@ -93,20 +93,20 @@
   (it "returns an error row when the factory symbol cannot be resolved"
     (let [module-index (index-with-berth+contributions
                          :provider/routes
-                         'isaac.module.loader-berths-spec.nope/missing-factory!
+                         'isaac.module.berths-spec.nope/missing-factory!
                          {:consumer-a [{:method :get :path "/a"}]})
           errors       (berths/process-manifest-berths! module-index)]
       (should= 1 (count errors))
       (should= "module-index.berths[:provider/routes].factory"
                (:key (first errors)))
-      (should= "could not resolve factory symbol: isaac.module.loader-berths-spec.nope/missing-factory!"
+      (should= "could not resolve factory symbol: isaac.module.berths-spec.nope/missing-factory!"
                (:value (first errors)))
       (should= [] @*factory-calls*)))
 
   (it "logs :berth/registration for each installed entry"
     (let [module-index (index-with-berth+contributions
                          :provider/routes
-                         'isaac.module.loader-berths-spec/record-route!
+                         'isaac.module.berths-spec/record-route!
                          {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]})]
       (log/capture-logs
         (berths/process-manifest-berths! module-index)
@@ -119,7 +119,7 @@
   (it "logs :berth/registration-summary with per-berth counts"
     (let [module-index (index-with-berth+contributions
                          :provider/routes
-                         'isaac.module.loader-berths-spec/record-route!
+                         'isaac.module.berths-spec/record-route!
                          {:consumer-a [{:method :get :path "/a" :handler 'consumer-a/a-handler}]
                           :consumer-b [{:method :post :path "/b" :handler 'consumer-b/b-handler}]})]
       (log/capture-logs
