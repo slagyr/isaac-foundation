@@ -7,7 +7,8 @@
     [isaac.config.cli.inspect :as inspect]
     [isaac.config.comm-kinds :as comm-kinds]
     [isaac.config.schema.term :as schema-term]
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.discovery :as discovery]
+))
 
 (def option-spec
   (into [[nil  "--tree" "Expand every named sub-schema as its own section"]]
@@ -39,7 +40,7 @@
   (common/schema-context opts))
 
 (defn- comm-resolver [module-index]
-  (let [module-index (or module-index (module-loader/builtin-index))]
+  (let [module-index (or module-index (discovery/builtin-index))]
     (if module-index
       #(comm-kinds/comm-kinds module-index)
       comm-kinds/comm-kinds)))

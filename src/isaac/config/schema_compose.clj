@@ -9,7 +9,9 @@
     ;; compose, so a pre-lexicon result can never be frozen in last-composed*.
     [isaac.config.validation-lexicon]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.discovery :as discovery]
+    [isaac.module.lifecycle :as lifecycle]
+))
 
 (def ^:private berth-key :isaac.config/schema)
 
@@ -47,7 +49,7 @@
    topological order (deps before dependents); on a dependency cycle it
    falls back to alphabetical id order so compose never throws here."
   [module-index]
-  (let [order (try (zipmap (module-loader/topological-order module-index) (range))
+  (let [order (try (zipmap (lifecycle/topological-order module-index) (range))
                    (catch Throwable _ nil))
         rank  (fn [module-id] (if order (get order module-id) (id-str module-id)))]
     (->> module-index
@@ -136,7 +138,7 @@
 (defn descriptors
   ([module-index]
    (:descriptors (merge-contributions module-index)))
-  ([] (or @last-descriptors* (descriptors (module-loader/builtin-index)))))
+  ([] (or @last-descriptors* (descriptors (discovery/builtin-index)))))
 
 (defn effective-root-schema
   [module-index]
@@ -152,7 +154,7 @@
 
 (defn cached-root-schema
   []
-  (or @last-composed* (effective-root-schema (module-loader/builtin-index))))
+  (or @last-composed* (effective-root-schema (discovery/builtin-index))))
 
 (defn entity-dir-names
   []

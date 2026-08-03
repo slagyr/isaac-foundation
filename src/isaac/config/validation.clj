@@ -6,7 +6,7 @@
     [isaac.config.schema-compose :as schema-compose]
     [isaac.config.validation-lexicon :as vlex]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [isaac.schema.registered-in :as registered-in]))
 
 ;; The config validation refs (:one-of?, :crew-exists?, …) are registered into
@@ -127,7 +127,7 @@
   ([config root] (semantic-errors config root (schema-compose/cached-root-schema)))
   ([config root schema-spec]
    (binding [vlex/*config*               (validation-context config)
-             registered-in/*module-index* (merge (module-loader/builtin-index)
+             registered-in/*module-index* (merge (discovery/builtin-index)
                                                  (:module-index config))
              registered-in/*config*       (or (:raw config) config)]
      (annotation-errors* root [] schema-spec config))))

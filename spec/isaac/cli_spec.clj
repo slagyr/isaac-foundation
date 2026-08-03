@@ -5,7 +5,8 @@
     [isaac.cli.registry :as sut]
     [isaac.main :as main]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.berths :as berths]
+    [isaac.module.discovery :as discovery]
     [isaac.nexus :as nexus]
     [speclj.core :refer :all])
   (:import (java.io StringWriter)))
@@ -195,7 +196,7 @@
         ;; manifest :isaac/cli contribution. Process core's berths so
         ;; tests see init in the registry without going through
         ;; main/run first.
-        (module-loader/process-manifest-berths! (module-loader/builtin-index))
+        (berths/process-manifest-berths! (discovery/builtin-index))
         (example))))
 
   (it "registers the init command"

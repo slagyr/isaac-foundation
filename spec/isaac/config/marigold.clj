@@ -9,7 +9,7 @@
     [isaac.config.schema-compose :as schema-compose]
     [isaac.fs :as fs]
     [isaac.marigold :as marigold]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [isaac.nexus :as nexus]
     [speclj.core :as speclj]))
 
@@ -240,7 +240,7 @@
 
 (defn chartroom-test-index
   "The foundation+chartroom module index used by config schema/CLI specs.
-   Bind it to module-loader/*foundation-index-override* (see with-manifest)
+   Bind it to discovery/*foundation-index-override* (see with-manifest)
    so the chartroom berths (:signals, :foundries, ...) are declared."
   []
   baseline-config-test-index)
@@ -249,7 +249,7 @@
   "Bind foundation + marigold.chartroom schema manifests for config schema/CLI specs."
   []
   (speclj/around [example]
-    (binding [module-loader/*foundation-index-override* baseline-config-test-index]
+    (binding [discovery/*foundation-index-override* baseline-config-test-index]
       (schema-compose/clear-cache!)
       (try
         (example)
@@ -262,7 +262,7 @@
   (speclj/around [example]
     (let [mem (fs/mem-fs)]
       (nexus/-with-nested-nexus {:fs mem}
-        (binding [module-loader/*foundation-index-override* baseline-config-test-index]
+        (binding [discovery/*foundation-index-override* baseline-config-test-index]
           (reset! c3env/-overrides {})
           (loader/clear-env-overrides!)
           (schema-compose/clear-cache!)

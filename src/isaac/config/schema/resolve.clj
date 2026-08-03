@@ -4,14 +4,15 @@
     [c3kit.apron.schema.path :as path]
     [clojure.string :as str]
     [isaac.config.schema-compose :as schema-compose]
-    [isaac.module.loader :as module-loader]))
+    [isaac.module.discovery :as discovery]
+))
 
 (def ^:private entity-collections
   #{:berths :gauges :foundries :crew :hail :models :providers})
 
 (defn module-index-for-config
   [config result]
-  (let [builtin-index       (module-loader/builtin-index)
+  (let [builtin-index       (discovery/builtin-index)
         declared-module-ids (into (set (keys builtin-index)) (keys (or (:modules config) {})))
         discovered-index    (or (get-in result [:config :module-index]) builtin-index)]
     (select-keys discovered-index declared-module-ids)))

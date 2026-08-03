@@ -4,7 +4,7 @@
     [gherclj.core :as g :refer [defgiven defthen defwhen]]
     [isaac.foundation.cli-steps :as cli-steps]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [isaac.nexus :as nexus]
     [isaac.startup.classpath-cache :as classpath-cache]
     [isaac.startup.cache :as startup-cache]))
@@ -36,8 +36,8 @@
             times (or (g/get timing-key) (atom []))]
         (when spy (reset! spy 0))
         (binding [classpath-cache/*timing-samples* times]
-          (with-redefs [module-loader/plan-module-classpath-pairs
-                        (wrap-plan-with-spy module-loader/plan-module-classpath-pairs)]
+          (with-redefs [discovery/plan-module-classpath-pairs
+                        (wrap-plan-with-spy discovery/plan-module-classpath-pairs)]
             (thunk)))))))
 
 (install-run-hooks!)

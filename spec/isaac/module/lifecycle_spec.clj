@@ -2,7 +2,7 @@
   (:require
     [isaac.logger :as log]
     [isaac.module.protocol :as module]
-    [isaac.module.loader :as sut]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.spec-helper :as helper]
     [speclj.core :refer :all]))
 
@@ -51,9 +51,9 @@
   #_{:clj-kondo/ignore [:unresolved-symbol]}
   (around [example]
     (binding [*calls (atom [])]
-      (sut/clear-activations!)
+      (lifecycle/clear-activations!)
       (example)
-      (sut/clear-activations!)))
+      (lifecycle/clear-activations!)))
 
   (it "supports contribution-only no-op modules"
     (let [noop (contribution-only-module)]
@@ -63,7 +63,7 @@
       (should= [] @*calls)))
 
   (it "loads modules in topological order from :deps"
-    (sut/load-modules!
+    (lifecycle/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (should= [[:load :marigold.bridge]
@@ -71,7 +71,7 @@
              @*calls))
 
   (it "logs module/loaded once per module in dependency order"
-    (sut/load-modules!
+    (lifecycle/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (let [events (filter #(= :module/loaded (:event %)) @log/captured-logs)]
@@ -80,10 +80,10 @@
                (mapv :module events))))
 
   (it "unloads modules in reverse topological order"
-    (sut/load-modules!
+    (lifecycle/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
-    (sut/shutdown-modules!)
+    (lifecycle/shutdown-modules!)
     (should= [[:load :marigold.bridge]
               [:load :marigold.longwave]
               [:unload :marigold.longwave]
@@ -92,7 +92,7 @@
 
   (it "aborts load when a factory symbol cannot be resolved"
     (let [error (try
-                  (sut/start-modules! {:marigold.bridge (module-entry 'missing.module/create-module)})
+                  (lifecycle/start-modules! {:marigold.bridge (module-entry 'missing.module/create-module)})
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
@@ -101,7 +101,7 @@
 
   (it "aborts load when a factory throws"
     (let [error (try
-                  (sut/start-modules! {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/exploding-factory)})
+                  (lifecycle/start-modules! {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/exploding-factory)})
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
@@ -110,7 +110,7 @@
 
   (it "aborts load when a factory returns a non-module value"
     (let [error (try
-                  (sut/start-modules! {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/->NoopModule)})
+                  (lifecycle/start-modules! {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/->NoopModule)})
                   (catch clojure.lang.ExceptionInfo e
                     e))]
       (should= :module/lifecycle-failed (:type (ex-data error)))
@@ -119,7 +119,7 @@
 
   (it "rolls back already-loaded modules when a later load fails"
     (let [error (try
-                  (sut/start-modules!
+                  (lifecycle/start-modules!
                     {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/load-failure-module :deps {:marigold.bridge {}})
                      :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
                   (catch clojure.lang.ExceptionInfo e
@@ -134,7 +134,7 @@
 
   (it "aborts load when module deps contain a cycle"
     (let [error (try
-                  (sut/load-modules!
+                  (lifecycle/load-modules!
                     {:marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module :deps {:marigold.longwave {}})
                      :marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})})
                   (catch clojure.lang.ExceptionInfo e
@@ -143,10 +143,10 @@
       (should= :dependency-cycle (:reason (ex-data error)))))
 
   (it "reconcile-modules! unloads removed modules and loads new ones"
-    (sut/load-modules!
+    (lifecycle/load-modules!
       {:marigold.longwave (module-entry 'isaac.module.lifecycle-spec/longwave-module :deps {:marigold.bridge {}})
        :marigold.bridge   (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
-    (sut/reconcile-modules!
+    (lifecycle/reconcile-modules!
       {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/bridge-module)})
     (should= [[:load :marigold.bridge]
               [:load :marigold.longwave]
@@ -155,8 +155,8 @@
 
   (it "load-modules! is idempotent for an unchanged index"
     (let [index {:marigold.bridge (module-entry 'isaac.module.lifecycle-spec/bridge-module)}]
-      (sut/load-modules! index)
-      (sut/load-modules! index)
+      (lifecycle/load-modules! index)
+      (lifecycle/load-modules! index)
       (should= [[:load :marigold.bridge]] @*calls))))
 
 

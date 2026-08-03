@@ -14,7 +14,8 @@
     [isaac.config.loader :as loader]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.discovery :as discovery]
     [isaac.nexus :as nexus]
     [speclj.core :as speclj]))
 
@@ -230,7 +231,7 @@
   (speclj/around [example]
     (let [mem (fs/mem-fs)]
       (nexus/-with-nested-nexus {:fs mem}
-        (binding [module-loader/*foundation-index-override* baseline-foundation-index]
+        (binding [discovery/*foundation-index-override* baseline-foundation-index]
           (reset! c3env/-overrides {})
           (loader/clear-env-overrides!)
           (schema-compose/clear-cache!)
@@ -249,8 +250,8 @@
   ([opts]
    ;; Marigold module fixtures live on mem-fs, so emulate the classpath lookup
    ;; seam instead of trying to add an in-memory local/root to the real JVM classpath.
-   (with-redefs [isaac.module.loader/invoke-add-deps! (fn [_])
-                 isaac.module.loader/manifest-resource local-module-manifest-path]
+   (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [_])
+                 isaac.module.discovery/manifest-resource local-module-manifest-path]
      (loader/load-config-result (merge {:root root} opts)))))
 
 (defn write-config!

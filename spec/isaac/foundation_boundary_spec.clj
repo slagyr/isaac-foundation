@@ -19,7 +19,7 @@
      isaac.fs isaac.logger isaac.log.file isaac.log.output isaac.config.root isaac.foundation.version isaac.reconfigurable
      isaac.naming isaac.scheduler.runtime
      isaac.spec-helper
-     isaac.module.loader isaac.module.manifest
+     isaac.module.berths isaac.module.classpath isaac.module.coords isaac.module.discovery isaac.module.lifecycle isaac.module.loader isaac.module.manifest isaac.module.versions
      isaac.scheduler.cron
      isaac.schema.dynamic isaac.schema.lexicon isaac.schema.meta
      isaac.schema.registered-in

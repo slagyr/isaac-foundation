@@ -9,7 +9,7 @@
    and have the validator pull the live contribution set from the
    ambient module-index. Callers bind `*module-index*` before running
    validation (the contribution-validation pass in
-   `isaac.module.loader` does this); for direct use (specs,
+   `isaac.module.lifecycle` does this); for direct use (specs,
    embedders) bind it yourself."
   (:require
     [c3kit.apron.schema :as schema]))

@@ -2,7 +2,9 @@
   (:require
     [clojure.string :as str]
     [isaac.fs :as fs]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.classpath :as classpath]
+    [isaac.module.discovery :as discovery]
+    [isaac.module.loader :as loader]
     [isaac.nexus :as nexus]
     [isaac.startup.cache :as cache]
     [isaac.startup.classpath-cache :as sut]
@@ -56,11 +58,11 @@
                                       (= path (str root "/cache/cli.edn")) t0
                                       (= path (str root "/config/isaac.edn")) t0
                                       :else nil))
-                      module-loader/plan-module-classpath-pairs
+                      discovery/plan-module-classpath-pairs
                       (fn [& _] (throw (ex-info "plan should not run" {})))
-                      module-loader/compose-config-modules!
+                      loader/compose-config-modules!
                       (fn [& _] (throw (ex-info "compose should not run" {})))
-                      module-loader/apply-module-classpath-pairs!
+                      classpath/apply-module-classpath-pairs!
                       (fn [p] (should= pairs p))]
           (let [result (sut/compose-with-cache! fs* root config "/cwd" watched)]
             (should (:from-cache? result))
@@ -85,10 +87,10 @@
                                       (str/ends-with? path "cli.edn") t0
                                       (str/includes? path "isaac.edn") t0
                                       :else nil))
-                      module-loader/apply-module-classpath-pairs!
+                      classpath/apply-module-classpath-pairs!
                       (fn [_] (throw (ex-info "missing artifact" {})))
-                      module-loader/compose-config-modules! (fn [& _] nil)
-                      module-loader/plan-module-classpath-pairs
+                      loader/compose-config-modules! (fn [& _] nil)
+                      discovery/plan-module-classpath-pairs
                       (fn [_ _] (reset! planned :ran) [[:m {:local/root "/mod"}]])]
           (let [result (sut/compose-with-cache! fs* root config "/cwd" watched)]
             (should= :ran @planned)
@@ -104,8 +106,8 @@
         (fs/mkdirs fs* (str root "/config"))
         (fs/spit fs* (str root "/config/isaac.edn") "{}")
         (binding [sut/*timing-samples* samples]
-          (with-redefs [module-loader/compose-config-modules! (fn [& _] nil)
-                        module-loader/plan-module-classpath-pairs (constantly [])]
+          (with-redefs [loader/compose-config-modules! (fn [& _] nil)
+                        discovery/plan-module-classpath-pairs (constantly [])]
             (sut/compose-with-cache! fs* root config "/cwd" watched)))
         (should (pos? (count @samples)))
         (should (some #(= :cold-plan (:phase %)) @samples))))))

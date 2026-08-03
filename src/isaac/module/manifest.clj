@@ -145,7 +145,7 @@
            ;; lexicon/conform! drops keys the schema doesn't name. Namespaced
            ;; top-level keys not in known-keys are berth contributions —
            ;; preserve them so the post-discovery contribution-validation
-           ;; pass (isaac.module.loader/validate-contributions!) can find
+           ;; pass (isaac.module.lifecycle/validate-contributions!) can find
            ;; them.
            contributions (into {} (filter (fn [[k _]]
                                             (and (qualified-keyword? k)

@@ -9,7 +9,7 @@
     [isaac.config.root :as root]
     [isaac.log.file :as lfile]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [isaac.main :as sut]
     [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
@@ -248,7 +248,7 @@
         (fs/spit mem config-path "{:modules {:hello {}}}")
         (with-redefs [config-api/load-resolved
                       (fn [_] {:config {:modules {:hello {}}} :errors []})
-                      module-loader/discover!
+                      discovery/discover!
                       (fn [config context]
                         (should= {:hello {}} (:modules config))
                         (should= (System/getProperty "user.dir") (:cwd context))

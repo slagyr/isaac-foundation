@@ -2,7 +2,7 @@
   (:require
     [isaac.config.check-compose :as sut]
     [isaac.config.schema-compose :as schema-compose]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.discovery :as discovery]
     [speclj.core :refer :all]))
 
 (describe "config check-compose"
@@ -12,7 +12,7 @@
     (it "runs builtin server check contributions"
       (let [{:keys [errors warnings]} (sut/run-checks {:config         {}
                                                         :raw-providers  {}
-                                                        :module-index   (module-loader/builtin-index)
+                                                        :module-index   (discovery/builtin-index)
                                                         :root           nil
                                                         :result         {}
                                                         :effective-schema (schema-compose/cached-root-schema)})]

@@ -15,7 +15,7 @@
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
     [isaac.logger :as log]
-    [isaac.module.loader :as module-loader]
+    [isaac.module.lifecycle :as lifecycle]
     [isaac.modules.registry :as modules-registry]
     [isaac.nexus :as nexus]))
 
@@ -114,7 +114,7 @@
     (reset! c3env/-overrides {})
     (config/clear-env-overrides!)
     (nexus/reset!)
-    (module-loader/clear-activations!)
+    (lifecycle/clear-activations!)
     (lfile/clear-sink-config!)
     (log/set-output! :memory)
     (log/clear-entries!)
