@@ -82,6 +82,9 @@
  :isaac/cli {:init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
                       :namespace isaac.cli.registry}
+             :help   {:usage     "help [command-or-topic]"
+                      :summary   "Show help for a command or topic"
+                      :namespace isaac.cli.help}
              :logs   {:usage     "logs [options]"
                       :summary   "Print Isaac logs in readable colorized format"
                       :namespace isaac.logs.cli}

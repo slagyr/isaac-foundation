@@ -45,7 +45,11 @@
     (it "prints usage and returns 0 for blank command"
       (should= 0 (sut/run [""])))
 
-    (it "prints usage and returns 0 for help command"
+    (it "prints usage and returns 0 for help command when registered"
+      (registry/register-cli-command!
+        [:help {:usage     "help [command-or-topic]"
+                :summary   "Show help for a command or topic"
+                :namespace 'isaac.cli.help}])
       (should= 0 (sut/run ["help"])))
 
     (it "returns 1 for unknown command"
@@ -109,15 +113,34 @@
       (should= 0 (sut/run ["nil-cmd"])))
 
     (it "shows help for a known command via 'help <cmd>'"
+      (registry/register-cli-command!
+        [:help {:usage     "help [command-or-topic]"
+                :summary   "Show help for a command or topic"
+                :namespace 'isaac.cli.help}])
       (registry/register! {:name    "documented"
                            :desc    "A documented command"
                            :usage   "documented [options]"
+                           :summary "A documented command"
                            :option-spec [["-v" "--verbose" "Be loud"]]
                            :run-fn  identity})
       (should= 0 (sut/run ["help" "documented"])))
 
-    (it "returns 1 for 'help <unknown>'"
-      (should= 1 (sut/run ["help" "no-such-command-xyz"])))
+    (it "returns 1 for 'help <unknown>' with command-or-topic message"
+      (registry/register-cli-command!
+        [:help {:usage     "help [command-or-topic]"
+                :summary   "Show help for a command or topic"
+                :namespace 'isaac.cli.help}])
+      (let [output (with-out-str (should= 1 (sut/run ["help" "no-such-command-xyz"])))]
+        (should-contain "Unknown command or topic: no-such-command-xyz" output)))
+
+    (it "shows root topic via 'help root'"
+      (registry/register-cli-command!
+        [:help {:usage     "help [command-or-topic]"
+                :summary   "Show help for a command or topic"
+                :namespace 'isaac.cli.help}])
+      (let [output (with-out-str (should= 0 (sut/run ["help" "root"])))]
+        (should-contain "--root" output)
+        (should-contain "ISAAC_ROOT" output)))
 
     (it "shows help when --help flag is passed to a command"
       (let [received (atom nil)]
@@ -146,7 +169,8 @@
         (should-not-contain "May also be set" output)
         (should-not-contain "~/.config/isaac.edn" output)
         (should-contain "--help, -h" output)
-        (should-contain "Commands:" output))))
+        (should-contain "Commands:" output)
+        (should-contain "isaac help help" output))))
 
   (describe "alias resolution"
 
@@ -271,7 +295,7 @@
         (should= "Greets" (:summary (registry/get-command "greet")))))
 
     (it "declares foundation command cli contributions in the manifest"
-      (should= #{"init" "logs" "config" "modules"} (foundation-manifest-cli-command-names)))
+      (should= #{"init" "help" "logs" "config" "modules"} (foundation-manifest-cli-command-names)))
 
     (it "installs the active fs and resolved root into runtime init"
       (let [mem       (fs/mem-fs)

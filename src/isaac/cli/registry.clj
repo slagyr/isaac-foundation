@@ -29,6 +29,26 @@
 (defn all-commands []
   (sort-by :name (vals @commands)))
 
+(defn usage-text
+  "Top-level CLI usage listing. Optional cmds defaults to all-commands.
+   Footer points operators at `isaac help help` for topics."
+  ([] (usage-text (all-commands)))
+  ([cmds]
+   (let [max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
+     (str "Usage: isaac [options] <command> [args]\n\n"
+          "Global Options:\n"
+          "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
+          "  --log-file <path>  Append structured logs to this file (optional)\n"
+          "  --help, -h         Show this message\n\n"
+          "Commands:\n"
+          (str/join "\n" (map (fn [cmd]
+                                (str "  " (:name cmd)
+                                     (apply str (repeat (- (+ max-len 4) (count (:name cmd))) " "))
+                                     (:summary cmd)))
+                              cmds))
+          "\n\n"
+          "Topics are documented via isaac help help."))))
+
 (defn- subcommand-summary [subcommands]
   (let [max-len (apply max (map #(count (:name %)) subcommands))]
     (str/join "\n" (map (fn [{:keys [name summary]}]

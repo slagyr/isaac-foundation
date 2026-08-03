@@ -74,23 +74,6 @@
                            {:log-file-path log-file-path
                             :env-log-file  (env-log-file)})))
 
-(defn- usage-for [cmds]
-  (let [max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
-    (str "Usage: isaac [options] <command> [args]\n\n"
-         "Global Options:\n"
-         "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
-         "  --log-file <path>  Append structured logs to this file (optional)\n"
-         "  --help, -h         Show this message\n\n"
-         "Commands:\n"
-         (str/join "\n" (map (fn [cmd]
-                               (str "  " (:name cmd)
-                                    (apply str (repeat (- (+ max-len 4) (count (:name cmd))) " "))
-                                    (:summary cmd)))
-                             cmds)))))
-
-(defn- usage []
-  (usage-for (registry/all-commands)))
-
 (defn- resolve-alias
   "Resolve command aliases. 'models auth ...' → 'auth ...', 'gateway ...' → 'server ...'"
   [args]
@@ -136,7 +119,9 @@
               (configure-cli-logging! resolved-root fs* log-file)
               (if (contains? #{"--version" "-V" "version"} cmd)
                 (do (println (version/version-string)) 0)
-                (do (println (usage-for (get-in (cache/read-cache fs* resolved-root) [:data :commands]))) 0)))
+                (do (println (registry/usage-text
+                               (get-in (cache/read-cache fs* resolved-root) [:data :commands])))
+                    0)))
             (do
               (binding [module-loader/*skip-preload-planned?* (boolean pairs)
                          module-loader/*planned-classpath-pairs* pairs]
@@ -150,17 +135,10 @@
                   (command-summaries)))
               (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
-        (do (println (usage)) 0)
+        (do (println (registry/usage-text)) 0)
 
         (or (= "--version" cmd) (= "-V" cmd) (= "version" cmd))
         (do (println (version/version-string)) 0)
-
-        (= "help" cmd)
-        (if-let [target (first opts)]
-          (if-let [command (registry/get-command target)]
-            (do (println (registry/command-help command)) 0)
-            (do (println (str "Unknown command: " target)) 1))
-          (do (println (usage)) 0))
 
         :else
         (if-let [command (registry/get-command cmd)]
@@ -171,7 +149,7 @@
                                                         :root         resolved-root
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
-              (println (usage))
+              (println (registry/usage-text))
               1))))))))))
 
 (defn -main [& args]

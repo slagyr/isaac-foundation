@@ -14,7 +14,6 @@ Feature: CLI
     And the stdout contains "Usage: isaac [options] <command> [args]"
     And the exit code is 1
 
-  @wip
   Scenario: Help for an unknown command or topic
     When isaac is run with "help bogus"
     Then the stdout contains "Unknown command or topic: bogus"
@@ -46,7 +45,6 @@ Feature: CLI
     And the stdout contains "~/.isaac"
     And the exit code is 0
 
-  @wip
   Scenario: Top-level usage lists the help command
     When isaac is run with "--help"
     Then the stdout contains "Usage: isaac [options] <command> [args]"
@@ -56,7 +54,6 @@ Feature: CLI
     And the stdout contains "isaac help help"
     And the exit code is 0
 
-  @wip
   Scenario: isaac help with no target prints usage
     When isaac is run with "help"
     Then the stdout contains "Usage: isaac [options] <command> [args]"
@@ -66,14 +63,12 @@ Feature: CLI
     And the stdout contains "isaac help help"
     And the exit code is 0
 
-  @wip
   Scenario: isaac help for a known command prints that command's help
     When isaac is run with "help init"
     Then the stdout contains "Usage: isaac init"
     And the stdout contains "Scaffold a default Isaac config for a fresh install."
     And the exit code is 0
 
-  @wip
   Scenario: isaac help root prints root resolution topic
     When isaac is run with "help root"
     Then the stdout contains "--root"
@@ -83,7 +78,6 @@ Feature: CLI
     And the stdout contains "~/.isaac"
     And the exit code is 0
 
-  @wip
   Scenario: isaac help help documents usage and lists topics
     When isaac is run with "help help"
     Then the stdout contains "Usage: isaac help"
