@@ -17,7 +17,7 @@
 ;;                 :git/sha "<this-sha>"
 ;;                 :deps/root "spec-support"}
 ;;                speclj/speclj {:mvn/version "3.13.0"}
-;;                io.github.slagyr/gherclj {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+;;                io.github.slagyr/gherclj {:git/tag "v1.4.0" :git/sha "85245b1"}
 ;;                babashka/process {:mvn/version "0.5.22"}
 ;;                ;; plus the module's own runtime deps}
 ;;        :tasks {spec     {:requires ([bb.test-tasks :as tests])
@@ -39,4 +39,4 @@
 {:paths ["src"]
  :deps  {speclj/speclj                       {:mvn/version "3.13.0"}
          babashka/process                    {:mvn/version "0.5.22"}
-         io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}}}
+         io.github.slagyr/gherclj            {:git/tag "v1.4.0" :git/sha "85245b1"}}}

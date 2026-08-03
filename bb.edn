@@ -5,7 +5,7 @@
          com.cleancoders.c3kit/apron         {:mvn/version "3.0.0"}
          io.github.slagyr/dry4clj            {:git/url "https://github.com/slagyr/dry4clj"
                                               :git/sha "8274f453e4220e5407ca3611cc4fd27eac7acf4c"}
-         io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+         io.github.slagyr/gherclj            {:git/tag "v1.4.0" :git/sha "85245b1"}
          io.github.slagyr/scrap              {:git/url "https://github.com/slagyr/scrap"
                                               :git/sha "0c3366abc60ae9b59783210a1f6bab9f2c9af76f"}
          ;; marigold fixture modules — on the classpath because tests

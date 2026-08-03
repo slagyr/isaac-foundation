@@ -12,7 +12,7 @@
 
   :test     {:extra-paths ["spec" "spec-support/src"]
              :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}
-                           io.github.slagyr/gherclj            {:git/tag "v1.3.0" :git/sha "9c3bb1d"}
+                           io.github.slagyr/gherclj            {:git/tag "v1.4.0" :git/sha "85245b1"}
                            marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
                            marigold.bridge/marigold.bridge     {:local/root "modules/marigold.bridge"}
                            marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}}}
