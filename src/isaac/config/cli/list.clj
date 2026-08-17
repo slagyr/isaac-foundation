@@ -7,19 +7,18 @@
 (defn help []
   (common/render-help
     {:command     "isaac config list"
-     :params      "<config-path> [options]"
+     :params      "[config-path] [options]"
      :description (str "Print the keys one level below a config path with each entry's\n"
-                       "config source file. Leaf paths and non-map values print nothing.\n"
+                       "config source file. With no path, lists the top-level keys of the\n"
+                       "resolved config. Leaf paths and non-map values print nothing.\n"
                        "Values are never shown.")
      :option-spec inspect/structured-option-spec
-     :examples    (str "  isaac config list providers\n"
+     :examples    (str "  isaac config list\n"
+                       "  isaac config list providers\n"
                        "  isaac config list providers --json")}))
 
 (defn run [opts arguments options]
-  (let [path-str (common/normalize-path (first arguments))]
-    (if-let [error (inspect/require-path! path-str)]
-      error
-      (inspect/inspect! opts path-str options {:mode :list}))))
+  (inspect/inspect! opts (common/normalize-path (first arguments)) options {:mode :list}))
 
 (def subcommand
   {:option-spec inspect/structured-option-spec

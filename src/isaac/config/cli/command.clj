@@ -29,8 +29,8 @@
 (def ^:private subcommands-summary
   (str "  get [config-path]         Print the resolved config, or a subtree\n"
        "  help <subcommand>         Print usage details on a subcommand\n"
-       "  keys <config-path>        Print bare key names at a config path\n"
-       "  list <config-path>        Print keys with config source files\n"
+       "  keys [config-path]        Print bare key names at a config path\n"
+       "  list [config-path]        Print keys with config source files\n"
        "  schema [schema-path]      Print the config schema for a schema path\n"
        "  set <config-path> <value> Set a value at a config path\n"
        "  sources                   List contributing config files\n"
