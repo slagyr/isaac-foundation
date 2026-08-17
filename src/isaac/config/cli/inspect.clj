@@ -19,7 +19,12 @@
   (paths/config-root (common/resolve-root opts)))
 
 (defn- value-at-path [config path-str]
-  (path/data-at (common/queryable-config config) path-str))
+  ;; Blank/nil path means the resolved config root (same as config get).
+  ;; Do not call path/data-at with nil — it throws.
+  (let [queryable (common/queryable-config config)]
+    (if (or (nil? path-str) (str/blank? path-str))
+      queryable
+      (path/data-at queryable path-str))))
 
 (defn- child-key-names [config path-str]
   (when-let [value (value-at-path config path-str)]
@@ -94,7 +99,3 @@
                             :rows    (list-rows opts path-str child-keys)
                             :zebra?  true}))
                 0)))))))
-
-(defn require-path! [path-str]
-  (when (or (nil? path-str) (str/blank? path-str))
-    (common/print-cli-error! "config path is required")))
