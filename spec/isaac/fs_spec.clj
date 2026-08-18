@@ -53,6 +53,10 @@
     (should-throw IllegalArgumentException "Relative path not allowed: dir"
       (fs/dir? (fs/mem-fs) "dir")))
 
+  (it "size rejects relative paths"
+    (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
+      (fs/size (fs/mem-fs) "foo.txt")))
+
   (it "rejects tilde paths"
     (should-throw IllegalArgumentException "Relative path not allowed: ~/documents/file.txt"
       (fs/spit (fs/mem-fs) "~/documents/file.txt" "content")))
@@ -70,6 +74,17 @@
     (should-not (fs/exists? @fs "/mem/found.txt"))
     (fs/spit @fs "/mem/found.txt" "yep")
     (should (fs/exists? @fs "/mem/found.txt")))
+
+  (it "size is 0 for a missing path"
+    (should= 0 (fs/size @fs "/mem/missing.txt")))
+
+  (it "size is the UTF-8 byte length of the stored string"
+    (fs/spit @fs "/mem/found.txt" "yep")
+    (should= 3 (fs/size @fs "/mem/found.txt")))
+
+  (it "size counts UTF-8 bytes, not characters"
+    (fs/spit @fs "/mem/cafe.txt" "café")
+    (should= 5 (fs/size @fs "/mem/cafe.txt")))
 
   (it "file? is false for missing paths and directories and true for existing files"
     (should-not (fs/file? @fs "/mem/found.txt"))
@@ -162,6 +177,15 @@
     (should-not (fs/exists? @fs (test-path* "found.txt")))
     (fs/spit @fs (test-path* "found.txt") "yep")
     (should (fs/exists? @fs (test-path* "found.txt"))))
+
+  (it "size is 0 for a missing path"
+    (should= 0 (fs/size @fs (test-path* "missing.txt"))))
+
+  (it "size is File.length of the on-disk file"
+    (fs/spit @fs (test-path* "found.txt") "yep")
+    (should= 3 (fs/size @fs (test-path* "found.txt")))
+    (should= (.length (io/file (test-path* "found.txt")))
+             (fs/size @fs (test-path* "found.txt"))))
 
   (it "file? is false for missing paths and directories and true for existing files"
     (should-not (fs/file? @fs (test-path* "found.txt")))
