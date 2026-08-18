@@ -3,7 +3,9 @@
   (:require
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [isaac.nexus :as nexus]))
+    [isaac.nexus :as nexus])
+  (:import
+    (java.nio.charset StandardCharsets)))
 
 (defn- parent-path [path]
   (let [trimmed-path (if (and (str/ends-with? path "/") (> (count path) 1))
@@ -29,6 +31,7 @@
   (-children     [fs path])
   (-cache-token  [fs])
   (-modified     [fs path])
+  (-size         [fs path])
   (-mkdirs       [fs path])
   (-delete       [fs path])
   (-move         [fs source destination]))
@@ -58,6 +61,7 @@
                  vec))))
   (-cache-token  [_] nil)
   (-modified     [_ path]         (let [f (io/file path)] (when (.exists f) (.lastModified f))))
+  (-size         [_ path]         (let [f (io/file path)] (if (.isFile f) (.length f) 0)))
   (-mkdirs       [_ path]         (.mkdirs (io/file path)))
   (-delete       [_ path]         (.delete (io/file path)))
   (-move         [_ source destination]
@@ -106,6 +110,10 @@
               vec))))
   (-cache-token  [_]              @revision)
   (-modified     [_ path]         (get @store [::mtime path]))
+  (-size         [_ path]
+    (if-let [content (get @store path)]
+      (alength (.getBytes ^String content StandardCharsets/UTF_8))
+      0))
   (-mkdirs       [_ path]
     (swap! store assoc [::dir path] true)
     (swap! revision inc)
@@ -171,6 +179,12 @@
 (defn dir?
   "Returns truthy when the path refers to a directory in the given filesystem."
   [fs path] (assert-absolute! path) (-dir? fs path))
+
+(defn size
+  "Returns the on-disk byte length of the file at path, or 0 when the path
+   is missing or is not a file. RealFs uses File.length (no content I/O);
+   MemFs uses the UTF-8 byte length of the stored string."
+  [fs path] (assert-absolute! path) (-size fs path))
 
 (defn parent
   "Returns the parent path string for the given path, or nil when there is no parent."
