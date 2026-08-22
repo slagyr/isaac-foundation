@@ -41,6 +41,18 @@
     (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
       (fs/move (fs/mem-fs) "foo.txt" "/tmp/bar.txt")))
 
+  (it "size rejects relative paths"
+    (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
+      (fs/size (fs/mem-fs) "foo.txt")))
+
+  (it "copy rejects relative paths"
+    (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
+      (fs/copy (fs/mem-fs) "foo.txt" "/tmp/bar.txt")))
+
+  (it "read-bytes rejects relative paths"
+    (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
+      (fs/read-bytes (fs/mem-fs) "foo.txt" 0 4)))
+
   (it "children rejects relative paths"
     (should-throw IllegalArgumentException "Relative path not allowed: dir"
       (fs/children (fs/mem-fs) "dir")))
@@ -52,10 +64,6 @@
   (it "dir? rejects relative paths"
     (should-throw IllegalArgumentException "Relative path not allowed: dir"
       (fs/dir? (fs/mem-fs) "dir")))
-
-  (it "size rejects relative paths"
-    (should-throw IllegalArgumentException "Relative path not allowed: foo.txt"
-      (fs/size (fs/mem-fs) "foo.txt")))
 
   (it "rejects tilde paths"
     (should-throw IllegalArgumentException "Relative path not allowed: ~/documents/file.txt"
@@ -165,7 +173,22 @@
     (fs/spit @fs "/mem/old.txt" "bye")
     (fs/move @fs "/mem/old.txt" "/mem/new.txt")
     (should-not (fs/exists? @fs "/mem/old.txt"))
-    (should= "bye" (fs/slurp @fs "/mem/new.txt"))))
+    (should= "bye" (fs/slurp @fs "/mem/new.txt")))
+
+  (it "copy duplicates a file without removing the source"
+    (fs/spit @fs "/mem/old.txt" "marigold")
+    (fs/copy @fs "/mem/old.txt" "/mem/new.txt")
+    (should= "marigold" (fs/slurp @fs "/mem/old.txt"))
+    (should= "marigold" (fs/slurp @fs "/mem/new.txt")))
+
+  (it "read-bytes returns a UTF-8 slice without the prefix"
+    (fs/spit @fs "/mem/log.txt" "ab\ncd\n")
+    (let [start (alength (.getBytes "ab\n" "UTF-8"))
+          got   (fs/read-bytes @fs "/mem/log.txt" start 3)]
+      (should= "cd\n" (String. ^bytes got "UTF-8"))))
+
+  (it "read-bytes returns nil for a missing file"
+    (should-be-nil (fs/read-bytes @fs "/mem/missing.txt" 0 4))))
 
 (describe "real fs"
 
@@ -263,4 +286,20 @@
     (fs/spit @fs (test-path* "old.txt") "bye")
     (fs/move @fs (test-path* "old.txt") (test-path* "new.txt"))
     (should-not (fs/exists? @fs (test-path* "old.txt")))
-    (should= "bye" (fs/slurp @fs (test-path* "new.txt")))))
+    (should= "bye" (fs/slurp @fs (test-path* "new.txt"))))
+
+  (it "copy duplicates a file without removing the source"
+    (fs/spit @fs (test-path* "old.txt") "marigold")
+    (fs/copy @fs (test-path* "old.txt") (test-path* "new.txt"))
+    (should= "marigold" (fs/slurp @fs (test-path* "old.txt")))
+    (should= "marigold" (fs/slurp @fs (test-path* "new.txt"))))
+
+  (it "read-bytes returns a UTF-8 slice without the prefix"
+    (fs/spit @fs (test-path* "log.txt") "ab\ncd\n")
+    (let [start (alength (.getBytes "ab\n" "UTF-8"))
+          got   (fs/read-bytes @fs (test-path* "log.txt") start 3)]
+      (should= "cd\n" (String. ^bytes got "UTF-8"))))
+
+  (it "read-bytes returns nil for a missing file"
+    (should-be-nil (fs/read-bytes @fs (test-path* "missing.txt") 0 4)))
+  )
