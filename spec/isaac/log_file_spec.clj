@@ -18,7 +18,7 @@
                    (map #(log-line % day))
                    (str/join "\n"))]
     (fs/mkdirs fs* (fs/parent path))
-    (fs/spit fs* path lines)))
+    (fs/spit fs* path (str lines "\n"))))
 
 (defn- read-lines [fs* path]
   (when (fs/exists? fs* path)
@@ -27,10 +27,14 @@
 (describe "log file lifecycle"
 
   (around [it]
-    (binding [sut/*now* (java.time.Instant/parse "2026-06-29T12:00:00Z")]
+    (binding [sut/*now* (java.time.Instant/parse "2026-06-29T12:00:00Z")
+              sut/*rotation-tick-ms* nil]
       (let [mem (fs/mem-fs)]
         (nexus/-with-nested-nexus {:fs mem}
-          (it)))))
+          (try
+            (it)
+            (finally
+              (sut/clear-sink-config!)))))))
 
   (describe "server log path"
 
@@ -92,4 +96,69 @@
       (let [fs* (nexus/get :fs)
             path (sut/server-log-path test-root)]
         (should (fs/exists? fs* path))
-        (should= 1 (count (read-lines fs* path)))))))
+        (should= 1 (count (read-lines fs* path))))))
+
+  (describe "append does not rotate"
+
+    (it "leaves an oversized same-day log in place when writing an entry"
+      (let [fs*     (nexus/get :fs)
+            active  (sut/server-log-path test-root)
+            archive (str (sut/logs-dir test-root) "/server-20260629.log")]
+        (sut/configure-server-sink! test-root {:tz "UTC" :logging {:max-bytes 2000}})
+        (write-log! fs* active 100 "06-29")
+        (sut/write-entry! {:ts "2026-06-29T12:00:00Z" :level :info :event :test/append})
+        (should-not (fs/exists? fs* archive))
+        (should (<= 101 (count (read-lines fs* active))))))
+
+    (it "does not slurp the active log when writing an entry"
+      (let [fs*         (nexus/get :fs)
+            active      (sut/server-log-path test-root)
+            slurp-calls (atom 0)
+            orig        fs/slurp]
+        (sut/configure-server-sink! test-root {:tz "UTC"})
+        (write-log! fs* active 50 "06-29")
+        (with-redefs [fs/slurp (fn [fs-arg path & opts]
+                                 (swap! slurp-calls inc)
+                                 (apply orig fs-arg path opts))]
+          (sut/write-entry! {:ts "2026-06-29T12:00:00Z" :level :info :event :test/noslurp})
+          (should= 0 @slurp-calls)))))
+
+  (describe "rotation tick"
+
+    (it "archives an oversized active log"
+      (let [fs*     (nexus/get :fs)
+            active  (sut/server-log-path test-root)
+            archive (str (sut/logs-dir test-root) "/server-20260629.log")]
+        (sut/configure-server-sink! test-root {:tz "UTC" :logging {:max-bytes 2000}})
+        (write-log! fs* active 100 "06-29")
+        (sut/rotation-tick!)
+        (should (fs/exists? fs* archive))
+        (should= 0 (count (read-lines fs* active)))))
+
+    (it "does not slurp the active log when ticking"
+      (let [fs*         (nexus/get :fs)
+            active      (sut/server-log-path test-root)
+            slurp-calls (atom 0)
+            orig        fs/slurp]
+        (sut/configure-server-sink! test-root {:tz "UTC" :logging {:max-bytes 2000}})
+        (write-log! fs* active 100 "06-29")
+        (with-redefs [fs/slurp (fn [fs-arg path & opts]
+                                 (swap! slurp-calls inc)
+                                 (apply orig fs-arg path opts))]
+          (sut/rotation-tick!)
+          (should= 0 @slurp-calls)))))
+
+  (describe "CLI sink does not own server rotation"
+
+    (it "does not start the rotation timer"
+      (sut/configure-cli-sink! test-root "logs/cli.log")
+      (should-not (sut/rotation-timer-running?))))
+
+  (describe "server sink timer"
+
+    (it "starts the rotation timer when tick-ms is positive"
+      (binding [sut/*rotation-tick-ms* 60000]
+        (sut/configure-server-sink! test-root {:tz "UTC"})
+        (should (sut/rotation-timer-running?))
+        (sut/clear-sink-config!)
+        (should-not (sut/rotation-timer-running?))))))

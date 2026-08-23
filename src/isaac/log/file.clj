@@ -3,18 +3,29 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.fs :as fs]
-    [isaac.nexus :as nexus]))
+    [isaac.nexus :as nexus])
+  (:import
+    (java.nio.charset StandardCharsets)
+    (java.util.concurrent Executors ScheduledExecutorService ThreadFactory TimeUnit)))
 
 (def ^:dynamic *now* nil)
 
+(def ^:dynamic *rotation-tick-ms*
+  "Interval for the server-only rotation timer. Nil/0 disables it (tests)."
+  60000)
+
 (def default-max-bytes (* 100 1024 1024))
 (def default-max-days 30)
+(def ^:private first-line-bytes 65536)
 
 (def ^:private archive-re #"^server-(\d{8})\.log(?:\.(\d+))?$")
 
 (defonce ^:private sink-state
   (atom {:root     nil
          :settings nil}))
+
+(defonce ^:private rotation-executor* (atom nil))
+(defonce ^:private rotation-future* (atom nil))
 
 (defn instant-now []
   (or *now* (java.time.Instant/now)))
@@ -46,20 +57,20 @@
   (when-let [inst (parse-instant (:ts entry))]
     (date-stamp inst tz)))
 
-(defn- read-entries [fs* path]
-  (when (fs/exists? fs* path)
-    (->> (str/split-lines (fs/slurp fs* path))
-         (remove str/blank?)
-         (mapv #(try (edn/read-string %) (catch Exception _ nil)))
-         (remove nil?))))
+(defn- first-log-line [fs* path]
+  (let [n (fs/size fs* path)]
+    (when (pos? n)
+      (when-let [buf (fs/read-bytes fs* path 0 (min n first-line-bytes))]
+        (when (pos? (alength buf))
+          (let [s   (String. ^bytes buf StandardCharsets/UTF_8)
+                idx (.indexOf s "\n")]
+            (if (neg? idx) s (subs s 0 idx))))))))
 
 (defn- file-day [fs* path tz]
-  (some #(entry-day % tz) (read-entries fs* path)))
-
-(defn- byte-size [fs* path]
-  (if (fs/exists? fs* path)
-    (count (fs/slurp fs* path))
-    0))
+  (when-let [line (first-log-line fs* path)]
+    (when-let [entry (try (edn/read-string line) (catch Exception _ nil))]
+      (when (map? entry)
+        (entry-day entry tz)))))
 
 (defn- archive-filename [date suffix]
   (str "server-" date ".log" (when suffix (str "." suffix))))
@@ -102,13 +113,13 @@
 
 (defn- rotate-active! [fs* root settings]
   (let [active (server-log-path root)
-        dir    (logs-dir root)]
-    (when (and (fs/exists? fs* active)
-               (pos? (byte-size fs* active)))
+        dir    (logs-dir root)
+        sz     (fs/size fs* active)]
+    (when (pos? sz)
       (let [tz          (:tz settings)
             today       (date-stamp (instant-now) tz)
             active-day  (or (file-day fs* active tz) today)
-            oversize?   (> (byte-size fs* active) (:max-bytes settings))
+            oversize?   (> sz (:max-bytes settings))
             new-day?    (not= active-day today)
             archive-day (if new-day? active-day today)]
         (when (or new-day? oversize?)
@@ -134,16 +145,56 @@
      (rotate-active! fs* root settings)
      (prune-retention! fs* dir settings))))
 
+(defn rotation-tick!
+  "Server-only size/day/retention check. Safe to call when no server sink is bound."
+  []
+  (when-let [root (:root @sink-state)]
+    (let [{:keys [max-bytes max-days tz]} (:settings @sink-state)
+          fs* (or (nexus/get :fs) (fs/real-fs))]
+      (prepare-active-log! fs* root {:logging {:max-bytes max-bytes
+                                               :max-days  max-days}
+                                     :tz      tz}))))
+
+(defn- stop-rotation-timer! []
+  (when-let [fut @rotation-future*]
+    (.cancel fut true)
+    (reset! rotation-future* nil))
+  (when-let [^ScheduledExecutorService ex @rotation-executor*]
+    (.shutdownNow ex)
+    (reset! rotation-executor* nil)))
+
+(defn rotation-timer-running? []
+  (boolean (when-let [fut @rotation-future*]
+             (not (.isCancelled fut)))))
+
+(defn- start-rotation-timer! []
+  (stop-rotation-timer!)
+  (when-let [ms *rotation-tick-ms*]
+    (when (pos? ms)
+      (let [ex (Executors/newSingleThreadScheduledExecutor
+                 (reify ThreadFactory
+                   (newThread [_ runnable]
+                     (doto (Thread. ^Runnable runnable "isaac-log-rotate")
+                       (.setDaemon true)))))]
+        (reset! rotation-executor* ex)
+        (reset! rotation-future*
+                (.scheduleAtFixedRate ex
+                                      #(try (rotation-tick!) (catch Exception _))
+                                      (long ms) (long ms) TimeUnit/MILLISECONDS))))))
+
 (defn configure-server-sink!
-  "Binds the process-wide server file sink at <root>/logs/server.log."
+  "Binds the process-wide server file sink at <root>/logs/server.log.
+   Rotates once at bind, then on a timer in this process. CLI must not call this."
   [root config]
   (swap! sink-state assoc :root root :settings (resolve-settings config) :cli-path nil)
-  (prepare-active-log! root config))
+  (prepare-active-log! root config)
+  (start-rotation-timer!))
 
 (defn configure-cli-sink!
-  "Opt-in CLI file sink; no rotation."
+  "Opt-in CLI file sink; no rotation and no server timer."
   [root rel-path]
   (when rel-path
+    (stop-rotation-timer!)
     (let [fs*  (or (nexus/get :fs) (fs/real-fs))
           path (if (str/starts-with? rel-path "/")
                  rel-path
@@ -153,6 +204,7 @@
       path)))
 
 (defn clear-sink-config! []
+  (stop-rotation-timer!)
   (reset! sink-state {:root nil :settings nil}))
 
 (defn active-log-path []
@@ -164,15 +216,10 @@
   (some? (:root @sink-state)))
 
 (defn write-entry!
-  "Appends one EDN log line, rotating first when a server sink is active."
+  "Appends one EDN log line. Does not rotate; the server sink timer/boot does."
   [entry]
   (when-let [path (active-log-path)]
     (let [fs* (or (nexus/get :fs) (fs/real-fs))]
-      (when-let [root (:root @sink-state)]
-        (let [{:keys [max-bytes max-days tz]} (:settings @sink-state)]
-          (prepare-active-log! fs* root {:logging {:max-bytes max-bytes
-                                                   :max-days  max-days}
-                                         :tz      tz})))
       (when-let [parent (fs/parent path)]
         (fs/mkdirs fs* parent))
       (fs/spit fs* path (str (pr-str entry) "\n") :append true))))
