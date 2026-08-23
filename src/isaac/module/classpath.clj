@@ -4,6 +4,7 @@
    isaac.startup.classpath-cache."
   (:require
     [clojure.set :as set]
+    [clojure.string :as str]
     [isaac.logger :as log]
     [isaac.module.coords :as coords]))
 
@@ -48,26 +49,39 @@
            (fn [xs]
              (vec (set/union (set xs) #{coords/seed-foundation-lib} extra-exclusions))))))
 
+(defn- gitlib-manifest-missing? [e]
+  (let [msg (or (ex-message e) "")]
+    (and (str/includes? msg "Manifest file not found")
+         (str/includes? msg "building classpath"))))
+
+(defn add-deps-once! [deps-map]
+  (let [bb-add-deps  (try (requiring-resolve 'babashka.deps/add-deps)
+                          (catch Exception _ nil))
+        clj-add-libs (try (requiring-resolve 'clojure.repl.deps/add-libs)
+                          (catch Exception _ nil))]
+    (cond
+      bb-add-deps
+      (bb-add-deps {:deps deps-map})
+
+      clj-add-libs
+      (try
+        (binding [clojure.core/*repl* true]
+          (ensure-dynamic-classloader!)
+          (clj-add-libs deps-map))
+        (catch Exception e
+          (log/warn :module/add-libs-failed :deps deps-map :error (.getMessage e))))
+
+      :else
+      (log/warn :module/no-add-deps-mechanism :deps deps-map))))
+
 (defn invoke-add-deps! [deps-map]
   (when (seq deps-map)
-    (let [bb-add-deps  (try (requiring-resolve 'babashka.deps/add-deps)
-                            (catch Exception _ nil))
-          clj-add-libs (try (requiring-resolve 'clojure.repl.deps/add-libs)
-                            (catch Exception _ nil))]
-      (cond
-        bb-add-deps
-        (bb-add-deps {:deps deps-map})
-
-        clj-add-libs
-        (try
-          (binding [clojure.core/*repl* true]
-            (ensure-dynamic-classloader!)
-            (clj-add-libs deps-map))
-          (catch Exception e
-            (log/warn :module/add-libs-failed :deps deps-map :error (.getMessage e))))
-
-        :else
-        (log/warn :module/no-add-deps-mechanism :deps deps-map)))))
+    (try
+      (add-deps-once! deps-map)
+      (catch Exception e
+        (if (gitlib-manifest-missing? e)
+          (add-deps-once! deps-map)
+          (throw e))))))
 
 (defn add-module-deps! [id coord]
   (invoke-add-deps! {(coords/->lib-sym id) (classpath-coord coord)}))

@@ -40,4 +40,15 @@
       (classpath/without-preload-planned!
         (fn [] (reset! seen classpath/*skip-preload-planned?*)))
       (should @seen)
-      (should-not classpath/*skip-preload-planned?*))))
+      (should-not classpath/*skip-preload-planned?*)))
+
+  (it "retries once when add-deps reports a missing gitlib manifest"
+    (let [attempts (atom 0)
+          boom     (ex-info "Error building classpath. Manifest file not found for isaac.agent/isaac.agent"
+                            {})]
+      (with-redefs [isaac.module.classpath/add-deps-once!
+                    (fn [_]
+                      (let [n (swap! attempts inc)]
+                        (when (= 1 n) (throw boom))))]
+        (classpath/invoke-add-deps! {'isaac.agent/isaac.agent {:git/sha "abc"}})
+        (should= 2 @attempts)))))

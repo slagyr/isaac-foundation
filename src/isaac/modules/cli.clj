@@ -104,7 +104,8 @@
      :params      "[name] [<name> ...]"
      :description (str "Re-fetch the registry and rewrite registry-sourced :modules\n"
                        "coordinates to the latest catalog coords. Local paths and ids\n"
-                       "not in the registry are left unchanged.")
+                       "not in the registry are left unchanged. New git pins are\n"
+                       "materialized before the command reports success.")
      :option-spec option-spec}))
 
 (defn- read-root-config [root]
@@ -461,6 +462,7 @@
                                  upgrades)
                   exit   (mutate-modules! root "modules" merged)]
               (when (zero? exit)
+                (loader/warm-module-checkouts! (assoc config :modules merged))
                 (doseq [{:keys [id old new]} upgrades]
                   (println (str "Upgraded " (module-id-str id) ": "
                                   (coord-revision old) " -> " (coord-revision new)))))

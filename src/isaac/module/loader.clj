@@ -111,6 +111,15 @@
    (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
      (discovery/preload-planned-module-deps! modules cwd))))
 
+(defn warm-module-checkouts!
+  "Materialize gitlib checkouts for `:modules` even when the caller has
+   `*resolve-classpath?*` bound false (as `isaac modules` does). 'Upgraded'
+   must mean the pin is installed, not will-install-on-demand."
+  ([config] (warm-module-checkouts! config (System/getProperty "user.dir")))
+  ([config cwd]
+   (binding [classpath/*resolve-classpath?* true]
+     (compose-config-modules! config cwd))))
+
 (defn foundation-seed-path
   "Absolute path to foundation's own source root — the dir holding its
    isaac-manifest.edn. This is the seed `:paths` entry a JVM launch needs so

@@ -2,6 +2,8 @@ Feature: isaac modules upgrade — refresh installed modules to registry coords
   Config snapshots :modules coords when install runs; the registry can move on
   without updating installed roots. `modules upgrade` re-fetches the catalog and
   rewrites registry-sourced git coords to the latest entry, like brew upgrade.
+  "Upgraded" means the new pin is materialized — the next CLI process must not
+  race a cold gitlib checkout.
 
   Scenario: A stale registry-sourced module is rewritten to the latest coord
     Given an empty Isaac root at "/tmp/isaac"

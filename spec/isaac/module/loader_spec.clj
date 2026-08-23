@@ -60,4 +60,14 @@
           calls (atom [])]
       (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
         (loader/compose-config-modules! {:modules {:isaac.comm.pigeon coord}})
-        (should= (first @calls) (classpath/compose-module-deps-map pairs))))))
+        (should= (first @calls) (classpath/compose-module-deps-map pairs)))))
+
+  (it "warms git coords even when *resolve-classpath?* is false"
+    (let [calls (atom [])
+          coord {:git/url "https://github.com/slagyr/isaac-agent.git"
+                 :git/sha "b44a660aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]
+      (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
+        (binding [classpath/*resolve-classpath?* false]
+          (loader/warm-module-checkouts! {:modules {:isaac.agent coord}} "/workspace"))
+        (should= 1 (count @calls))
+        (should= coord (dissoc (get (first @calls) 'isaac.agent/isaac.agent) :exclusions))))))
