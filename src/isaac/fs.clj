@@ -5,7 +5,10 @@
     [clojure.string :as str]
     [isaac.nexus :as nexus])
   (:import
-    (java.nio.charset StandardCharsets)))
+    (java.nio ByteBuffer)
+    (java.nio.channels FileChannel)
+    (java.nio.charset StandardCharsets)
+    (java.nio.file Files OpenOption StandardCopyOption StandardOpenOption)))
 
 (defn- parent-path [path]
   (let [trimmed-path (if (and (str/ends-with? path "/") (> (count path) 1))
@@ -34,7 +37,9 @@
   (-size         [fs path])
   (-mkdirs       [fs path])
   (-delete       [fs path])
-  (-move         [fs source destination]))
+  (-move         [fs source destination])
+  (-copy         [fs source destination])
+  (-read-bytes   [fs path offset length]))
 
 ;; region ----- RealFs -----
 
@@ -70,7 +75,30 @@
           destination-file (io/file destination)]
       (when (.exists destination-file)
         (.delete destination-file))
-      (.renameTo source-file destination-file))))
+      (.renameTo source-file destination-file)))
+  (-copy [_ source destination]
+    (let [src (io/file source)]
+      (when (.isFile src)
+        (some-> destination parent-path io/file .mkdirs)
+        (Files/copy (.toPath src)
+                    (.toPath (io/file destination))
+                    (into-array StandardCopyOption [StandardCopyOption/REPLACE_EXISTING])))))
+  (-read-bytes [_ path offset length]
+    (let [f (io/file path)]
+      (when (.isFile f)
+        (with-open [ch (FileChannel/open (.toPath f) (into-array OpenOption [StandardOpenOption/READ]))]
+          (let [size   (.size ch)
+                off    (max 0 (min (long offset) size))
+                n      (max 0 (min (long length) (- size off)))
+                buf    (ByteBuffer/allocate (int n))
+                _      (.position ch off)
+                read-n (.read ch buf)]
+            (if (neg? read-n)
+              (byte-array 0)
+              (let [arr (byte-array read-n)]
+                (.flip buf)
+                (.get buf arr)
+                arr))))))))
 
 ;; endregion
 
@@ -128,7 +156,23 @@
       (swap! store #(cond-> (dissoc % source [::mtime source])
                       (some? value)               (assoc destination value [::mtime destination] new-rev)
                       (parent-path destination)   (assoc [::dir (parent-path destination)] true)))
-      nil)))
+      nil))
+  (-copy [_ source destination]
+    (when-let [content (get @store source)]
+      (let [new-rev (swap! revision inc)]
+        (swap! store #(cond-> (assoc % destination content [::mtime destination] new-rev)
+                        (parent-path destination) (assoc [::dir (parent-path destination)] true)))
+        nil)))
+  (-read-bytes [_ path offset length]
+    (when-let [content (get @store path)]
+      (let [bytes (.getBytes ^String content StandardCharsets/UTF_8)
+            size  (alength bytes)
+            off   (max 0 (min (long offset) size))
+            n     (max 0 (min (long length) (- size off)))
+            out   (byte-array n)]
+        (when (pos? n)
+          (System/arraycopy bytes off out 0 n))
+        out))))
 
 ;; endregion
 
@@ -235,6 +279,20 @@
   (assert-absolute! source)
   (assert-absolute! destination)
   (-move fs source destination))
+
+(defn copy
+  "Copies a file to an absolute destination. No-op when the source is missing."
+  [fs source destination]
+  (assert-absolute! source)
+  (assert-absolute! destination)
+  (-copy fs source destination))
+
+(defn read-bytes
+  "Reads `length` UTF-8 bytes starting at `offset`. Missing file → nil.
+   Offset past EOF or non-positive length → empty array."
+  [fs path offset length]
+  (assert-absolute! path)
+  (-read-bytes fs path offset length))
 
 (defn copy-tree!
   "Recursively copies `path` from `source-fs` to `target-fs`. Useful
