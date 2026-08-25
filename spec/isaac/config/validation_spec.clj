@@ -41,11 +41,12 @@
       (should= [] (errors-for [:keyword-or-string?] :compact))
       (should= [] (errors-for [:keyword-or-string?] "compact")))
 
-    (it ":cwd-or-path? rejects a bare keyword other than :cwd or :role"
-      (should= "must be :cwd, :role, or an absolute path string" (:value (first (errors-for [:cwd-or-path?] :home)))))
+    (it ":cwd-or-path? rejects a bare keyword other than :cwd, :quarters, or :role"
+      (should= "must be :cwd, :quarters, :role, or an absolute path string" (:value (first (errors-for [:cwd-or-path?] :home)))))
 
-    (it ":cwd-or-path? accepts :cwd, :role, and a path string"
+    (it ":cwd-or-path? accepts :cwd, :quarters, :role, and a path string"
       (should= [] (errors-for [:cwd-or-path?] :cwd))
+      (should= [] (errors-for [:cwd-or-path?] :quarters))
       (should= [] (errors-for [:cwd-or-path?] :role))
       (should= [] (errors-for [:cwd-or-path?] "/srv/work"))))
 
