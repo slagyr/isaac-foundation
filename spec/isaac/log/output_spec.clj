@@ -50,6 +50,12 @@
       (should= :memory (log/output))
       (should-not (lfile/server-sink?)))
 
+    (it "an explicit :logging.output in config wins over harness :memory"
+      (log/set-output! :memory)
+      (sut/apply-server! "/srv" {:logging {:output :file}})
+      (should= :file (log/output))
+      (should (lfile/server-sink?)))
+
     (it "drops a sink left by an earlier file-mode boot when output is :memory"
       (sut/apply-server! "/srv" {:tz "UTC"})
       (should (lfile/server-sink?))
