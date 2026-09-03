@@ -6,6 +6,7 @@
     [isaac.config.cli.common :as common]
     [isaac.config.cli.get :as get-cmd]
     [isaac.config.cli.keys :as keys-cmd]
+    [isaac.config.cli.reformat :as reformat]
     [isaac.config.cli.list :as list-cmd]
     [isaac.config.cli.schema :as schema-cmd]
     [isaac.config.cli.set :as set-cmd]
@@ -20,6 +21,7 @@
 (def ^:private subcommands
   {"get"      get-cmd/subcommand
    "keys"     keys-cmd/subcommand
+   "reformat" reformat/subcommand
    "list"     list-cmd/subcommand
    "schema"   schema-cmd/subcommand
    "set"      set-cmd/subcommand
@@ -31,6 +33,7 @@
   (str "  get [config-path]         Print the resolved config, or a subtree\n"
        "  help <subcommand>         Print usage details on a subcommand\n"
        "  keys [config-path]        Print bare key names at a config path\n"
+       "  reformat                  Pretty-print active .edn config files\n"
        "  list [config-path]        Print keys with config source files\n"
        "  schema [schema-path]      Print the config schema for a schema path\n"
        "  set <config-path> <value> Set a value at a config path\n"
