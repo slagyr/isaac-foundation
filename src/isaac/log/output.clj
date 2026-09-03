@@ -41,14 +41,14 @@
   "Configure server logging from config. :file activates the rotating server
    sink; :stdout/:stderr/:none stream without a durable server log file.
 
-   A harness-set :memory output is preserved (mirrors apply-cli!) so tests can
-   assert server-boot entries in the in-memory buffer — but the durable server
-   sink is still configured, so logs/server.log is written either way
-   (save-entry mirrors each entry to memory while output is :memory). Production
-   boots with :stderr, so the config output (default :file) applies normally."
+   A harness-set :memory output is preserved and binds NO server sink: tests
+   log to memory, full stop. Any sink left by an earlier boot in the same
+   process is dropped so a memory-mode boot never inherits a file. (This
+   supersedes the isaac-3692 \"memory and file\" behaviour — nothing read the
+   file; see isaac-zqyw.) Production boots :file/:stderr per config."
   [root config]
   (if (= :memory (log/output))
-    (lfile/configure-server-sink! root config)
+    (lfile/clear-sink-config!)
     (let [output (output-from-config config)]
       (log/set-output! output)
       (when (= :file output)

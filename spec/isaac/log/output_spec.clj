@@ -42,7 +42,20 @@
       (let [root "/srv"]
         (sut/apply-server! root {:logging {:output :stdout}})
         (should= :stdout (log/output))
-        (should-not (lfile/server-sink?)))))
+        (should-not (lfile/server-sink?))))
+
+    (it "preserves :memory output and binds no server sink"
+      (log/set-output! :memory)
+      (sut/apply-server! "/srv" {:tz "UTC"})
+      (should= :memory (log/output))
+      (should-not (lfile/server-sink?)))
+
+    (it "drops a sink left by an earlier file-mode boot when output is :memory"
+      (sut/apply-server! "/srv" {:tz "UTC"})
+      (should (lfile/server-sink?))
+      (log/set-output! :memory)
+      (sut/apply-server! "/srv" {:tz "UTC"})
+      (should-not (lfile/server-sink?))))
 
   (describe "apply-cli!"
 
