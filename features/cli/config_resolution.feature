@@ -1,4 +1,3 @@
-@wip
 Feature: The CLI resolves the config once per command
   Measured on zanebot 2026-09-04: `isaac --version` spent 1296 of 1307 ms in
   three full config resolutions (launcher, main, cli-logging); real commands

@@ -241,9 +241,15 @@
         node))
     value))
 
+(defn- threaded-config [opts]
+  (when-let [cfg (:config opts)]
+    (when (seq cfg) cfg)))
+
 (defn load-result [opts]
-  (loader/load-config-result {:root (resolve-root opts)
-                              :fs   (or (:fs opts) (nexus/get :fs) (fs/real-fs))}))
+  (if-let [cfg (threaded-config opts)]
+    {:config cfg :errors [] :warnings [] :sources []}
+    (loader/load-config-result {:root (resolve-root opts)
+                                :fs   (or (:fs opts) (nexus/get :fs) (fs/real-fs))})))
 
 (defn schema-context
   "Resolved config plus module-index and composed root schema for CLI commands."
@@ -261,10 +267,12 @@
                               :substitute-env? false}))
 
 (defn printable-config [opts reveal?]
-  (let [raw      (load-raw-result opts)
-        resolved (assoc raw :config (resolve-env-values (:config raw)))]
-    (if reveal?
-      resolved
-      (assoc resolved :config (redact-env-values (:config raw) (:config resolved))))))
+  (if-let [cfg (when-not reveal? (threaded-config opts))]
+    {:config cfg :errors [] :warnings [] :sources []}
+    (let [raw      (load-raw-result opts)
+          resolved (assoc raw :config (resolve-env-values (:config raw)))]
+      (if reveal?
+        resolved
+        (assoc resolved :config (redact-env-values (:config raw) (:config resolved)))))))
 
 ;; endregion ^^^^^ Config access ^^^^^

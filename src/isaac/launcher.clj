@@ -15,7 +15,7 @@
   (when root
     (let [result (config-api/load-resolved {:root root :fs fs*})]
       (when-not (:missing-config? result)
-        (:config result)))))
+        result))))
 
 (defn compose-classpath!
   "Add every valid config :modules coordinate to the runtime classpath."
@@ -27,15 +27,20 @@
 
 (defn -main
   "Launcher entrypoint: resolve --root, compose classpath from :modules,
-   delegate remaining args to isaac.main/-main."
+   delegate remaining args to isaac.main/-main. Threads the already-resolved
+   config into main via *extra-opts* so the CLI process loads once (isaac-v1la)."
   [& args]
   (let [{after-root :args :keys [root]} (cli-args/extract-root-flag (vec args))
         fs*           (fs/real-fs)
         resolved-root (root/resolve-root root nil fs*)
-        config        (or (read-user-config resolved-root fs*) {})]
+        load-result   (read-user-config resolved-root fs*)
+        config        (or (:config load-result) {})]
     (compose-classpath! resolved-root fs* config)
     (let [main (requiring-resolve 'isaac.main/-main)
           argv (if root
                  (into ["--root" root] after-root)
                  after-root)]
-      (apply main argv))))
+      (binding [isaac.main/*extra-opts* {:load-result load-result
+                                         :config      config
+                                         :fs          fs*}]
+        (apply main argv)))))

@@ -177,6 +177,16 @@
           (should= {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}
                    (get-in result [:defaults :compaction])))))
 
+    (it "keeps :crew when the composed schema has no :defaults table"
+      (let [cfg    {:defaults {:crew :main}
+                    :crew     {"main" {}}
+                    :models   {}
+                    :providers {}}
+            result (normalize/normalize-config {:name :isaac :type :map :schema {}} cfg)]
+        (should= :main (get-in result [:defaults :crew]))
+        (should= {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}
+                 (get-in result [:defaults :compaction]))))
+
     (it "normalizes legacy crew lists nested models and provider vectors"
       (with-redefs [lexicon/conform (fn [_ value] value)
                     cs/error?  (constantly false)]

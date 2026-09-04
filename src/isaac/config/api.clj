@@ -16,12 +16,42 @@
     [isaac.config.env :as env]
     [isaac.config.loader :as loader]))
 
+;; Process-local memo for CLI: one resolution per (root, fs, load opts) until
+;; cleared. Server hot-reload calls `clear-process-memo!` (or uses a new
+;; process); `load-config-result` itself is not memoized so a direct loader
+;; call still re-resolves.
+(defonce ^:private process-memo* (atom {}))
+
+(defn clear-process-memo!
+  "Drop the process-local load-resolved memo. Called at the start of each CLI
+   run and whenever env overrides change."
+  []
+  (reset! process-memo* {}))
+
+(defn- process-memo-key [opts]
+  [(:root opts)
+   (System/identityHashCode (:fs opts))
+   (if (contains? opts :substitute-env?) (:substitute-env? opts) true)
+   (:skip-entity-files? opts)
+   (:data-path-overlay opts)
+   (:overlay-content opts)
+   (:overlay-path opts)
+   (:raw-parse-errors? opts)])
+
 (defn load-resolved
   "Live read from disk through the loader. Returns the full `load-config-result`
    map (:config, :errors, :warnings, ...). Use for hot-reload paths that need
-   fresh resolved state."
-  ([] (loader/load-config-result))
-  ([opts] (loader/load-config-result opts)))
+   fresh resolved state. Memoized per process on (root, fs, load opts); call
+   `clear-process-memo!` to force a re-read."
+  ([] (load-resolved {}))
+  ([opts]
+   (let [opts (or opts {})
+         k    (process-memo-key opts)]
+     (if-let [cached (get @process-memo* k)]
+       cached
+       (let [result (loader/load-config-result opts)]
+         (swap! process-memo* assoc k result)
+         result)))))
 
 (defn resolved-config
   "Live read of the normalized `:config` map. Prefer this over raw slurp of
@@ -45,9 +75,11 @@
 (defn set-env-override!
   "Sets an env-var override (test support). Clears the load cache."
   [name value]
+  (clear-process-memo!)
   (env/set-env-override! name value))
 
 (defn clear-env-overrides!
   "Clears all env-var overrides and the .env snapshot (test support)."
   []
+  (clear-process-memo!)
   (env/clear-env-overrides!))

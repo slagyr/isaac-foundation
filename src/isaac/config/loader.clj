@@ -26,7 +26,8 @@
     [isaac.module.discovery :as discovery]
     [isaac.module.lifecycle :as lifecycle]
     [isaac.nexus :as nexus]
-    [isaac.schema.lexicon :as lexicon]))
+    [isaac.schema.lexicon :as lexicon]
+    [isaac.startup.config-cache :as config-cache]))
 
 ;; Temporary public re-exports of the former loader surface (isaac-flgy / a7c0).
 ;; External modules (agent/server/hail/…) still call these via isaac.config.loader.
@@ -80,8 +81,9 @@
       :else
       {:data nil :errors [] :warnings [] :sources []})))
 
-(defn- validate-root-config
-  ([result] (validate-root-config (cached-root-schema) result))
+(defn -validate-root-config
+  "Private intent, but feature spies (isaac-v1la) wrap this var."
+  ([result] (-validate-root-config (cached-root-schema) result))
   ([root-schema {:keys [data] :as result}]
    (if-not data
      result
@@ -187,13 +189,31 @@
             (collision-error-row "config-schema" :config-key e)]
            (throw e)))))
 
+(defn- overlays? [opts]
+  (or (:skip-entity-files? opts)
+      (:data-path-overlay opts)
+      (:overlay-content opts)
+      (:overlay-path opts)
+      (:raw-parse-errors? opts)))
+
+(defn- try-cached-result [fs* root opts]
+  (when-not (overlays? opts)
+    (try
+      (when-let [cached (config-cache/read-pre-sub fs* root)]
+        (-> cached
+            (config-cache/hydrate opts)
+            (update :config assoc :root root)
+            (assoc :missing-config? false)))
+      (catch Exception _ nil))))
+
 (defn load-config-result
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
        :as   opts}]]
   (let [fs*  (parse/runtime-fs opts)
         opts (assoc opts :fs fs* :substitute-env? substitute-env?)]
-    (nexus/-with-nested-nexus {:fs fs*}
+    (or (try-cached-result fs* root opts)
+        (nexus/-with-nested-nexus {:fs fs*}
                               (env/lock-dotenv! root)
                               (let [config-root (paths/config-root root)]
                                 (if-not (entities/config-files-present? config-root opts)
@@ -210,7 +230,7 @@
                                                                                                   :cwd  (System/getProperty "user.dir")})
                                         [effective-schema compose-error] (compose-or-fallback (:index discovery))
                                         {root-errors :errors root-warnings :warnings root-sources :sources}
-                                        (validate-root-config effective-schema root-read)
+                                        (-validate-root-config effective-schema root-read)
                                         entity-kinds     (->> (schema-compose/descriptors)
                                                               (keep (fn [[kind {:keys [entity-dir]}]]
                                                                       (when entity-dir [kind entity-dir])))
@@ -288,7 +308,7 @@
                                                     (berths/normalize-errors (:index discovery))
                                                     (sort-by :key)
                                                     vec)
-                                     :sources  (vec (sort (:sources result)))}))))))
+                                     :sources  (vec (sort (:sources result)))})))))))
 
 ;; region ----- Ambient Config Snapshot -----
 

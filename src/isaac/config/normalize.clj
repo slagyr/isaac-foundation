@@ -31,9 +31,12 @@
 (defn normalize-defaults
   ([defaults] (normalize-defaults (cached-root-schema) defaults))
   ([root-schema defaults]
-   (let [result (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults)]
-     (if (cs/error? result) {}
-         (ensure-default-compaction result)))))
+   (let [spec (schema-for root-schema :defaults)]
+     (if-not spec
+       (ensure-default-compaction (or defaults {}))
+       (let [result (lexicon/conform (runtime-schema spec) defaults)]
+         (if (cs/error? result) {}
+             (ensure-default-compaction result)))))))
 
 (defn- normalize-crew
   ([crew] (normalize-crew (cached-root-schema) crew))

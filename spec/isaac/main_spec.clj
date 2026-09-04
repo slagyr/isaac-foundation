@@ -272,6 +272,7 @@
         (fs/spit mem config-path "{:modules {:hello {}}}")
         (with-redefs [config-api/load-resolved
                       (fn [_] {:config {:modules {:hello {}}} :errors []})
+                      config-api/clear-process-memo! (fn [])
                       discovery/discover!
                       (fn [config context]
                         (should= {:hello {}} (:modules config))

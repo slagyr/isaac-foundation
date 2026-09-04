@@ -29,11 +29,18 @@
   ;; fs/instance, which now throws when no fs is available.
   (or (:fs extra-opts) (nexus/get :fs) (fs/real-fs)))
 
-(defn- read-user-config [root fs*]
+(defn- extra-load-result [extra-opts]
+  (:load-result extra-opts))
+
+(defn- read-user-config [root fs* extra-opts]
   (when root
-    (let [result (config-api/load-resolved {:root root :fs fs*})]
-      (when-not (:missing-config? result)
-        (:config result)))))
+    (or (:config extra-opts)
+        (when-let [result (extra-load-result extra-opts)]
+          (when-not (:missing-config? result)
+            (:config result)))
+        (let [result (config-api/load-resolved {:root root :fs fs*})]
+          (when-not (:missing-config? result)
+            (:config result))))))
 
 (defn- command-summaries []
   (mapv #(select-keys % [:name :summary]) (registry/all-commands)))
@@ -52,29 +59,34 @@
 
    For `isaac modules` (config-only), skip remote classpath resolution
    so install/list never pull git coordinates onto the classpath."
-  [root fs* _cmd]
-  (try
-    (with-redefs [log/log* (fn [& _])]
-      (let [config  (or (read-user-config root fs*) {})
-            context {:cwd (System/getProperty "user.dir")}
-            {:keys [index]}
-            (nexus/-with-nested-nexus {:fs fs*}
-              (discovery/discover! config context))]
-        (registry/clear-berth-commands!)
-        (lifecycle/reconcile-modules! index)
-        (berths/process-manifest-berths! index)))
-    (catch Exception _
-      nil)))
+  ([root fs* cmd]
+   (register-module-cli-commands! root fs* cmd {}))
+  ([root fs* _cmd extra-opts]
+   (try
+     (with-redefs [log/log* (fn [& _])]
+       (let [config  (or (read-user-config root fs* extra-opts) {})
+             context {:cwd (System/getProperty "user.dir")}
+             {:keys [index]}
+             (nexus/-with-nested-nexus {:fs fs*}
+               (discovery/discover! config context))]
+         (registry/clear-berth-commands!)
+         (lifecycle/reconcile-modules! index)
+         (berths/process-manifest-berths! index)))
+     (catch Exception _
+       nil))))
 
 (defn- env-log-file []
   (let [v (env/env "ISAAC_LOG_FILE")]
     (when-not (str/blank? v) v)))
 
-(defn- configure-cli-logging! [root fs* log-file-path]
-  (let [config (or (read-user-config root fs*) {})]
-    (log-output/apply-cli! root config
-                           {:log-file-path log-file-path
-                            :env-log-file  (env-log-file)})))
+(defn- configure-cli-logging!
+  ([root fs* log-file-path]
+   (configure-cli-logging! root fs* log-file-path {}))
+  ([root fs* log-file-path extra-opts]
+   (let [config (or (read-user-config root fs* extra-opts) {})]
+     (log-output/apply-cli! root config
+                            {:log-file-path log-file-path
+                             :env-log-file  (env-log-file)}))))
 
 (defn- resolve-alias
   "Resolve command aliases. 'models auth ...' → 'auth ...', 'gateway ...' → 'server ...'"
@@ -91,6 +103,7 @@
 (defn run
   "Run the CLI. Returns exit code."
   [args]
+  (config-api/clear-process-memo!)
   (let [{after-root :args :keys [root log-file]} (cli-args/extract-root-flag args)
         args          (resolve-alias after-root)
         cmd           (first args)
@@ -103,7 +116,10 @@
         ;; Startup cache (isaac-clic): when nothing the CLI plans from has
         ;; changed, the fast-path commands (--version, --help) skip module
         ;; discovery/registration entirely and serve from the cache.
-        (let [config     (or (read-user-config resolved-root fs*) {})
+        ;; isaac-v1la: resolve config once and thread it through logging,
+        ;; module registration, and the command handler.
+        (let [config     (or (read-user-config resolved-root fs* extra-opts) {})
+              extra-opts (assoc extra-opts :config config)
               watched    (cache/watched-files (paths/root-config-file resolved-root)
                                               config (System/getProperty "user.dir"))
               cache-fresh? (and (not= "modules" cmd) (cache/fresh? fs* resolved-root watched))
@@ -118,7 +134,7 @@
                pairs        (:pairs compose)]
           (if (and cache-fresh? fast-cmd?)
             (do
-              (configure-cli-logging! resolved-root fs* log-file)
+              (configure-cli-logging! resolved-root fs* log-file extra-opts)
               (if (contains? #{"--version" "-V" "version"} cmd)
                 (do (println (version/version-string)) 0)
                 (do (println (registry/usage-text
@@ -127,8 +143,8 @@
             (do
               (binding [classpath/*skip-preload-planned?* (boolean pairs)
                          classpath/*planned-classpath-pairs* pairs]
-                 (register-module-cli-commands! resolved-root fs* cmd))
-              (configure-cli-logging! resolved-root fs* log-file)
+                 (register-module-cli-commands! resolved-root fs* cmd extra-opts))
+              (configure-cli-logging! resolved-root fs* log-file extra-opts)
               (when (and (not= "modules" cmd)
                          (or (not cache-fresh?) (not (:from-cache? compose))))
                 (startup-cp/write-classpath-cache!

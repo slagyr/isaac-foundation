@@ -4,7 +4,8 @@
     [isaac.module.classpath :as classpath]
     [isaac.module.discovery :as discovery]
     [isaac.module.loader :as loader]
-    [isaac.startup.cache :as cache]))
+    [isaac.startup.cache :as cache]
+    [isaac.startup.config-cache :as config-cache]))
 
 (def ^:dynamic *timing-samples*
   "When bound to an atom, records {:phase keyword :ms long} samples (isaac-tki3)."
@@ -68,7 +69,9 @@
                       {:version cache/cache-version
                        :basis   (merge (cache/compute-basis fs* watched)
                                        (identity-basis config))
-                       :data    {:classpath-pairs pairs :commands commands}}))
+                       :data    {:classpath-pairs pairs
+                                 :commands        commands
+                                 :config          (config-cache/cacheable-config config)}}))
 
 (defn plan-and-compose! [config cwd]
   (let [t0 (System/nanoTime)]
