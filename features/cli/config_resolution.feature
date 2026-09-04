@@ -56,3 +56,17 @@ Feature: The CLI resolves the config once per command
     And the classpath cache file is corrupted so apply fails
     When isaac is run with "config get defaults"
     Then the exit code is 0
+
+  Scenario: the cached config never contains a substituted secret
+    Given an empty Isaac root at "target/test-config-resolution"
+    And the isaac .env file contains:
+      """
+      DISCORD_TOKEN=s3cr3t-value
+      """
+    And the isaac file "config/isaac.edn" exists with:
+      """
+      {:defaults {:crew "main"}
+       :comms {:discord {:token "${DISCORD_TOKEN}"}}}
+      """
+    When isaac is run with "config get comms"
+    Then the isaac file "cache/cli.edn" does not contain "s3cr3t-value"

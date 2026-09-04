@@ -540,6 +540,19 @@
         (g/should= expected (fs/slurp mem-fs full-path)))
       (g/should= expected (slurp full-path)))))
 
+(defn isaac-file-does-not-contain [path expected]
+  (let [full-path (if (str/starts-with? path "/")
+                    path
+                    (str (g/get :root) "/" path))
+        needle    (str/trim expected)
+        content   (if-let [mem-fs (g/get :mem-fs)]
+                    (nexus/-with-nested-nexus {:fs mem-fs}
+                      (or (fs/slurp mem-fs full-path) ""))
+                    (if (.exists (io/file full-path))
+                      (slurp full-path)
+                      ""))]
+    (g/should-not (str/includes? content needle))))
+
 ;; endregion ^^^^^ Step bodies ^^^^^
 
 ;; region ----- Routing -----
@@ -647,3 +660,9 @@
   "Asserts an exact-match on file content (trimmed). Path is root-
    relative. Pair with 'the isaac EDN file X exists with:' for the write
    side; 'contains:' is for read-side verification.")
+
+(defthen "the isaac file {path:string} does not contain {expected:string}"
+  isaac.foundation.cli-steps/isaac-file-does-not-contain
+  "Substring absence on a root-relative isaac file (cache/cli.edn, config, …).
+   Distinct from the exact-match 'contains:' Then and from config-root-relative
+   'the config file … does not contain'.")

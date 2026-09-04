@@ -21,7 +21,9 @@
 (defn- write-cache! [fs* config-data]
   (cache/write-cache! fs* root
                       {:version cache/cache-version
-                       :basis   (merge {:config t0} (classpath-cache/identity-basis config-data))
+                       :basis   (merge {:config      t0
+                                        :config-hash (cache/content-hash fs* config-path)}
+                                       (classpath-cache/identity-basis config-data))
                        :data    {:classpath-pairs []
                                  :commands        []
                                  :config          (sut/cacheable-config config-data)}}))

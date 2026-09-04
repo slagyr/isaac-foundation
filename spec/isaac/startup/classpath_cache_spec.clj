@@ -51,7 +51,9 @@
         (fs/mkdirs fs* (str root "/config"))
         (fs/spit fs* (str root "/config/isaac.edn") "{}")
         (write-v2-cache! fs* root
-                         (merge {:config t0} (sut/identity-basis config))
+                         (merge {:config      t0
+                                 :config-hash (cache/content-hash fs* (str root "/config/isaac.edn"))}
+                                (sut/identity-basis config))
                          {:classpath-pairs pairs :commands []})
         (with-redefs [fs/modified (fn [_ path]
                                     (cond
