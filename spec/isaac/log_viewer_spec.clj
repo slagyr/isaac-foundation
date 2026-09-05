@@ -157,6 +157,20 @@
     (it "passes unparseable lines through as-is"
       (should= "this is not edn" (sut/format-line "this is not edn" false)))
 
+    (it "formats a line whose payload contains #object"
+      (let [line   "{:ts \"2026-05-12T15:24:51.491Z\", :level :debug, :event :tool/start, :arguments {:command \"bb spec\", :progress! #object[java.lang.Object 0x1 \"x\"]}, :tool \"exec__run\"}"
+            result (sut/format-line line false)]
+        (should (re-find #"\d{2}:\d{2}:\d{2}\.\d{3}  DEBUG  :tool/start" result))
+        (should (str/includes? result ":progress!"))
+        (should-not (str/includes? result "{:ts"))))
+
+    (it "formats a line with an unknown tag other than #object"
+      (let [line   "{:ts \"2026-05-12T15:24:51.491Z\", :level :info, :event :server/started, :extra #wibble 42}"
+            result (sut/format-line line false)]
+        (should (re-find #"\d{2}:\d{2}:\d{2}\.\d{3}  INFO   :server/started" result))
+        (should (str/includes? result "#wibble"))
+        (should-not (str/includes? result "{:ts"))))
+
     (it "returns nil for blank lines"
       (should-be-nil (sut/format-line "   " false))
       (should-be-nil (sut/format-line "" false))

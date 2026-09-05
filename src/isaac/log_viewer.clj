@@ -130,7 +130,7 @@
   (let [line (str/trim (or line ""))]
     (when-not (str/blank? line)
       (try
-        (let [entry (edn/read-string line)]
+        (let [entry (edn/read-string {:default tagged-literal} line)]
           (if (map? entry)
             (format-entry entry color?)
             line))
