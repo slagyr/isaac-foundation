@@ -6,6 +6,7 @@
     [isaac.config.api :as config-api]
     [isaac.config.root :as root]
     [isaac.fs :as fs]
+    [isaac.main :as main]
     [isaac.config.paths :as paths]
     [isaac.nexus :as nexus]
     [isaac.startup.cache :as cache]
@@ -36,11 +37,10 @@
         load-result   (read-user-config resolved-root fs*)
         config        (or (:config load-result) {})]
     (compose-classpath! resolved-root fs* config)
-    (let [main (requiring-resolve 'isaac.main/-main)
-          argv (if root
+    (let [argv (if root
                  (into ["--root" root] after-root)
                  after-root)]
-      (binding [isaac.main/*extra-opts* {:load-result load-result
-                                         :config      config
-                                         :fs          fs*}]
-        (apply main argv)))))
+      (binding [main/*extra-opts* {:load-result load-result
+                                   :config      config
+                                   :fs          fs*}]
+        (apply main/-main argv)))))
