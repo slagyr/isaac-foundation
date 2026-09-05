@@ -70,6 +70,16 @@ Feature: isaac logs — colorized log tail
     And the stdout contains ":progress!"
     And the stdout does not contain "{:ts"
 
+  @wip
+  Scenario: A log line with an unknown tag other than #object still formats
+    Given a file "app.log" exists with content "{:ts \"2026-05-12T15:24:51.491Z\", :level :info, :event :server/started, :extra #wibble 42}"
+    When isaac is run with "logs --file app.log --no-color"
+    Then the stdout matches:
+      | pattern                                          |
+      | \d{2}:\d{2}:\d{2}\.\d{3}  INFO   :server/started |
+    And the stdout contains "#wibble"
+    And the stdout does not contain "{:ts"
+
   Scenario: Prints a friendly message when the log file does not exist
     When isaac is run with "logs --file missing.log --no-color"
     Then the stdout contains "No log file at"
