@@ -60,6 +60,16 @@ Feature: isaac logs — colorized log tail
     When isaac is run with "logs --file app.log --no-color"
     Then the stdout contains "this is not edn"
 
+  @wip
+  Scenario: A log line whose payload contains #object still renders time, level, and event columns
+    Given a file "app.log" exists with content "{:ts \"2026-05-12T15:24:51.491Z\", :level :debug, :event :tool/start, :arguments {:command \"bb spec\", :progress! #object[java.lang.Object 0x1 \"x\"]}, :tool \"exec__run\"}"
+    When isaac is run with "logs --file app.log --no-color"
+    Then the stdout matches:
+      | pattern                                      |
+      | \d{2}:\d{2}:\d{2}\.\d{3}  DEBUG  :tool/start |
+    And the stdout contains ":progress!"
+    And the stdout does not contain "{:ts"
+
   Scenario: Prints a friendly message when the log file does not exist
     When isaac is run with "logs --file missing.log --no-color"
     Then the stdout contains "No log file at"
