@@ -300,6 +300,13 @@
           got   (fs/read-bytes @fs (test-path* "log.txt") start 3)]
       (should= "cd\n" (String. ^bytes got "UTF-8"))))
 
+  (it "read-bytes returns the full requested length for a large file"
+    (let [body (apply str (repeat 20000 "ab"))]
+      (fs/spit @fs (test-path* "large.txt") body)
+      (let [got (fs/read-bytes @fs (test-path* "large.txt") 0 (count body))]
+        (should= (count body) (alength got))
+        (should= body (String. ^bytes got "UTF-8")))))
+
   (it "read-bytes returns nil for a missing file"
     (should-be-nil (fs/read-bytes @fs (test-path* "missing.txt") 0 4)))
   )

@@ -87,18 +87,22 @@
     (let [f (io/file path)]
       (when (.isFile f)
         (with-open [ch (FileChannel/open (.toPath f) (into-array OpenOption [StandardOpenOption/READ]))]
-          (let [size   (.size ch)
-                off    (max 0 (min (long offset) size))
-                n      (max 0 (min (long length) (- size off)))
-                buf    (ByteBuffer/allocate (int n))
-                _      (.position ch off)
-                read-n (.read ch buf)]
-            (if (neg? read-n)
-              (byte-array 0)
-              (let [arr (byte-array read-n)]
-                (.flip buf)
-                (.get buf arr)
-                arr))))))))
+          (let [size (.size ch)
+                off  (max 0 (min (long offset) size))
+                n    (max 0 (min (long length) (- size off)))
+                buf  (ByteBuffer/allocate (int n))]
+            (.position ch off)
+            (loop []
+              (when (.hasRemaining buf)
+                (let [read-n (.read ch buf)]
+                  (when-not (neg? read-n)
+                    (recur)))))
+            (let [got (.position buf)
+                  arr (byte-array got)]
+              (.flip buf)
+              (when (pos? got)
+                (.get buf arr))
+              arr)))))))
 
 ;; endregion
 
