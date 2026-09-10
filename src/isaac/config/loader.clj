@@ -196,14 +196,23 @@
       (:overlay-path opts)
       (:raw-parse-errors? opts)))
 
-(defn- try-cached-result [fs* root opts]
+(defn- try-cached-result
+  "Warm-hit path. The cached blob never carries :module-index (it is stripped
+   before writing), so module discovery runs here exactly as on the cold path;
+   consumers (server boot comm validation, module reconcile) rely on it."
+  [fs* root opts]
   (when-not (overlays? opts)
     (try
       (when-let [cached (config-cache/read-pre-sub fs* root)]
-        (-> cached
-            (config-cache/hydrate opts)
-            (update :config assoc :root root)
-            (assoc :missing-config? false)))
+        (let [hydrated  (config-cache/hydrate cached opts)
+              discovery (nexus/-with-nested-nexus {:fs fs*}
+                          (discovery/discover! (:config hydrated)
+                                               {:root root
+                                                :cwd  (System/getProperty "user.dir")}))]
+          (-> hydrated
+              (update :config assoc :root root :module-index (:index discovery))
+              (update :errors #(vec (concat % (:errors discovery))))
+              (assoc :missing-config? false))))
       (catch Exception _ nil))))
 
 (defn load-config-result
