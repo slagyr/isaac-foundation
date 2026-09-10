@@ -5,10 +5,19 @@
   (:require
     [babashka.process :as process]))
 
-(def ^:const test-timeout-ms 60000)
+(def default-test-timeout-ms 60000)
+
+(defn test-timeout-ms
+  "Per-suite budget in ms. ISAAC_TEST_TIMEOUT_MS overrides the 60s default
+   (CI runners are slower than dev boxes; a green suite must not exit 124)."
+  []
+  (let [raw (System/getenv "ISAAC_TEST_TIMEOUT_MS")]
+    (or (when (and raw (re-matches #"\d+" raw)) (Long/parseLong raw))
+        default-test-timeout-ms)))
 
 (defn- timed-out! [label]
-  (println (str label " timed out after " (/ test-timeout-ms 1000) "s"))
+  (println (str label " timed out after " (/ (test-timeout-ms) 1000) "s"
+                " (override with ISAAC_TEST_TIMEOUT_MS)"))
   (System/exit 124))
 
 (defn- handle-babashka-exit!
@@ -28,7 +37,7 @@
   "Run f under the test-suite timeout. Exits 124 on timeout."
   [label f]
   (try
-    (let [result (deref (future (f)) test-timeout-ms ::timeout)]
+    (let [result (deref (future (f)) (test-timeout-ms) ::timeout)]
       (when (= result ::timeout)
         (timed-out! label))
       result)
@@ -39,7 +48,7 @@
   "Run a subprocess under the test-suite timeout. Exits 124 on timeout."
   [label & cmd]
   (try
-    (let [result (deref (future (apply process/shell cmd)) test-timeout-ms ::timeout)]
+    (let [result (deref (future (apply process/shell cmd)) (test-timeout-ms) ::timeout)]
       (when (= result ::timeout)
         (timed-out! label))
       (when (pos? (:exit result))
