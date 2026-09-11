@@ -11,6 +11,9 @@
     [isaac.logger :as log]
     [isaac.module.discovery :as discovery]
     [isaac.main :as sut]
+    [isaac.runner :as runner]
+    [isaac.runner.cli :as runner-cli]
+    [isaac.spec-helper :as helper]
     [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
 
@@ -26,6 +29,41 @@
   (->> (keys (:isaac/cli (edn/read-string (slurp "src/isaac-manifest.edn"))))
        (map name)
        set))
+
+(describe "runner"
+
+  (helper/with-captured-logs)
+
+  (it "boots and stops cleanly with zero components"
+    (let [started (runner/start! {:config {} :module-index {}})]
+      (should= {:components 0} (select-keys started [:components]))
+      (runner/stop!)
+      (should (some #(and (= :runner/started (:event %))
+                          (= 0 (:components %)))
+                    @log/captured-logs))))
+  )
+
+(describe "server command"
+
+  (helper/with-captured-logs)
+
+  (it "logs dev mode before server started"
+    (with-redefs [runner/start!                   (fn [_] {})
+                  runner-cli/block!               (fn [] nil)
+                  isaac.log.output/apply-server!  (fn [& _] nil)]
+      (with-out-str (runner-cli/run {:dev true :host "127.0.0.1" :port "7001"})))
+    (should= [:server/dev-mode-enabled :server/started]
+             (->> @log/captured-logs
+                  (filter #(#{:server/dev-mode-enabled :server/started} (:event %)))
+                  (mapv :event))))
+
+  (it "does not log dev mode when development reload is disabled"
+    (with-redefs [runner/start!                   (fn [_] {})
+                  runner-cli/block!               (fn [] nil)
+                  isaac.log.output/apply-server!  (fn [& _] nil)]
+      (with-out-str (runner-cli/run {:dev false :port "7001"})))
+    (should-not (some #(= :server/dev-mode-enabled (:event %)) @log/captured-logs)))
+  )
 
 (describe "Main CLI"
 
@@ -296,7 +334,8 @@
         (should= "Greets" (:summary (registry/get-command "greet")))))
 
     (it "declares foundation command cli contributions in the manifest"
-      (should= #{"init" "help" "logs" "config" "modules"} (foundation-manifest-cli-command-names)))
+      (should= #{"init" "help" "logs" "config" "modules" "server" "service"}
+               (foundation-manifest-cli-command-names)))
 
     (it "installs the active fs and resolved root into runtime init"
       (let [mem       (fs/mem-fs)

@@ -2,7 +2,13 @@
  :version   "0.1.24"
  :factory   isaac.foundation.module/create-module
 
- :berths    {:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
+ :berths    {:isaac/component {:description "Runtime components contributed by modules. Entries are inert {:namespace <sym>} declarations; isaac.runner starts them in module dependency order and stops them in reverse."
+                                  :schema      {:type       :map
+                                                :key-spec   {:type :keyword}
+                                                :value-spec {:type   :map
+                                                             :schema {:namespace {:type        :symbol
+                                                                                  :validations [:present?]}}}}}
+:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
                                                  :value-spec {:type    :map
@@ -79,7 +85,13 @@
  :isaac/log-stream {:cli {:file        "logs/cli.log"
                           :description "CLI command logs"}}
 
- :isaac/cli {:init   {:usage     "init"
+ :isaac/cli {:server  {:usage     "server [options]"
+                       :summary   "Start the Isaac process runner"
+                       :namespace isaac.runner.cli}
+             :service {:usage     "service [options] <subcommand>"
+                       :summary   "Manage Isaac as a background service"
+                       :namespace isaac.service.cli}
+             :init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
                       :namespace isaac.cli.registry}
              :help   {:usage     "help [command-or-topic]"
