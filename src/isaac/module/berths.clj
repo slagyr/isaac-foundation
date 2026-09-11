@@ -217,9 +217,13 @@
 (defn ns-keyword->str [kw]
   (str (namespace kw) "/" (name kw)))
 
+(def ^:private retired-berth-messages
+  {:isaac.server/service ":isaac.server/service is retired; use :isaac/component"})
+
 (defn unknown-berth-error [consumer-id berth-key]
   {:key   (str "module-index[\"" (coords/id-str consumer-id) "\"][" berth-key "]")
-   :value "berth not declared by any installed module"})
+   :value (or (get retired-berth-messages berth-key)
+              "berth not declared by any installed module")})
 
 (defn flatten-error-paths
   "Walk a c3kit message-map (nested keywords → message strings) producing
