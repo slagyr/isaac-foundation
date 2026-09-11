@@ -300,18 +300,21 @@
             (.delete (java.io.File. missing))))))
 
     (it "waits for a missing file when follow is true, then tails new entries"
-      (let [missing (str (System/getProperty "java.io.tmpdir") "/isaac-follow-" (rand-int 100000) ".log")
-            line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :appeared}\n"
-            writer  (java.io.StringWriter.)
-            run*    (future
-                      (binding [*out* writer]
-                        (binding [sut/*follow-sleep-ms* 1]
-                          (sut/tail! missing {:color? false :follow? true}))))]
+      (let [missing      (str (System/getProperty "java.io.tmpdir") "/isaac-follow-" (java.util.UUID/randomUUID) ".log")
+            line         "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :appeared}\n"
+            line-printed (promise)
+            writer       (java.io.StringWriter.)
+            run*         (future
+                           (binding [*out* writer
+                                     sut/*follow-sleep-ms* 1]
+                             (with-redefs [sut/print-line! (fn [actual _row _opts]
+                                                            (when (= line (str actual "\n"))
+                                                              (deliver line-printed true))
+                                                            true)]
+                               (sut/tail! missing {:color? false :follow? true}))))]
         (try
-          (helper/await-condition #(str/includes? (str writer) "Waiting for log output") 5000)
           (spit missing line)
-          (helper/await-condition #(str/includes? (str writer) ":appeared") 5000)
-          (should (str/includes? (str writer) ":appeared"))
+          (should= true (deref line-printed 5000 ::timeout))
           (finally
             (future-cancel run*)
             (.delete (java.io.File. missing))))))
