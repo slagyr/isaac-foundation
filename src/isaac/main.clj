@@ -118,8 +118,10 @@
         ;; discovery/registration entirely and serve from the cache.
         ;; isaac-v1la: resolve config once and thread it through logging,
         ;; module registration, and the command handler.
-        (let [config     (or (read-user-config resolved-root fs* extra-opts) {})
-              extra-opts (assoc extra-opts :config config)
+        (let [load-result (or (:load-result extra-opts)
+                              (config-api/load-resolved {:root resolved-root :fs fs*}))
+              config     (or (:config load-result) {})
+              extra-opts (assoc extra-opts :config config :load-result load-result)
               watched    (cache/watched-files (paths/root-config-file resolved-root)
                                               config (System/getProperty "user.dir"))
               cache-fresh? (and (not= "modules" cmd) (cache/fresh? fs* resolved-root watched))
@@ -150,7 +152,8 @@
                 (startup-cp/write-classpath-cache!
                   fs* resolved-root watched config
                   (or pairs [])
-                  (command-summaries)))
+                  (command-summaries)
+                  (:sources load-result)))
               (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (registry/usage-text)) 0)

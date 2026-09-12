@@ -64,14 +64,15 @@
         false)
       (catch Exception _ false))))
 
-(defn write-classpath-cache! [fs* root watched config pairs commands]
+(defn write-classpath-cache! [fs* root watched config pairs commands sources]
   (cache/write-cache! fs* root
                       {:version cache/cache-version
                        :basis   (merge (cache/compute-basis fs* watched)
                                        (identity-basis config))
                        :data    {:classpath-pairs pairs
                                  :commands        commands
-                                 :config          (config-cache/cacheable-config config)}}))
+                                 :config          (config-cache/cacheable-config config)
+                                 :sources         sources}}))
 
 (defn plan-and-compose! [config cwd]
   (let [t0 (System/nanoTime)]

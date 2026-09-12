@@ -26,9 +26,12 @@
       (when (and (= cache/cache-version (:version cached))
                  (usable-cached-config? cached))
         (let [config  (cache-config cached)
-              watched (cache/watched-files (paths/root-config-file root)
-                                           config
-                                           (System/getProperty "user.dir"))]
+              sources (mapv #(if (.startsWith ^String % "/") % (str root "/" %))
+                            (or (get-in cached [:data :sources]) []))
+              watched (assoc (cache/watched-files (paths/root-config-file root)
+                                                  config
+                                                  (System/getProperty "user.dir"))
+                             :sources sources)]
           (when (cache/fresh? fs* root watched)
             {:config   config
              :errors   (or (get-in cached [:data :errors]) [])

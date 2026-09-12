@@ -247,7 +247,8 @@
 
 (defn load-result [opts]
   (if-let [cfg (threaded-config opts)]
-    {:config cfg :errors [] :warnings [] :sources []}
+    (or (:load-result opts)
+        {:config cfg :errors [] :warnings [] :sources []})
     (loader/load-config-result {:root (resolve-root opts)
                                 :fs   (or (:fs opts) (nexus/get :fs) (fs/real-fs))})))
 

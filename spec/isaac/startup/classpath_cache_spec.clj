@@ -34,6 +34,20 @@
         (should (sut/identity-fresh? cached config-a))
         (should-not (sut/identity-fresh? cached config-b)))))
 
+  (describe "write-classpath-cache!"
+
+    (around [example]
+      (nexus/-with-nexus {:fs (fs/mem-fs)}
+        (example)))
+
+    (it "persists config sources for warm-cache invalidation"
+      (let [fs*     (nexus/get :fs)
+            root    "/tki3/write"
+            watched {:config [(str root "/config/isaac.edn")]}
+            sources [(str root "/config/crew/cordelia.edn")]]
+        (sut/write-classpath-cache! fs* root watched {} [] [] sources)
+        (should= sources (get-in (cache/read-cache fs* root) [:data :sources])))))
+
   (describe "compose-with-cache!"
 
     (around [example]

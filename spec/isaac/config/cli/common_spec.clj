@@ -38,6 +38,15 @@
 
   (describe "threaded config reuse (isaac-v1la)"
 
+    (it "load-result preserves errors from the threaded load result"
+      (let [load-result {:config {:embedding {:source :warp-drive}}
+                         :errors [{:key "embedding.source" :value "must be one of provider"}]
+                         :warnings []
+                         :sources []}]
+        (should= (:errors load-result)
+                 (:errors (sut/load-result {:config (:config load-result)
+                                           :load-result load-result})))))
+
     (it "printable-config reuses a non-empty :config from opts"
       (let [cfg {:defaults {:crew :main}}]
         (should= cfg (:config (sut/printable-config {:config cfg} false)))))

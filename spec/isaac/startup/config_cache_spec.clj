@@ -64,6 +64,24 @@
                                       :else nil))]
           (should-be-nil (sut/read-pre-sub fs* root)))))
 
+    (it "returns nil when a cached config source is newer than the cache"
+      (let [fs*         (nexus/get :fs)
+            source-path (str root "/config/crew/cordelia.edn")
+            source      "config/crew/cordelia.edn"
+            config      {:crew {"cordelia" {:model "echo"}}}]
+        (seed-config! fs* "{}")
+        (cache/write-cache! fs* root
+                            {:version cache/cache-version
+                             :basis   {:config-hash (cache/content-hash fs* config-path)}
+                             :data    {:config  config
+                                       :sources [source]}})
+        (with-redefs [fs/modified (fn [_ path]
+                                    (cond
+                                      (str/ends-with? path "cli.edn") t0
+                                      (= source-path path) (inc t0)
+                                      :else (dec t0)))]
+          (should-be-nil (sut/read-pre-sub fs* root)))))
+
     (it "returns nil when the cached config blob is not a map"
       (let [fs* (nexus/get :fs)]
         (seed-config! fs* "{}")
