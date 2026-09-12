@@ -39,6 +39,21 @@ Feature: CLI startup caching
     Then the exit code is 0
     And the classpath plan spy was invoked exactly 0 times
 
+  Scenario: a warm config hit retains module discovery for module-provided config types
+    Given an empty Isaac root at "target/test-startup-cache"
+    And the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.bridge   {:local/root "modules/marigold.bridge"}
+                 :marigold.longwave {:local/root "modules/marigold.longwave"}}
+       :relays  {:helm-relay {:type :longwave :crew "captain" :helm/freq "121.5"}}}
+      """
+    When isaac is run with "config validate"
+    And the warm config load result spy is armed
+    And isaac is run with "config validate"
+    Then the warm config load result includes module "marigold.longwave"
+    And the warm config load result has no validation errors
+    And the exit code is 0
+
   Scenario: corrupted classpath cache fails open replans and refreshes basis
     Given an empty Isaac root at "target/test-startup-cache"
     And the isaac EDN file "isaac.edn" exists with:

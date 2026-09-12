@@ -50,6 +50,46 @@ jobs:
       - name: Run bb ci
         run: bb ci
 
+  server-boot-smoke:
+    name: Server boot with a module-provided config type
+    runs-on: ubuntu-latest
+    env:
+      NO_COLOR: "1"
+    steps:
+      - name: Check out isaac-foundation
+        uses: actions/checkout@v4
+
+      - name: Check out isaac-server
+        uses: actions/checkout@v4
+        with:
+          repository: slagyr/isaac-server
+          path: isaac-server
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Clojure and Babashka
+        uses: DeLaGuardo/setup-clojure@13.2
+        with:
+          bb: latest
+          cli: latest
+
+      - name: Boot server config twice through the startup cache
+        run: |
+          ROOT="${RUNNER_TEMP}/isaac-server-smoke"
+          mkdir -p "${ROOT}/config"
+          cat > "${ROOT}/config/isaac.edn" <<EOF
+          {:modules {:isaac.server {:local/root "${GITHUB_WORKSPACE}/isaac-server"}
+                     :marigold.bridge {:local/root "${GITHUB_WORKSPACE}/modules/marigold.bridge"}
+                     :marigold.longwave {:local/root "${GITHUB_WORKSPACE}/modules/marigold.longwave"}}
+           :relays {:release-smoke {:type :longwave :crew "main" :helm/freq "121.5"}}}
+          EOF
+          libexec/isaac --root "${ROOT}" config validate
+          libexec/isaac --root "${ROOT}" config validate
+
   slow-features:
     name: Slow features (@slow launcher lane)
     runs-on: ubuntu-latest

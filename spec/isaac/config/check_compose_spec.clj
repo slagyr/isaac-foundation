@@ -2,12 +2,18 @@
   (:require
     [isaac.config.check-compose :as sut]
     [isaac.config.schema-compose :as schema-compose]
+    [isaac.fs :as fs]
     [isaac.module.discovery :as discovery]
+    [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (describe "config check-compose"
 
-  (describe "run-checks"
+  (around [example]
+    (nexus/-with-nexus {:fs (fs/mem-fs)}
+      (example)))
+
+  (context "run-checks"
 
     (it "runs builtin server check contributions"
       (let [{:keys [errors warnings]} (sut/run-checks {:config         {}
