@@ -17,6 +17,7 @@
     [isaac.module.coords :as coords]
     [isaac.module.discovery :as discovery]
     [isaac.module.loader :as loader]
+    [isaac.modules.pins :as pins]
     [isaac.modules.registry :as registry]
     [isaac.shell :as shell]))
 
@@ -43,6 +44,7 @@
                           "  deps [--edn|--classpath]  Emit JVM launch deps/classpath from config\n"
                           "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
+                          "  pins                Check sibling git pins against the module registry\n"
                           "  show <name>         Full detail for one module (coordinate, source, required-by)\n"
                           "  remove <name>       Remove a module from config :modules\n"
                           "  upgrade [name] ...  Refresh registry-sourced modules to latest coords\n"
@@ -81,6 +83,12 @@
     {:command     "isaac modules install"
      :params      "<name> [<name> ...]"
      :description "Resolve registry module names to coordinates and add them to config :modules."
+     :option-spec option-spec}))
+
+(defn- pins-help []
+  (common/render-help
+    {:command     "isaac modules pins"
+     :description "Check this module repository's sibling git pins against the registry."
      :option-spec option-spec}))
 
 (defn- show-help []
@@ -468,6 +476,36 @@
                                   (coord-revision old) " -> " (coord-revision new)))))
               exit)))))))
 
+(defn- short-sha [sha]
+  (subs sha 0 (min 7 (count sha))))
+
+(defn- print-pin! [{:keys [id pinned-sha registry-sha status]}]
+  (let [line (case status
+               :current (str (module-id-str id) " current")
+               :ahead   (str (module-id-str id) " pinned " (short-sha pinned-sha)
+                             " registry " (short-sha registry-sha) " ahead")
+               :older   (str (module-id-str id) " pinned " (short-sha pinned-sha)
+                             " registry " (short-sha registry-sha) " older")
+               (str (module-id-str id) " could not compare pin with registry"))]
+    (binding [*out* (if (= :older status) *err* *out*)]
+      (println line))))
+
+(defn- run-pins [opts _arguments _options]
+  (let [root   (:root opts)
+        cwd    (System/getProperty "user.dir")
+        local  (pins/read-sibling-pins cwd)
+        pins   (if (or (seq local) (= cwd root)) local (pins/read-sibling-pins root))]
+    (if (empty? pins)
+      0
+      (let [config (or (read-root-config root) {})
+            result (registry/fetch-registry config root)]
+        (if-let [error (:error result)]
+          (common/print-cli-error! error)
+          (let [checks (pins/classify-pins pins (:registry result))]
+            (doseq [check checks]
+              (print-pin! check))
+            (if (some #(= :older (:status %)) checks) 1 0)))))))
+
 (defn- run-show [opts arguments options]
   (let [{:keys [edn json]} options
         module-name (first arguments)]
@@ -526,6 +564,9 @@
    "list"      {:option-spec structured-option-spec
                 :runner      run-list
                 :help-text   list-help}
+   "pins"      {:option-spec option-spec
+                 :runner      run-pins
+                 :help-text   pins-help}
    "show"      {:option-spec structured-option-spec
                 :runner      run-show
                 :help-text   show-help}

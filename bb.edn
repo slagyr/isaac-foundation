@@ -21,6 +21,9 @@
  {isaac         {:doc  "Isaac CLI"
                  :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
 
+  pins          {:doc  "Check sibling git pins against the configured module registry"
+                 :task (shell "libexec/isaac" "modules" "pins")}
+
   spec          {:doc  "Run speclj specs (60s timeout; default target: spec/; pass file/dir to narrow)"
                  :requires ([bb.test-tasks :as tests])
                  :task     (apply tests/run-spec! *command-line-args*)}
@@ -28,6 +31,7 @@
   ci            {:doc  "Run all spec + non-wip features (60s timeout)"
                  :requires ([bb.test-tasks :as tests])
                  :task     (do (run 'config-bypass-lint)
+                               (run 'pins)
                                (tests/run-ci!))}
 
   config-bypass-lint {:doc "Fail on raw config slurp/read outside isaac.config.*"

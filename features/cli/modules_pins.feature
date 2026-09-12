@@ -24,7 +24,6 @@ Feature: Sibling pins against the registry
       | isaac.agent.coord.git/url | fixture-agent         |
       | isaac.agent.coord.git/sha | {sha of "agent: two"} |
 
-  @wip
   Scenario: a sibling pinned at an ancestor of the registry sha fails the check
     Given a file "deps.edn" exists with content:
       """
@@ -36,7 +35,6 @@ Feature: Sibling pins against the registry
       | isaac\.agent.*pinned [0-9a-f]{7}.*registry [0-9a-f]{7}.*older |
     And the exit code is 1
 
-  @wip
   Scenario: a sibling pinned at the registry sha passes
     Given a file "deps.edn" exists with content:
       """
@@ -48,7 +46,6 @@ Feature: Sibling pins against the registry
       | isaac\.agent.*current         |
     And the exit code is 0
 
-  @wip
   Scenario: a sibling pinned ahead of the registry passes with a note
     Given the git repository "fixture-agent" gains a commit "agent: three"
     And a file "deps.edn" exists with content:

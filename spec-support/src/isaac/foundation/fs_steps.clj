@@ -11,6 +11,7 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
+    [isaac.foundation.git-helpers :as git-helpers]
     [isaac.fs :as fs]
     [isaac.config.root :as root]
     [isaac.nexus :as nexus]
@@ -157,7 +158,7 @@
 
 (defn file-at-with-docstring-content [name doc-string]
   (let [path   (resolve-path name)
-        actual (str/trim doc-string)]
+        actual (-> doc-string str/trim git-helpers/interpolate-shas)]
     (with-ensured-fs
       #(let [fs* (or (g/get :mem-fs) (nexus/get :fs) (fs/real-fs))]
          (fs/mkdirs fs* (fs/parent path))
@@ -270,6 +271,11 @@
         (fs/spit   fs* file-path content)
         (notify-write! file-path)))))
 
+(defn- isaac-value-path [path]
+  (if-let [[_ id coord-path] (re-matches #"(.+)\.coord\.(.+)" path)]
+    [(keyword id) :coord (keyword coord-path)]
+    (mapv keyword (str/split path #"\."))))
+
 (defn isaac-edn-file-exists [path table]
   (with-server-fs
     (fn []
@@ -277,8 +283,8 @@
             data      (reduce (fn [acc row]
                                 (let [row-map (zipmap (:headers table) row)
                                       p       (get row-map "path")
-                                      value   (get row-map "value")
-                                      keys    (mapv keyword (str/split p #"\."))]
+                                      value   (git-helpers/interpolate-shas (get row-map "value"))
+                                      keys    (isaac-value-path p)]
                                   (cond
                                     (skip-row? value)
                                     acc
