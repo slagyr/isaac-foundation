@@ -256,7 +256,7 @@
     ;; Phase 5 of the berth epic (isaac-8v1n): route registration moved
     ;; out of activate! entirely. The :isaac.http/route berth flows
     ;; through process-manifest-berths! (covered in berths-spec), and
-    ;; the per-entry factory (isaac.server.routes/register-route-entry!)
+    ;; the per-entry factory (isaac.http.routes/register-route-entry!)
     ;; is a thin shim around register-route!. The activate!-side tests
     ;; that lived here are gone with the dispatch they tested.
 

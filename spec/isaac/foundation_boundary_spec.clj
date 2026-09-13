@@ -32,7 +32,7 @@
      isaac.cli.api isaac.cli.args isaac.cli.color isaac.cli.table})
 
 (def forbidden-prefixes
-  ["isaac.server" "isaac.session" "isaac.llm" "isaac.comm" "isaac.bridge"
+  ["isaac.http" "isaac.session" "isaac.llm" "isaac.comm" "isaac.bridge"
    "isaac.hail" "isaac.tool" "isaac.slash" "isaac.drive" "isaac.cron"
    "isaac.crew" "isaac.hooks" "isaac.prompt" "isaac.service" "isaac.charge"
    "isaac.api" "isaac.util"])

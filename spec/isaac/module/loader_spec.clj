@@ -51,7 +51,7 @@
         (should= 1 (count @calls))
         (let [acp-exclusions (:exclusions (get (first @calls) 'isaac.comm.acp/isaac.comm.acp))]
           (should-contain 'io.github.slagyr/isaac-http acp-exclusions)
-          (should-contain 'isaac.http/isaac.server acp-exclusions)))))
+          (should-contain 'isaac.http/isaac.http acp-exclusions)))))
 
   (it "compose-module-deps-map returns the same deps map add-modules-deps! would pass to invoke-add-deps!"
     (write-local-module! :isaac.comm.pigeon valid-comm-manifest)

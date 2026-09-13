@@ -20,10 +20,10 @@
                          [[:isaac.http server-coord]
                           [:isaac.comm.acp acp-coord]])
           acp-ex       (set (:exclusions (get deps 'isaac.comm.acp/isaac.comm.acp)))
-          server-ex    (set (:exclusions (get deps 'isaac.http/isaac.server)))]
+          server-ex    (set (:exclusions (get deps 'isaac.http/isaac.http)))]
       (should-contain coords/seed-foundation-lib acp-ex)
       (should-contain 'io.github.slagyr/isaac-http acp-ex)
-      (should-contain 'isaac.http/isaac.server acp-ex)
+      (should-contain 'isaac.http/isaac.http acp-ex)
       (should-contain coords/seed-foundation-lib server-ex)
       (should-contain 'io.github.slagyr/isaac-acp server-ex)
       (should-contain 'isaac.comm.acp/isaac.comm.acp server-ex)))

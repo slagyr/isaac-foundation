@@ -71,7 +71,7 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
       | drift.0.requested.0.required-by | [:marigold.app.conflict] |
     And the exit code is 0
 
-  Scenario: isaac.server divergence surfaces in the conflict bucket when a requester is newer than loaded
+  Scenario: isaac.http divergence surfaces in the conflict bucket when a requester is newer than loaded
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """

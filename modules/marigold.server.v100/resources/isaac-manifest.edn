@@ -1,4 +1,4 @@
 {:id          :isaac.http
  :version     "0.1.0"
  :factory     isaac.module.protocol/module
- :description "Marigold fixture: isaac.server at version 0.1.0"}
+ :description "Marigold fixture: isaac.http at version 0.1.0"}

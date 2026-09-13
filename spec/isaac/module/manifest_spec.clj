@@ -55,7 +55,7 @@
   ;; validation moved to the berth's :manifest schema.
   {:id                 :isaac.routes.bibelot
    :version            "0.1.0"
-   :isaac.http/route [{:method :get :path "/status"  :handler 'isaac.server.status/handle}
+   :isaac.http/route [{:method :get :path "/status"  :handler 'isaac.http.status/handle}
                         {:method :*   :path "/hooks/*" :handler 'isaac.hooks/handler}]})
 
 (def cli-manifest
