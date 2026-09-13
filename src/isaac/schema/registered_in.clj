@@ -4,7 +4,7 @@
    validations lexicon at load time so config schemas can write
 
      :type {:type        :keyword
-            :validations [:present? [:registered-in? :isaac.server/comm]]}
+            :validations [:present? [:registered-in? :isaac.http/comm]]}
 
    and have the validator pull the live contribution set from the
    ambient module-index. Callers bind `*module-index*` before running
@@ -85,8 +85,8 @@
    contributions where users instantiate entries directly.
 
    Usage:
-     `[:registered-in? :isaac.server/comm]`                 — manifest-side only
-     `[:registered-in? :isaac.server/provider [:providers]]` — manifest + user-config
+     `[:registered-in? :isaac.http/comm]`                 — manifest-side only
+     `[:registered-in? :isaac.http/provider [:providers]]` — manifest + user-config
 
    Distinct failure messages for unknown berth, empty contribution
    set, and bad value. Returns a validation map with a `:known` thunk

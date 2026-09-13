@@ -18,10 +18,10 @@
 
   (it "builds tools.deps lib symbols from module ids"
     (should= 'mod.a/mod.a (coords/->lib-sym :mod.a))
-    (should= 'io.github.slagyr/isaac-server (coords/->lib-sym :io.github.slagyr/isaac-server)))
+    (should= 'io.github.slagyr/isaac-http (coords/->lib-sym :io.github.slagyr/isaac-http)))
 
   (it "maps split-repo isaac.* ids to io.github.slagyr/isaac-* libs"
-    (should= 'io.github.slagyr/isaac-server (coords/split-repo-lib-sym :isaac.server))
+    (should= 'io.github.slagyr/isaac-http (coords/split-repo-lib-sym :isaac.http))
     (should= 'io.github.slagyr/isaac-acp (coords/split-repo-lib-sym :isaac.comm.acp))
     (should-be-nil (coords/split-repo-lib-sym :mod.a)))
 

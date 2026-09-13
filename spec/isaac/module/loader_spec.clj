@@ -41,17 +41,17 @@
 
   (it "excludes split-repo lib aliases for sibling modules in one batch"
     (let [calls (atom [])
-          server-coord {:git/url "https://github.com/slagyr/isaac-server.git"
+          server-coord {:git/url "https://github.com/slagyr/isaac-http.git"
                         :git/sha "ba30caa2c2dc4564a352ae82742d39739fad9744"}
           acp-coord {:git/url "https://github.com/slagyr/isaac-acp.git"
                      :git/sha "d10856296e9b35378c3dfd009e67a50fad2f25af"}]
       (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [deps-map] (swap! calls conj deps-map))]
-        (loader/compose-config-modules! {:modules {:isaac.server server-coord
+        (loader/compose-config-modules! {:modules {:isaac.http server-coord
                                                 :isaac.comm.acp acp-coord}})
         (should= 1 (count @calls))
         (let [acp-exclusions (:exclusions (get (first @calls) 'isaac.comm.acp/isaac.comm.acp))]
-          (should-contain 'io.github.slagyr/isaac-server acp-exclusions)
-          (should-contain 'isaac.server/isaac.server acp-exclusions)))))
+          (should-contain 'io.github.slagyr/isaac-http acp-exclusions)
+          (should-contain 'isaac.http/isaac.server acp-exclusions)))))
 
   (it "compose-module-deps-map returns the same deps map add-modules-deps! would pass to invoke-add-deps!"
     (write-local-module! :isaac.comm.pigeon valid-comm-manifest)

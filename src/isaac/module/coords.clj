@@ -41,7 +41,7 @@
 
 (defn split-repo-lib-sym
   "Lib symbol split platform repos declare in deps.edn (e.g.
-   io.github.slagyr/isaac-server for :isaac.server). Configured modules use
+   io.github.slagyr/isaac-http for :isaac.http). Configured modules use
    ->lib-sym instead; sibling exclusions must cover both or transitive deps
    re-append the same manifest under a second lib."
   [id]

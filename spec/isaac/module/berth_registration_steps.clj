@@ -26,8 +26,8 @@
 
 (defn- demo-route-module-index [module-name]
   (let [module-id (keyword module-name)]
-    {:isaac.server {:manifest {:berths {:isaac.server/route (route-berth-decl)}}}
-     module-id    {:manifest {:isaac.server/route
+    {:isaac.http {:manifest {:berths {:isaac.http/route (route-berth-decl)}}}
+     module-id    {:manifest {:isaac.http/route
                               {:ping {:method  :get
                                       :path    "/ping"
                                       :handler 'demo/ping-handler}}}}}))
@@ -51,7 +51,7 @@
 
 (defgiven #"a module \"([^\"]+)\" contributing a :isaac\.server/route entry :(\w+)"
   isaac.module.berth-registration-steps/module-contributing-route-entry
-  "Builds a test module-index with :isaac.server/route :ping from demo.")
+  "Builds a test module-index with :isaac.http/route :ping from demo.")
 
 (defwhen "the server boots" isaac.module.berth-registration-steps/server-boots
   "Runs process-manifest-berths! — the registration phase of server boot.")

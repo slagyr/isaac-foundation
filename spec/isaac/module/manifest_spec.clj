@@ -8,46 +8,46 @@
   (:import (java.io File)))
 
 (def pigeon-manifest
-  ;; Phase 8 (isaac-qqgv): comm contributions live at :isaac.server/comm,
+  ;; Phase 8 (isaac-qqgv): comm contributions live at :isaac.http/comm,
   ;; not the deleted :comm extension kind.
   {:id                :isaac.comm/pigeon
    :version           "0.1.0"
    :bootstrap         'isaac.comm.pigeon/bootstrap
    :description       "Carrier pigeon comm"
-   :isaac.server/comm {:pigeon {:namespace 'isaac.comm.pigeon
+   :isaac.http/comm {:pigeon {:namespace 'isaac.comm.pigeon
                                 :schema  {:loft      {:type :string :validations [:present?]}
                                           :max-bytes {:type :int :coercions [[:default 140]]}}}}})
 
 (def api-manifest
   ;; Phase 7 (isaac-ho18): llm/api contributions live at
-  ;; :isaac.server/llm-api.
+  ;; :isaac.http/llm-api.
   {:id                   :isaac.api.tin-can
    :version              "0.1.0"
-   :isaac.server/llm-api {:tin-can {:factory 'isaac.api.tin-can/make}}})
+   :isaac.http/llm-api {:tin-can {:factory 'isaac.api.tin-can/make}}})
 
 (def slash-echo-manifest
   ;; Phase 7 (isaac-ho18): slash-command contributions live at
-  ;; :isaac.server/slash-commands.
+  ;; :isaac.http/slash-commands.
   {:id                          :isaac.slash.echo
    :version                     "0.1.0"
-   :isaac.server/slash-commands {:echo {:factory 'isaac.slash.echo/echo-command
+   :isaac.http/slash-commands {:echo {:factory 'isaac.slash.echo/echo-command
                                         :schema  {:command-name {:type :string}}}}})
 
 (def tool-manifest
-  ;; Phase 6 (isaac-w7o5): tools contribute to the :isaac.server/tools
+  ;; Phase 6 (isaac-w7o5): tools contribute to the :isaac.http/tools
   ;; berth, not a hardcoded top-level :tools kind.
   {:id                 :isaac.tool.doodad
    :version            "0.1.0"
-   :isaac.server/tools {:doodad {:factory 'isaac.tool.doodad/doodad-tool
+   :isaac.http/tools {:doodad {:factory 'isaac.tool.doodad/doodad-tool
                                  :schema  {:api-key {:type :string}}}}})
 
 (def provider-only-manifest
   ;; Phase 7 (isaac-ho18): provider templates contribute to the
-  ;; :isaac.server/provider-template berth, not a hardcoded :provider
+  ;; :isaac.http/provider-template berth, not a hardcoded :provider
   ;; extension kind.
   {:id                              :isaac.providers.kombucha
    :version                         "0.1.0"
-   :isaac.server/provider-template  {:kombucha {:template {:api "chat-completions"}}}})
+   :isaac.http/provider-template  {:kombucha {:template {:api "chat-completions"}}}})
 
 (def route-manifest
   ;; Phase 5 of the berth epic (isaac-8v1n): routes are now berth
@@ -55,7 +55,7 @@
   ;; validation moved to the berth's :manifest schema.
   {:id                 :isaac.routes.bibelot
    :version            "0.1.0"
-   :isaac.server/route [{:method :get :path "/status"  :handler 'isaac.server.status/handle}
+   :isaac.http/route [{:method :get :path "/status"  :handler 'isaac.server.status/handle}
                         {:method :*   :path "/hooks/*" :handler 'isaac.hooks/handler}]})
 
 (def cli-manifest
@@ -70,7 +70,7 @@
    :factory 'marigold.bridge/create-module})
 
 (def builtin-manifest
-  {:id       :isaac.server
+  {:id       :isaac.http
    :version  "1.0.0"
    :builtin? true})
 
@@ -212,7 +212,7 @@
 
     ;; Phase 5 of the berth epic: per-entry shape rejection for routes
     ;; (malformed [method path] keys, non-symbol handlers, etc.) is now
-    ;; handled by the :isaac.server/route berth's :manifest schema
+    ;; handled by the :isaac.http/route berth's :manifest schema
     ;; rather than by read-manifest. The old "rejects malformed route
     ;; keys" / "rejects route handlers that are not symbols" tests
     ;; covered the deleted validate-routes! pass.

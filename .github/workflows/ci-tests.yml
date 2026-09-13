@@ -59,11 +59,11 @@ jobs:
       - name: Check out isaac-foundation
         uses: actions/checkout@v4
 
-      - name: Check out isaac-server
+      - name: Check out isaac-http
         uses: actions/checkout@v4
         with:
-          repository: slagyr/isaac-server
-          path: isaac-server
+          repository: slagyr/isaac-http
+          path: isaac-http
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -79,10 +79,10 @@ jobs:
 
       - name: Boot server config twice through the startup cache
         run: |
-          ROOT="${RUNNER_TEMP}/isaac-server-smoke"
+          ROOT="${RUNNER_TEMP}/isaac-http-smoke"
           mkdir -p "${ROOT}/config"
           cat > "${ROOT}/config/isaac.edn" <<EOF
-          {:modules {:isaac.server {:local/root "${GITHUB_WORKSPACE}/isaac-server"}
+          {:modules {:isaac.http {:local/root "${GITHUB_WORKSPACE}/isaac-http"}
                      :marigold.bridge {:local/root "${GITHUB_WORKSPACE}/modules/marigold.bridge"}
                      :marigold.longwave {:local/root "${GITHUB_WORKSPACE}/modules/marigold.longwave"}}
            :relays {:release-smoke {:type :longwave :crew "main" :helm/freq "121.5"}}}

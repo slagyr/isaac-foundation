@@ -5,13 +5,13 @@
 
 (describe "retired component berth"
 
-  (it "directs :isaac.server/service contributors to :isaac/component"
+  (it "directs :isaac.http/service contributors to :isaac/component"
     (let [errors (sut/validate-contributions!
                    {:isaac.discord
-                    {:manifest {:isaac.server/service
+                    {:manifest {:isaac.http/service
                                 {:discord {:namespace 'isaac.comm.discord.service}}}}})]
-      (should= [{:key   "module-index[\"isaac.discord\"][:isaac.server/service]"
-                 :value ":isaac.server/service is retired; use :isaac/component"}]
+      (should= [{:key   "module-index[\"isaac.discord\"][:isaac.http/service]"
+                 :value ":isaac.http/service is retired; use :isaac/component"}]
                errors)))
 
   )

@@ -146,12 +146,12 @@
     (it "builds known-id sets once per validation pass"
       ;; Phase 6 (isaac-w7o5): :tool-exists? / known-tool-ids no longer
       ;; live in existence-refs — crew :tools :allow validates via
-      ;; [:registered-in? :isaac.server/tools] against the live
+      ;; [:registered-in? :isaac.http/tools] against the live
       ;; module-index, which short-circuits the known-set memoization
       ;; this test covers for the other capabilities.
       ;; Phase 8 (isaac-qqgv): :comm-exists? no longer lives in
       ;; existence-refs — comm validation goes through
-      ;; [:registered-in? :isaac.server/comm [:comms]] which reads
+      ;; [:registered-in? :isaac.http/comm [:comms]] which reads
       ;; the live module-index instead of a memoized known-set.
       (let [berth-calls  (atom 0)
             gauge-calls  (atom 0)

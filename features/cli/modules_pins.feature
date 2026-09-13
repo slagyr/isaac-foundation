@@ -2,7 +2,7 @@ Feature: Sibling pins against the registry
   Every module repo pins its sibling modules by git sha in deps.edn. A pin
   that falls behind the registry means the repo's tests run against an old
   sibling and a fresh box that installs only that module silently gets the
-  old sibling too (2026-09-11: isaac-server pinned agent 0.1.46 while the
+  old sibling too (2026-09-11: isaac-http pinned agent 0.1.46 while the
   registry said 0.1.66). `isaac modules pins`, run from a module repo, reads
   the sibling pins, looks each up in the registry, and classifies by git
   ancestry using the gitlib clones tools.deps already has: older fails,

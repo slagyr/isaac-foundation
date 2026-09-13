@@ -10,12 +10,12 @@ Feature: isaac modules upgrade — refresh installed modules to registry coords
     And Isaac root "/tmp/isaac" contains config:
       """
       {:module-registry "registry.edn"
-       :modules {:stale {:git/url "https://github.com/slagyr/isaac-server.git"
+       :modules {:stale {:git/url "https://github.com/slagyr/isaac-http.git"
                          :git/sha "6960803d2a0f90431051fe98359e6e16ff6fd29c"}}}
       """
     And the isaac file "registry.edn" exists with:
       """
-      {:stale {:coord {:git/url "https://github.com/slagyr/isaac-server.git"
+      {:stale {:coord {:git/url "https://github.com/slagyr/isaac-http.git"
                        :git/sha "817a5242b3c85bdcadbc4225c5d75f8fafc64c18"}
                :desc "Stale server module"}}
       """
@@ -24,7 +24,7 @@ Feature: isaac modules upgrade — refresh installed modules to registry coords
     And the exit code is 0
     And the isaac file "config/isaac.edn" EDN contains:
       | path          | value                                                                                      |
-      | modules.stale | {:git/url "https://github.com/slagyr/isaac-server.git" :git/sha "817a5242b3c85bdcadbc4225c5d75f8fafc64c18"} |
+      | modules.stale | {:git/url "https://github.com/slagyr/isaac-http.git" :git/sha "817a5242b3c85bdcadbc4225c5d75f8fafc64c18"} |
 
   Scenario: Local and non-registry modules are left untouched
     Given an empty Isaac root at "/tmp/isaac"

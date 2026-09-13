@@ -12,7 +12,7 @@
   ([module-index]
    (->> (vals module-index)
         (mapcat (fn [entry]
-                  (or (get-in entry [:manifest :isaac.server/comm])
+                  (or (get-in entry [:manifest :isaac.http/comm])
                       (get-in entry [:manifest :isaac.agent/comm]))))
         (remove (fn [[_ v]] (false? (:configurable? v))))
         (map (fn [[k _]] (name k)))

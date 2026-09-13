@@ -10,7 +10,7 @@ Feature: Registry module install composes classpath
       """
     And the isaac file "registry.edn" exists with:
       """
-      {:isaac.server {:coord {:git/url "https://github.com/slagyr/isaac-server.git"
+      {:isaac.http {:coord {:git/url "https://github.com/slagyr/isaac-http.git"
                               :git/sha "6960803d2a0f90431051fe98359e6e16ff6fd29c"}
                       :desc "HTTP server host"}}
       """

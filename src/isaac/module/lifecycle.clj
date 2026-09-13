@@ -33,7 +33,7 @@
      :clear-registrations (fn [] => any)                  — clears module-contributed registrations
      :user-config         (fn [root-key entry-id] => map) — reads user config for an extension
 
-   Every other extension kind has migrated to a :isaac.server/* berth
+   Every other extension kind has migrated to a :isaac.http/* berth
    processed by `process-manifest-berths!` (phases 4–8 of brth):
    :isaac/cli (phase 4), :route (phase 5), :tools (phase 6),
    :slash-commands / :llm/api / :hook / :provider (phase 7), :comm
@@ -54,7 +54,7 @@
 (defn handlers-for [kind]
   (get @handlers* kind []))
 
-(def server-module-id :isaac.server)
+(def server-module-id :isaac.http)
 
 (defn activate-foundation! []
   (activate! coords/foundation-module-id (discovery/foundation-index)))
@@ -72,14 +72,14 @@
   "Reads the user-supplied config slot at `[root-key entry-id]` from
    the live config snapshot. Returns {} when nothing is configured.
    Public so berth factories (e.g. tool.registry/register-tool-entry!
-   for the :isaac.server/tools berth) can read their per-entry
+   for the :isaac.http/tools berth) can read their per-entry
    user config without re-implementing the lookup."
   [root-key entry-id]
   (or ((handler-for :user-config) root-key entry-id) {}))
 
 (defn- register-extensions! [_manifest]
   ;; Phases 4–8 of the berth epic moved every extension kind into
-  ;; :isaac.server/* berths processed by process-manifest-berths!.
+  ;; :isaac.http/* berths processed by process-manifest-berths!.
   ;; activate! still runs this for backwards compat with old call
   ;; sites; it's now a no-op.
   nil)

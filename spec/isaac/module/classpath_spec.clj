@@ -14,16 +14,16 @@
                                                            :exclusions ['other/lib]})))))
 
   (it "compose-module-deps-map adds seed + sibling exclusions per module"
-    (let [server-coord {:git/url "https://github.com/slagyr/isaac-server.git" :git/sha "abc"}
+    (let [server-coord {:git/url "https://github.com/slagyr/isaac-http.git" :git/sha "abc"}
           acp-coord    {:git/url "https://github.com/slagyr/isaac-acp.git" :git/sha "def"}
           deps         (classpath/compose-module-deps-map
-                         [[:isaac.server server-coord]
+                         [[:isaac.http server-coord]
                           [:isaac.comm.acp acp-coord]])
           acp-ex       (set (:exclusions (get deps 'isaac.comm.acp/isaac.comm.acp)))
-          server-ex    (set (:exclusions (get deps 'isaac.server/isaac.server)))]
+          server-ex    (set (:exclusions (get deps 'isaac.http/isaac.server)))]
       (should-contain coords/seed-foundation-lib acp-ex)
-      (should-contain 'io.github.slagyr/isaac-server acp-ex)
-      (should-contain 'isaac.server/isaac.server acp-ex)
+      (should-contain 'io.github.slagyr/isaac-http acp-ex)
+      (should-contain 'isaac.http/isaac.server acp-ex)
       (should-contain coords/seed-foundation-lib server-ex)
       (should-contain 'io.github.slagyr/isaac-acp server-ex)
       (should-contain 'isaac.comm.acp/isaac.comm.acp server-ex)))

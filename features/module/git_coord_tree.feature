@@ -22,7 +22,7 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
       | modules.1.id          | :isaac.agent     |
       | modules.1.coord.git/url | "https://github.com/slagyr/isaac-agent.git" |
       | modules.1.required-by | [:isaac.comm.acp] |
-      | modules.2.id          | :isaac.server    |
+      | modules.2.id          | :isaac.http    |
       | modules.2.required-by | [:isaac.comm.acp] |
     And the exit code is 0
 

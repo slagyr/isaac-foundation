@@ -81,7 +81,7 @@ Feature: isaac modules list — warn on module version conflicts (yi82)
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
       | path                               | value                            |
-      | conflicts.0.id                     | :isaac.server                    |
+      | conflicts.0.id                     | :isaac.http                    |
       | conflicts.0.chosen                 | "0.1.0"                          |
       | conflicts.0.requested.0.required-by | [:marigold.app2.server.conflict] |
     And the exit code is 0

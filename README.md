@@ -21,7 +21,7 @@ Install the foundation, then grow it by adding modules to your config:
 ```sh
 isaac init
 # then add modules to <root>/config/isaac.edn:
-#   {:modules {:isaac.server {:git/url "..." :git/sha "..."}}}
+#   {:modules {:isaac.http {:git/url "..." :git/sha "..."}}}
 ```
 
 The foundation ships exactly one command (`init`) and built-in berths

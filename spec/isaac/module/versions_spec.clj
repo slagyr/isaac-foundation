@@ -81,7 +81,7 @@
                     {:local/root (str cwd "/modules/marigold.app.server.conflict")}
                     :marigold.app2.server.conflict
                     {:local/root (str cwd "/modules/marigold.app2.server.conflict")}}]
-      (should= {:conflicts [{:id :isaac.server
+      (should= {:conflicts [{:id :isaac.http
                              :chosen "0.1.0"
                              :requested [{:version "0.1.4"
                                           :required-by [:marigold.app2.server.conflict]}]}]

@@ -9,11 +9,11 @@ Feature: Berth registration observability
     Given an empty Isaac state directory "/tmp/berth-registration"
 
   Scenario: Each berth entry is logged with berth, entry id, and module
-    Given a module "demo" contributing a :isaac.server/route entry :ping
+    Given a module "demo" contributing a :isaac.http/route entry :ping
     When the server boots
     Then the log has entries matching:
       | level | event             | berth               | entry | module |
-      | :info | :berth/registration | :isaac.server/route | ping  | demo   |
+      | :info | :berth/registration | :isaac.http/route | ping  | demo   |
 
   Scenario: Registrations across berth kinds all appear at boot
     Given the isaac file "isaac.edn" exists with:
@@ -28,6 +28,6 @@ Feature: Berth registration observability
       | :info | :berth/registration | :marigold.bridge/signal-route | longwave-ping | marigold.longwave |
 
   Scenario: Boot emits a per-berth registration summary
-    Given a module "demo" contributing a :isaac.server/route entry :ping
+    Given a module "demo" contributing a :isaac.http/route entry :ping
     When the server boots
     Then the log contains a berth registration summary
