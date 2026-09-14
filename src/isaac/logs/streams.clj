@@ -2,10 +2,10 @@
   "Registry of viewable log streams. Modules declare their stream(s) via the
    :isaac/log-stream berth (name -> {:file :description}); the per-entry
    factory `register-stream!` merges each into a nexus-held registry that
-   `isaac logs` reads to list and select streams. Foundation stays neutral —
-   it hardcodes no file names; every stream is listable because a module
-   declared it, decoupled from whether the file exists or its writer is
-   active in this process."
+   `isaac logs` reads to list and select streams. Foundation contributes
+   :cli and :server. A stream is listable because a module declared it,
+   decoupled from whether the file exists or its writer is active in this
+   process."
   (:require
     [isaac.nexus :as nexus]))
 

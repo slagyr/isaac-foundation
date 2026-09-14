@@ -1,10 +1,10 @@
 Feature: isaac logs — stream discovery and selection
   `isaac logs` views any registered log stream. Streams are declared by
-  modules via the :isaac/log-stream berth (name -> {:file, :description});
-  foundation aggregates them into a registry and stays neutral — it hardcodes
-  no file names. The server module contributes :server (logs/server.log);
-  foundation contributes :cli (logs/cli.log). There is no default stream: with
-  no name, the command lists what's available and the user picks.
+  modules via the :isaac/log-stream berth (name -> {:file, :description}).
+  Foundation contributes :cli (logs/cli.log) and :server (logs/server.log) —
+  `isaac logs server` does not require isaac.http. Other modules may add
+  streams. There is no default stream: with no name, the command lists what's
+  available and the user picks.
 
   Registration is load-time discovery and is decoupled from writing — a stream
   is listable because its module declares it, whether or not its file exists
@@ -55,11 +55,3 @@ Feature: isaac logs — stream discovery and selection
     Then the stdout contains "nope"
     And the stdout contains "cli"
     And the stdout contains "server"
-
-  Scenario: Foundation stays neutral — only declared streams appear
-    Given the registered log streams:
-      | name | file         | description      |
-      | cli  | logs/cli.log | CLI command logs |
-    When isaac is run with "logs --list"
-    Then the stdout contains "cli"
-    And the stdout does not contain "server"

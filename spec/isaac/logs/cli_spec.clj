@@ -1,5 +1,6 @@
 (ns isaac.logs.cli-spec
   (:require
+    [clojure.edn :as edn]
     [isaac.cli.registry :as registry]
     [isaac.log-viewer :as viewer]
     [isaac.logs.cli :as sut]
@@ -14,6 +15,13 @@
 (def ^:private run-log "logs/watch.log")
 
 (describe "logs cli"
+
+  (it "foundation contributes the server stream so isaac logs server works without http"
+    (let [manifest (edn/read-string (slurp "src/isaac-manifest.edn"))]
+      (should= {:file "logs/server.log" :description "HTTP server logs"}
+               (get-in manifest [:isaac/log-stream :server]))
+      (should= {:file "logs/cli.log" :description "CLI command logs"}
+               (get-in manifest [:isaac/log-stream :cli]))))
 
   (describe "resolve-path"
 

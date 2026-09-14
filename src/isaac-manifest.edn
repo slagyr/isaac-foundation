@@ -22,7 +22,7 @@
                                                                         :namespace {:type        :symbol
                                                                                     :validations [:present?]
                                                                                     :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}}}}}
-             :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Each module declares its log file(s); `isaac logs` lists and tails them. Foundation hardcodes no file names."
+             :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Foundation contributes :cli (logs/cli.log) and :server (logs/server.log). Other modules may add streams."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
                                                  :value-spec {:type    :map
@@ -82,8 +82,10 @@
              :max-days  {:type        :int
                          :description "Drop rotated server logs older than this many days (default 30)."}}}}}
 
- :isaac/log-stream {:cli {:file        "logs/cli.log"
-                          :description "CLI command logs"}}
+ :isaac/log-stream {:cli    {:file        "logs/cli.log"
+                             :description "CLI command logs"}
+                    :server {:file        "logs/server.log"
+                             :description "HTTP server logs"}}
 
  :isaac/cli {:server  {:usage     "server [options]"
                        :summary   "Start the Isaac process runner"
