@@ -9,11 +9,11 @@ Feature: isaac modules show <name> — full detail for one module
     And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:isaac.comm.acp {:git/url "https://github.com/slagyr/isaac-acp.git"
-                                  :git/sha "f8e149930c434d82c488570d88304220174a6c14"}}}
+                                  :git/sha "738fe6b67806b41b59a951e06f1a7e5d8b9823a1"}}}
       """
     When isaac is run with "modules show isaac.comm.acp"
     Then the stdout contains "https://github.com/slagyr/isaac-acp.git"
-    And the stdout contains "f8e149930c434d82c488570d88304220174a6c14"
+    And the stdout contains "738fe6b67806b41b59a951e06f1a7e5d8b9823a1"
     And the exit code is 0
 
   @slow
@@ -22,14 +22,14 @@ Feature: isaac modules show <name> — full detail for one module
     And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:isaac.comm.acp {:git/url "https://github.com/slagyr/isaac-acp.git"
-                                  :git/sha "f8e149930c434d82c488570d88304220174a6c14"}}}
+                                  :git/sha "738fe6b67806b41b59a951e06f1a7e5d8b9823a1"}}}
       """
     When isaac is run with "modules show isaac.comm.acp --edn"
     Then the stdout EDN contains:
       | path          | value                                         |
       | id            | :isaac.comm.acp                               |
       | coord.git/url | "https://github.com/slagyr/isaac-acp.git"     |
-      | coord.git/sha | "f8e149930c434d82c488570d88304220174a6c14"   |
+      | coord.git/sha | "738fe6b67806b41b59a951e06f1a7e5d8b9823a1"   |
     And the exit code is 0
 
   Scenario: show of an unknown module errors
