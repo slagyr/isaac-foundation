@@ -13,7 +13,7 @@ Feature: isaac modules list — transitive discovery for git coordinates (90df)
     And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {:isaac.comm.acp {:git/url "https://github.com/slagyr/isaac-acp.git"
-                                  :git/sha "f8e149930c434d82c488570d88304220174a6c14"}}}
+                                  :git/sha "738fe6b67806b41b59a951e06f1a7e5d8b9823a1"}}}
       """
     When isaac is run with "modules list --edn"
     Then the stdout EDN contains:
