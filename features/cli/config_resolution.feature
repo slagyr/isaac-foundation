@@ -23,7 +23,6 @@ Feature: The CLI resolves the config once per command
     Then the exit code is 0
     And the config resolution spy was invoked exactly 1 times
 
-  @wip
   Scenario: a second process still validates even when the classpath cache is warm
     Given an empty Isaac root at "target/test-config-resolution"
     And the isaac EDN file "config/isaac.edn" exists with:
@@ -36,12 +35,25 @@ Feature: The CLI resolves the config once per command
     And the stdout contains "main"
     And the config validation spy was invoked at least 1 times
 
-  @wip
   Scenario: a new entity file is visible without deleting the classpath cache
     Given an empty Isaac root at "target/test-config-resolution"
-    And the isaac EDN file "config/isaac.edn" exists with:
-      | path          | value |
-      | defaults.crew | main  |
+    And the isaac file "crew-module/resources/isaac-manifest.edn" exists with:
+      """
+      {:id :marigold.crew
+       :version "0.1.0"
+       :isaac.config/schema
+       {:crew {:entity-dir "crew"
+               :merge-root-entity? true
+               :schema {:type :map
+                        :key-spec {:type :string}
+                        :value-spec {:type :map
+                                     :schema {:soul {:type :string}}}}}}}
+      """
+    And the isaac file "config/isaac.edn" exists with:
+      """
+      {:modules {:marigold.crew
+                 {:local/root "target/test-config-resolution/crew-module"}}}
+      """
     And a warm classpath cache exists from a prior non-fast-path run
     And the isaac file "config/crew/cordelia.edn" exists with:
       """
@@ -52,7 +64,6 @@ Feature: The CLI resolves the config once per command
     And the stdout contains "cordelia"
     And the stdout contains "longwave log"
 
-  @wip
   Scenario: cache/cli.edn has no config blob and no secret
     Given an empty Isaac root at "target/test-config-resolution"
     And the isaac .env file contains:

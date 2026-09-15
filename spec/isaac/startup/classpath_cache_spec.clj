@@ -40,13 +40,13 @@
       (nexus/-with-nexus {:fs (fs/mem-fs)}
         (example)))
 
-    (it "persists config sources for warm-cache invalidation"
+    (it "persists only classpath data and commands"
       (let [fs*     (nexus/get :fs)
             root    "/tki3/write"
-            watched {:config [(str root "/config/isaac.edn")]}
-            sources [(str root "/config/crew/cordelia.edn")]]
-        (sut/write-classpath-cache! fs* root watched {} [] [] sources)
-        (should= sources (get-in (cache/read-cache fs* root) [:data :sources])))))
+            watched {:config [(str root "/config/isaac.edn")]}]
+        (sut/write-classpath-cache! fs* root watched {:secret "harbor"} [] [])
+        (should= {:classpath-pairs [] :commands []}
+                 (:data (cache/read-cache fs* root))))))
 
   (describe "compose-with-cache!"
 

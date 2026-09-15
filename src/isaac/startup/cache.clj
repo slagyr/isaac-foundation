@@ -18,7 +18,7 @@
     [isaac.fs :as fs])
   (:import (java.security MessageDigest)))
 
-(def cache-version 3)
+(def cache-version 4)
 
 (defn cache-path [root]
   (str root "/cache/cli.edn"))

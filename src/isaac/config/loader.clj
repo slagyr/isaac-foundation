@@ -26,8 +26,7 @@
     [isaac.module.discovery :as discovery]
     [isaac.module.lifecycle :as lifecycle]
     [isaac.nexus :as nexus]
-    [isaac.schema.lexicon :as lexicon]
-    [isaac.startup.config-cache :as config-cache]))
+    [isaac.schema.lexicon :as lexicon]))
 
 ;; Temporary public re-exports of the former loader surface (isaac-flgy / a7c0).
 ;; External modules (agent/server/hail/…) still call these via isaac.config.loader.
@@ -189,44 +188,15 @@
             (collision-error-row "config-schema" :config-key e)]
            (throw e)))))
 
-(defn- overlays? [opts]
-  (or (:skip-cache? opts)
-      (:skip-entity-files? opts)
-      (:data-path-overlay opts)
-      (:overlay-content opts)
-      (:overlay-path opts)
-      (:raw-parse-errors? opts)))
-
-(defn- try-cached-result
-  "Warm-hit path. The cached blob never carries :module-index (it is stripped
-   before writing), so module discovery runs here exactly as on the cold path;
-   consumers (server boot comm validation, module reconcile) rely on it."
-  [fs* root opts]
-  (when-not (overlays? opts)
-    (try
-      (when-let [cached (config-cache/read-pre-sub fs* root)]
-        (let [hydrated  (config-cache/hydrate cached opts)
-              discovery (nexus/-with-nested-nexus {:fs fs*}
-                          (discovery/discover! (:config hydrated)
-                                               {:root root
-                                                :cwd  (System/getProperty "user.dir")}))]
-          (-> hydrated
-              (update :config assoc :root root :module-index (:index discovery))
-              (update :errors #(vec (concat % (:errors discovery))))
-              (assoc :missing-config? false))))
-      (catch Exception _ nil))))
-
 (defn load-config-result
-  "Load and validate configuration. Set `:skip-cache? true` when the caller
-   must compare directly against the current filesystem rather than a warm
-   startup snapshot (for example, before validating a staged mutation)."
+  "Load and validate configuration from the current filesystem.
+   `:skip-cache?` remains accepted as a compatibility no-op."
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
        :as   opts}]]
   (let [fs*  (parse/runtime-fs opts)
         opts (assoc opts :fs fs* :substitute-env? substitute-env?)]
-    (or (try-cached-result fs* root opts)
-        (nexus/-with-nested-nexus {:fs fs*}
+    (nexus/-with-nested-nexus {:fs fs*}
                               (env/lock-dotenv! root)
                               (let [config-root (paths/config-root root)]
                                 (if-not (entities/config-files-present? config-root opts)
@@ -321,7 +291,7 @@
                                                     (berths/normalize-errors (:index discovery))
                                                     (sort-by :key)
                                                     vec)
-                                     :sources  (vec (sort (:sources result)))})))))))
+                                     :sources  (vec (sort (:sources result)))}))))))
 
 ;; region ----- Ambient Config Snapshot -----
 

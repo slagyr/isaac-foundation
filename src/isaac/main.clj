@@ -152,8 +152,7 @@
                 (startup-cp/write-classpath-cache!
                   fs* resolved-root watched config
                   (or pairs [])
-                  (command-summaries)
-                  (:sources load-result)))
+                  (command-summaries)))
               (cond
         (or (nil? cmd) (str/blank? cmd) (= "--help" cmd) (= "-h" cmd))
         (do (println (registry/usage-text)) 0)
