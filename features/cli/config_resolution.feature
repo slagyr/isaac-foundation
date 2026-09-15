@@ -81,7 +81,6 @@ Feature: The CLI resolves the config once per command
       | path        | value |
       | data.config |       |
 
-  @wip
   Scenario: launcher-backed config get still redacts ${VAR} values
     Given an empty Isaac root at "target/test-config-get-redact"
     And the isaac file ".env" exists with:

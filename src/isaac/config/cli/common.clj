@@ -267,9 +267,40 @@
                               :fs              (or (:fs opts) (nexus/get :fs) (fs/real-fs))
                               :substitute-env? false}))
 
+(defn- source-path [root source]
+  (if (str/starts-with? source "/") source (str root "/" source)))
+
+(defn- source-env-tokens [fs* root source]
+  (let [path (source-path root source)]
+    (when (fs/exists? fs* path)
+      (map second (re-seq #"\$\{([^}]+)\}" (fs/slurp fs* path))))))
+
+(defn- threaded-env-redactions [opts result]
+  (let [fs*  (or (:fs opts) (nexus/get :fs) (fs/real-fs))
+        root (resolve-root opts)]
+    (->> (:sources result)
+         (mapcat #(source-env-tokens fs* root %))
+         distinct
+         sort
+         (keep (fn [token]
+                 (when-let [value (env/env token)]
+                   (when-not (str/blank? value)
+                     [value (str "<" token ":redacted>")])))))))
+
+(defn- redact-threaded-config [opts result]
+  (let [redactions (threaded-env-redactions opts result)]
+    (update result :config
+            #(walk/postwalk (fn [value]
+                              (if (string? value)
+                                (reduce (fn [text [secret marker]] (str/replace text secret marker))
+                                        value
+                                        redactions)
+                                value))
+                            %))))
+
 (defn printable-config [opts reveal?]
-  (if-let [cfg (when-not reveal? (threaded-config opts))]
-    {:config cfg :errors [] :warnings [] :sources []}
+  (if (and (not reveal?) (threaded-config opts))
+    (redact-threaded-config opts (load-result opts))
     (let [raw      (load-raw-result opts)
           resolved (assoc raw :config (resolve-env-values (:config raw)))]
       (if reveal?

@@ -2,7 +2,9 @@
   (:require
     [isaac.cli.color :as color]
     [isaac.config.cli.common :as sut]
+    [isaac.config.env :as env]
     [isaac.config.loader :as loader]
+    [isaac.fs :as fs]
     [isaac.marigold :as marigold]
     [speclj.core :refer :all]))
 
@@ -47,9 +49,24 @@
                  (:errors (sut/load-result {:config (:config load-result)
                                            :load-result load-result})))))
 
-    (it "printable-config reuses a non-empty :config from opts"
-      (let [cfg {:defaults {:crew :main}}]
-        (should= cfg (:config (sut/printable-config {:config cfg} false)))))
+    (it "printable-config redacts threaded secrets without resolving config again"
+      (let [mem      (fs/mem-fs)
+            root     "/x"
+            source   "config/isaac.edn"
+            threaded {:providers {:anthropic {:api-key "sk-test-123"}}}
+            result   {:config threaded :errors [] :warnings [] :sources [source]}]
+        (fs/mkdirs mem (str root "/config"))
+        (fs/spit mem (str root "/" source)
+                 "{:providers {:anthropic {:api-key \"${CONFIG_TEST_API_KEY}\"}}}")
+        (with-redefs [env/env (fn [token] (when (= "CONFIG_TEST_API_KEY" token) "sk-test-123"))
+                      loader/load-config-result (fn [_] (throw (ex-info "unexpected reload" {})))]
+          (should= "<CONFIG_TEST_API_KEY:redacted>"
+                   (get-in (sut/printable-config {:config      threaded
+                                                  :fs          mem
+                                                  :load-result result
+                                                  :root        root}
+                                                 false)
+                           [:config :providers :anthropic :api-key])))))
 
     (it "printable-config loads when :config is empty so a missing-config launch still reads disk"
       (let [calls (atom 0)
