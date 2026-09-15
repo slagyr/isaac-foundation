@@ -80,3 +80,20 @@ Feature: The CLI resolves the config once per command
     And the isaac file "cache/cli.edn" EDN contains:
       | path        | value |
       | data.config |       |
+
+  @wip
+  Scenario: launcher-backed config get still redacts ${VAR} values
+    Given an empty Isaac root at "target/test-config-get-redact"
+    And the isaac file ".env" exists with:
+      """
+      CONFIG_TEST_API_KEY=sk-test-123
+      """
+    And the isaac file "config/isaac.edn" exists with:
+      """
+      {:defaults {:crew "main"}
+       :providers {:anthropic {:api-key "${CONFIG_TEST_API_KEY}"}}}
+      """
+    When the isaac launcher is run with "config get providers.anthropic.api-key"
+    Then the exit code is 0
+    And the stdout contains "<CONFIG_TEST_API_KEY:redacted>"
+    And the stdout does not contain "sk-test-123"
