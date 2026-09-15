@@ -1,6 +1,7 @@
 (ns isaac.config.mutate-spec
   (:require
     [clojure.edn :as edn]
+    [isaac.config.loader :as loader]
     [isaac.config.marigold :as config-marigold]
     [isaac.config.mutate :as sut]
     [isaac.fs :as fs]
@@ -104,6 +105,22 @@
         (should= :invalid (:status result))
         (should (seq (:errors result)))
         (should-not-contain test-berth-id (:berths (read-edn "isaac.edn")))))
+
+    (it "compares staged errors against a cold current load instead of a warm cache hit"
+      (config-marigold/write-baseline!)
+      (let [staged-error {:key "signals[:discord].kind" :value "must be a registered contribution"}
+            calls        (atom [])]
+        (with-redefs [loader/load-config-result
+                      (fn [opts]
+                        (swap! calls conj opts)
+                        (if (or (:skip-cache? opts) (:fs opts))
+                          {:config {} :errors [staged-error] :warnings []}
+                          {:config {} :errors [] :warnings []}))]
+          (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :helm-mark-iii)]
+            (should= :ok (:status result))
+            (should (:skip-cache? (first @calls)))
+            (should-contain (assoc staged-error :value "pre-existing: must be a registered contribution")
+                            (:warnings result))))))
 
     (it "warns on an unknown key but still writes"
       (config-marigold/write-baseline!)

@@ -349,7 +349,7 @@
        :warnings []}
 
        :else
-       (let [current        (loader/load-config-result {:root root})
+       (let [current        (loader/load-config-result {:root root :skip-cache? true})
              pre-errors     (or (:errors current) [])
              state          (config-state root parsed)
              plan           (set-plan parsed state value)
@@ -382,7 +382,7 @@
       {:status (:status parsed) :file nil :errors [] :warnings []}
 
       :else
-      (let [current    (loader/load-config-result {:root root})
+      (let [current    (loader/load-config-result {:root root :skip-cache? true})
             pre-errors (or (:errors current) [])
             state      (config-state root parsed)
             plan       (unset-plan parsed state)]

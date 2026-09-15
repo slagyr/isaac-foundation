@@ -19,6 +19,7 @@
     [isaac.config.warnings :as warnings]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.schema.lexicon :as lexicon]
+    [isaac.startup.config-cache :as config-cache]
     [isaac.config.validation :as validation]
     [isaac.config.validation-lexicon :as vlex]
     [isaac.fs :as fs]
@@ -232,6 +233,13 @@
             (let [result (#'sut/load-root-config root {:substitute-env? true})]
               (should= {:berths {:main {}}} (:data result))
               (should= [] (:errors result)))))))
+
+    (it "skips a warm startup snapshot when requested"
+      (let [mem (fs/mem-fs)]
+        (with-redefs [config-cache/read-pre-sub (fn [& _] {:config {:watch {:berth "cached"}}})]
+          (nexus/-with-nexus {:fs mem}
+            (let [result (sut/load-config-result {:root marigold/root :fs mem :skip-cache? true})]
+              (should-not= "cached" (get-in result [:config :watch :berth])))))))
 
     (it "loads config from an explicit fs option without installing runtime fs"
       (let [mem  (fs/mem-fs)

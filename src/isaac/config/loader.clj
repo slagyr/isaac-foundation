@@ -190,7 +190,8 @@
            (throw e)))))
 
 (defn- overlays? [opts]
-  (or (:skip-entity-files? opts)
+  (or (:skip-cache? opts)
+      (:skip-entity-files? opts)
       (:data-path-overlay opts)
       (:overlay-content opts)
       (:overlay-path opts)
@@ -216,6 +217,9 @@
       (catch Exception _ nil))))
 
 (defn load-config-result
+  "Load and validate configuration. Set `:skip-cache? true` when the caller
+   must compare directly against the current filesystem rather than a warm
+   startup snapshot (for example, before validating a staged mutation)."
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
        :as   opts}]]
