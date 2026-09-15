@@ -39,7 +39,7 @@ Feature: CLI startup caching
     Then the exit code is 0
     And the classpath plan spy was invoked exactly 0 times
 
-  Scenario: a warm config hit retains module discovery for module-provided config types
+  Scenario: a second config validate still discovers module-provided types
     Given an empty Isaac root at "target/test-startup-cache"
     And the isaac file "isaac.edn" exists with:
       """
