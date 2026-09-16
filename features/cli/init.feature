@@ -6,7 +6,7 @@ Feature: isaac init
 
   Scaffolded files (at <home>/config/):
     - isaac.edn         :defaults, :tz, :prefer-entity-files true
-    - crew/main.md      YAML frontmatter + starter soul
+    - crew/skipper.md   YAML frontmatter + starter soul
     - models/llama.edn  Ollama model reference
     - providers/ollama.edn  local Ollama provider
     - cron/heartbeat.md     YAML frontmatter + heartbeat prompt
@@ -14,6 +14,7 @@ Feature: isaac init
   Background:
     Given the user home directory is "/tmp/user"
 
+  @wip
   Scenario: isaac init output lists created files and setup instructions
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"
@@ -24,7 +25,7 @@ Feature: isaac init
       |                                                  |
       | Created:                                         |
       |   config/isaac.edn                               |
-      |   config/crew/main.md                            |
+      |   config/crew/skipper.md                         |
       |   config/models/llama.edn                        |
       |   config/providers/ollama.edn                    |
       |   config/cron/heartbeat.md                       |
@@ -39,22 +40,23 @@ Feature: isaac init
       |                                                  |
       |   isaac prompt -m "hello"                        |
 
+  @wip
   Scenario: isaac init scaffolds each file with the expected content
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"
     Then the isaac file "config/isaac.edn" EDN contains:
       | path                 | value           |
-      | defaults.crew        | main            |
+      | defaults.crew        | skipper         |
       | defaults.model       | llama           |
       | tz                   | America/Chicago |
       | prefer-entity-files  | true            |
-    And the isaac file "config/crew/main.md" contains:
+    And the isaac file "config/crew/skipper.md" contains:
       """
       ---
       model: "llama"
       ---
 
-      You are Isaac, a helpful AI assistant.
+      You are Skipper. Keep the ship on course.
       """
     And the isaac file "config/models/llama.edn" EDN contains:
       | path     | value    |
@@ -68,7 +70,7 @@ Feature: isaac init
       """
       ---
       expr: "*/30 * * * *"
-      crew: "main"
+      crew: "skipper"
       ---
 
       Heartbeat. Anything worth noting?
