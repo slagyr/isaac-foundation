@@ -126,23 +126,23 @@
 
 (defn- created-files []
   ["config/isaac.edn"
-   "config/crew/main.md"
+   "config/crew/skipper.md"
    "config/models/llama.edn"
    "config/providers/ollama.edn"
    "config/cron/heartbeat.md"])
 
 (defn- scaffold! [root fs*]
   (write-edn! fs* (paths/config-path root "isaac.edn")
-               {:defaults            {:crew :main :model :llama}
+               {:defaults            {:crew :skipper :model :llama}
                 :tz                  "America/Chicago"
                 :prefer-entity-files true})
-  (write-markdown-entity! fs* (paths/config-path root "crew/main.md")
+  (write-markdown-entity! fs* (paths/config-path root "crew/skipper.md")
                            {:model :llama}
-                           "You are Isaac, a helpful AI assistant.")
+                           "You are Skipper. Keep the ship on course.")
   (write-edn! fs* (paths/config-path root "models/llama.edn") {:model "llama3.2" :provider :ollama})
   (write-edn! fs* (paths/config-path root "providers/ollama.edn") {:base-url "http://localhost:11434" :api :ollama})
   (write-markdown-entity! fs* (paths/config-path root "cron/heartbeat.md")
-                           {:expr "*/30 * * * *" :crew :main}
+                           {:expr "*/30 * * * *" :crew :skipper}
                            "Heartbeat. Anything worth noting?"))
 
 (defn- print-success! [display-root]

@@ -14,7 +14,6 @@ Feature: isaac init
   Background:
     Given the user home directory is "/tmp/user"
 
-  @wip
   Scenario: isaac init output lists created files and setup instructions
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"
@@ -40,7 +39,6 @@ Feature: isaac init
       |                                                  |
       |   isaac prompt -m "hello"                        |
 
-  @wip
   Scenario: isaac init scaffolds each file with the expected content
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"

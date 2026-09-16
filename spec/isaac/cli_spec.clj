@@ -204,22 +204,22 @@
 
   (it "scaffolds the default config files in a fresh root"
     (should= 0 (sut/init-run {:root test-home}))
-    (should= {:defaults {:crew :main :model :llama}
+    (should= {:defaults {:crew :skipper :model :llama}
                :tz "America/Chicago"
                :prefer-entity-files true}
               (slurp-edn (str test-home "/config/isaac.edn")))
     (should= (str "---\n"
                   "model: \"llama\"\n"
                   "---\n\n"
-                  "You are Isaac, a helpful AI assistant.")
-             (fs/slurp (fs/instance) (str test-home "/config/crew/main.md")))
+                  "You are Skipper. Keep the ship on course.")
+             (fs/slurp (fs/instance) (str test-home "/config/crew/skipper.md")))
     (should= {:model "llama3.2" :provider :ollama}
              (slurp-edn (str test-home "/config/models/llama.edn")))
     (should= {:base-url "http://localhost:11434" :api :ollama}
               (slurp-edn (str test-home "/config/providers/ollama.edn")))
     (should= (str "---\n"
                   "expr: \"*/30 * * * *\"\n"
-                  "crew: \"main\"\n"
+                  "crew: \"skipper\"\n"
                   "---\n\n"
                   "Heartbeat. Anything worth noting?")
              (fs/slurp (fs/instance) (str test-home "/config/cron/heartbeat.md"))))
@@ -229,7 +229,7 @@
     (should= (str "Isaac initialized at " test-home ".\n\n"
                   "Created:\n"
                   "  config/isaac.edn\n"
-                  "  config/crew/main.md\n"
+                  "  config/crew/skipper.md\n"
                   "  config/models/llama.edn\n"
                   "  config/providers/ollama.edn\n"
                   "  config/cron/heartbeat.md\n\n"
@@ -261,7 +261,7 @@
   (it "accepts an explicit fs via opts"
     (let [mem (fs/mem-fs)]
       (should= 0 (sut/init-run {:root test-home :fs mem}))
-      (should= {:defaults {:crew :main :model :llama}
+      (should= {:defaults {:crew :skipper :model :llama}
                 :tz "America/Chicago"
                 :prefer-entity-files true}
                (edn/read-string (fs/slurp mem (str test-home "/config/isaac.edn")))))))
