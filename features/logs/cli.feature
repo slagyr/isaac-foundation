@@ -155,3 +155,51 @@ Feature: isaac logs — colorized log tail
     Then the stdout contains "{:ts \"2026-05-12T15:24:51Z\", :level :info, :event :foo, :port 8080}"
     And the stdout contains "not edn at all"
     And the stdout does not contain "["
+
+  @wip
+  Scenario: --level shows that severity and above (isaac-1hs0)
+    Given a file "app.log" exists with content:
+      """
+      {:ts "2026-05-12T15:24:51Z", :level :info,  :event :a}
+      {:ts "2026-05-12T15:24:52Z", :level :error, :event :b}
+      {:ts "2026-05-12T15:24:53Z", :level :warn,  :event :c}
+      {:ts "2026-05-12T15:24:54Z", :level :debug, :event :d}
+      """
+    When isaac is run with "logs --file app.log --no-color --level warn"
+    Then the stdout contains ":b"
+    And the stdout contains ":c"
+    And the stdout does not contain ":a"
+    And the stdout does not contain ":d"
+
+  @wip
+  Scenario: --level debug shows everything (isaac-1hs0)
+    Given a file "app.log" exists with content:
+      """
+      {:ts "2026-05-12T15:24:51Z", :level :info,  :event :a}
+      {:ts "2026-05-12T15:24:54Z", :level :debug, :event :d}
+      """
+    When isaac is run with "logs --file app.log --no-color --level debug"
+    Then the stdout contains ":a"
+    And the stdout contains ":d"
+
+  @wip
+  Scenario: an unknown level is more verbose than debug and is hidden above it (isaac-1hs0)
+    Given a file "app.log" exists with content:
+      """
+      {:ts "2026-05-12T15:24:51Z", :level :info,  :event :a}
+      {:ts "2026-05-12T15:24:55Z", :level :trace, :event :e}
+      """
+    When isaac is run with "logs --file app.log --no-color --level info"
+    Then the stdout contains ":a"
+    And the stdout does not contain ":e"
+
+  @wip
+  Scenario: --plain bypasses level filtering (isaac-1hs0)
+    Given a file "app.log" exists with content:
+      """
+      {:ts "2026-05-12T15:24:51Z", :level :info,  :event :a}
+      {:ts "2026-05-12T15:24:54Z", :level :debug, :event :d}
+      """
+    When isaac is run with "logs --file app.log --plain --level error"
+    Then the stdout contains ":a"
+    And the stdout contains ":d"
