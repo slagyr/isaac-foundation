@@ -53,7 +53,7 @@
   (let [root-dir (root/default-root opts)
         fs*      (or (:fs opts) (nexus/get :fs) (fs/real-fs))
         dev?     (boolean (:dev opts))]
-    (log-output/apply-server! root-dir config)
+    (log-output/apply-server! root-dir config :log-level (:log-level opts))
     (when logs
       (start-log-tail! (log-file/server-log-path root-dir) root-dir opts))
     (let [started (runner/start! {:config config

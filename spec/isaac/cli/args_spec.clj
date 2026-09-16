@@ -6,17 +6,29 @@
 (describe "cli args"
 
   (it "extract-root-flag strips --root <dir>"
-    (should= {:args ["chat"] :root "/tmp/flag" :log-file nil}
+    (should= {:args ["chat"] :root "/tmp/flag" :log-file nil :log-level nil}
              (sut/extract-root-flag ["--root" "/tmp/flag" "chat"])))
 
   (it "extract-root-flag strips --root=<dir>"
-    (should= {:args ["chat"] :root "/tmp/flag" :log-file nil}
+    (should= {:args ["chat"] :root "/tmp/flag" :log-file nil :log-level nil}
              (sut/extract-root-flag ["--root=/tmp/flag" "chat"])))
 
   (it "extract-root-flag strips --log-file <path>"
-    (should= {:args ["version"] :root nil :log-file "logs/cmd.log"}
+    (should= {:args ["version"] :root nil :log-file "logs/cmd.log" :log-level nil}
              (sut/extract-root-flag ["--log-file" "logs/cmd.log" "version"])))
 
+  (it "extract-root-flag strips --log-level <level>"
+    (should= {:args ["version"] :root nil :log-file nil :log-level :info}
+             (sut/extract-root-flag ["--log-level" "info" "version"])))
+
+  (it "extract-root-flag strips --log-level=<level>"
+    (should= {:args ["version"] :root nil :log-file nil :log-level :warn}
+             (sut/extract-root-flag ["--log-level=warn" "version"])))
+
+  (it "extract-root-flag explicitly ignores an unknown log level"
+    (should= {:args ["version"] :root nil :log-file nil :log-level nil}
+             (sut/extract-root-flag ["--log-level" "trace" "version"])))
+
   (it "extract-root-flag leaves args unchanged when --root absent"
-    (should= {:args ["chat" "--agent" "bot"] :root nil :log-file nil}
+    (should= {:args ["chat" "--agent" "bot"] :root nil :log-file nil :log-level nil}
              (sut/extract-root-flag ["chat" "--agent" "bot"]))))

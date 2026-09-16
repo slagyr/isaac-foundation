@@ -63,6 +63,18 @@
                   isaac.log.output/apply-server!  (fn [& _] nil)]
       (with-out-str (runner-cli/run {:dev false :port "7001"})))
     (should-not (some #(= :server/dev-mode-enabled (:event %)) @log/captured-logs)))
+
+  (it "applies the global log level override when starting the server"
+    (let [applied (atom nil)]
+      (with-redefs [runner/start!                  (fn [_] {})
+                    runner-cli/block!              (fn [] nil)
+                    isaac.log.output/apply-server! (fn [root config & {:keys [log-level]}]
+                                                     (reset! applied [root config log-level]))]
+        (with-out-str (runner-cli/run {:root "/srv"
+                                       :config {:logging {:level :warn}}
+                                       :log-level :error
+                                       :port "7001"})))
+      (should= ["/srv" {:logging {:level :warn}} :error] @applied)))
   )
 
 (describe "Main CLI"
@@ -204,6 +216,7 @@
         (should-contain "Global Options:" output)
         (should-contain "--root <dir>       Isaac root directory (default: ~/.isaac)" output)
         (should-contain "--log-file <path>  Append structured logs to this file (optional)" output)
+        (should-contain "--log-level <level> Structured log threshold: report, error, warn, info, or debug" output)
         (should-not-contain "May also be set" output)
         (should-not-contain "~/.config/isaac.edn" output)
         (should-contain "--help, -h" output)
@@ -236,6 +249,20 @@
         (sut/run ["raw-test" "--agent" "x" "extra"])
         (should= ["--agent" "x" "extra"] (:_raw-args @received))))
 
+    (it "includes the global log level override"
+      (let [received (atom nil)]
+        (registry/register! {:name   "log-level-test"
+                             :desc   "Test"
+                             :usage  "log-level-test"
+                             :option-spec []
+                             :run-fn (fn [opts] (reset! received opts) 0)})
+        (try
+          (sut/run ["--log-level" "info" "log-level-test"])
+          (should= :info (:log-level @received))
+          (should= [] (:_raw-args @received))
+          (finally
+            (log/set-level! :debug)))))
+
     (it "includes bound extra opts"
       (let [received (atom nil)]
         (registry/register! {:name        "extra-test"
@@ -253,9 +280,11 @@
       (let [mem (fs/mem-fs)]
         (nexus/-with-nested-nexus {:fs mem}
           (lfile/clear-sink-config!)
+          (log/set-level! :debug)
           (log/set-output! :stderr)
           (log/set-log-file! nil)
           (it)
+          (log/set-level! :debug)
           (log/set-output! :stderr)
           (log/set-log-file! nil)
           (lfile/clear-sink-config!))))
@@ -271,6 +300,15 @@
       (@#'sut/configure-cli-logging! "/tmp/isaac-cli-root" (nexus/get :fs) "custom/cmd.log")
       (should= :file (log/output))
       (should= "/tmp/isaac-cli-root/custom/cmd.log" (log/log-file)))
+
+    (it "lets an explicit log level override user config"
+      (let [root "/tmp/isaac-cli-root"
+            fs*  (nexus/get :fs)]
+        (fs/mkdirs fs* (str root "/config"))
+        (fs/spit fs* (str root "/config/isaac.edn")
+                 "{:logging {:level :warn}}")
+        (@#'sut/configure-cli-logging! root fs* nil :info {})
+        (should= :info (log/level))))
 
     (it "honors ISAAC_LOG_FILE when no --log-file is passed"
       (with-redefs [env/env (fn [v] (when (= v "ISAAC_LOG_FILE") "env/cmd.log"))]

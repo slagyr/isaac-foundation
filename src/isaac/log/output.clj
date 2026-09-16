@@ -6,18 +6,26 @@
 (def default-output :file)
 
 (def valid-outputs #{:file :stderr :stdout :none})
+(def valid-levels #{:report :error :warn :info :debug})
 
 (defn- normalize-output [output]
   (if (valid-outputs output) output default-output))
 
-(defn output-from-config
-  ([config]
-   (normalize-output (get-in config [:logging :output] default-output))))
+(defn output-from-config [config]
+  (normalize-output (get-in config [:logging :output] default-output)))
+
+(defn level-from-config [config]
+  (let [level (get-in config [:logging :level] :debug)]
+    (if (valid-levels level) level :debug)))
+
+(defn- apply-level! [config override]
+  (log/set-level! (if (valid-levels override) override (level-from-config config))))
 
 (defn apply-cli!
   "Configure CLI logging from config and optional overrides.
    --log-file / ISAAC_LOG_FILE always force :file; harness :memory is left alone."
-  [root config & {:keys [log-file-path env-log-file]}]
+  [root config & {:keys [log-file-path env-log-file log-level]}]
+  (apply-level! config log-level)
   (cond
     (or log-file-path env-log-file)
     (let [path (or log-file-path env-log-file)
@@ -47,7 +55,8 @@
    production. Under :memory any sink left by an earlier boot in the same
    process is dropped so a memory-mode boot never inherits a file. (Supersedes
    the isaac-3692 \"memory and file\" behaviour; see isaac-zqyw.)"
-  [root config]
+  [root config & {:keys [log-level]}]
+  (apply-level! config log-level)
   (let [explicit? (some? (get-in config [:logging :output]))]
     (if (and (= :memory (log/output)) (not explicit?))
       (lfile/clear-sink-config!)

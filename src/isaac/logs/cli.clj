@@ -18,7 +18,10 @@
     :parse-fn #(Long/parseLong %)]
    [nil  "--no-color" "Disable color output"]
    [nil  "--zebra" "Enable alternating row background"]
-   [nil  "--plain" "Raw passthrough — no parsing, color, or zebra"]
+   [nil  "--plain" "Raw passthrough — no parsing, color, zebra, or level filtering"]
+   [nil  "--level LEVEL" "Show this severity and above"
+    :validate [#(contains? #{"report" "error" "warn" "info" "debug"} %)
+               "must be report, error, warn, info, or debug"]]
    ["-h" "--help" "Show help"]])
 
 (defn- resolve-path [file root]
@@ -28,12 +31,13 @@
     (and root (seq root))       (str root "/" file)
     :else                       file))
 
-(defn- tail-path! [path {:keys [follow limit no-color zebra plain]}]
+(defn- tail-path! [path {:keys [follow level limit no-color zebra plain]}]
   (viewer/tail! path
                 {:color?  (not no-color)
                  :zebra?  (boolean zebra)
                  :follow? (boolean follow)
                  :plain?  (boolean plain)
+                 :level   (some-> level keyword)
                  :limit   limit}))
 
 (defn- list-streams! [registry]

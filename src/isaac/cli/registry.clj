@@ -39,6 +39,7 @@
           "Global Options:\n"
           "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
           "  --log-file <path>  Append structured logs to this file (optional)\n"
+          "  --log-level <level> Structured log threshold: report, error, warn, info, or debug\n"
           "  --help, -h         Show this message\n\n"
           "Commands:\n"
           (str/join "\n" (map (fn [cmd]

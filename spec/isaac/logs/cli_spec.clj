@@ -51,9 +51,10 @@
                     :limit     5
                     :zebra     true
                     :plain     true
+                    :level     "warn"
                     :no-color  true})
           (should= [(str test-root "/" config-log)
-                    {:color? false :zebra? true :follow? true :plain? true :limit 5}]
+                    {:color? false :zebra? true :follow? true :plain? true :level :warn :limit 5}]
                    @captured))))
 
     (it "tails the named stream's file from the registry"
@@ -62,7 +63,7 @@
         (with-redefs [viewer/tail! (fn [path opts] (reset! captured [path opts]))]
           (sut/run {:arguments ["server"] :root test-root :limit 20})
           (should= [(str test-root "/logs/server.log")
-                    {:color? true :zebra? false :follow? false :plain? false :limit 20}]
+                    {:color? true :zebra? false :follow? false :plain? false :level nil :limit 20}]
                    @captured))))
 
     (it "lists the registered streams when no name and no file are given"

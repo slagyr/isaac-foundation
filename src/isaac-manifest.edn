@@ -74,7 +74,10 @@
   :logging
   {:schema
    {:type   :map
-    :schema {:output    {:type        :keyword
+    :schema {:level     {:type        :keyword
+                         :description "Structured log threshold: :report, :error, :warn, :info, or :debug (default)."
+                         :validations [[:maybe? [:one-of :report :error :warn :info :debug]]]}
+             :output    {:type        :keyword
                          :description "Log destination: :file (default), :stderr, :stdout, or :none. Server :file uses logs/server.log; CLI :file uses logs/cli.log."
                          :validations [[:maybe? [:one-of :file :stderr :stdout :none]]]}
              :max-bytes {:type        :int

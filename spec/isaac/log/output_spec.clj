@@ -14,10 +14,12 @@
       (it)))
 
   (before (lfile/clear-sink-config!)
+          (log/set-level! :debug)
           (log/set-output! :stderr)
           (log/set-log-file! nil))
 
   (after (lfile/clear-sink-config!)
+         (log/set-level! :debug)
          (log/set-output! :stderr)
          (log/set-log-file! nil))
 
@@ -29,6 +31,15 @@
 
   (it "falls back to :file for unknown output values"
     (should= :file (sut/output-from-config {:logging {:output :syslog}})))
+
+  (it "defaults the log level to :debug"
+    (should= :debug (sut/level-from-config {})))
+
+  (it "reads :logging.level from config"
+    (should= :info (sut/level-from-config {:logging {:level :info}})))
+
+  (it "falls back to :debug for unknown log levels"
+    (should= :debug (sut/level-from-config {:logging {:level :trace}})))
 
   (describe "apply-server!"
 
@@ -43,6 +54,14 @@
         (sut/apply-server! root {:logging {:output :stdout}})
         (should= :stdout (log/output))
         (should-not (lfile/server-sink?))))
+
+    (it "applies the configured server log level"
+      (sut/apply-server! "/srv" {:logging {:level :warn}})
+      (should= :warn (log/level)))
+
+    (it "lets the explicit server log level override config"
+      (sut/apply-server! "/srv" {:logging {:level :warn}} :log-level :error)
+      (should= :error (log/level)))
 
     (it "preserves :memory output and binds no server sink"
       (log/set-output! :memory)
@@ -73,4 +92,12 @@
     (it "honors :logging.output without configuring a file sink"
       (sut/apply-cli! "/cli-root" {:logging {:output :stderr}})
       (should= :stderr (log/output))
-      (should-be-nil (log/log-file))))
+      (should-be-nil (log/log-file)))
+
+    (it "applies the configured CLI log level"
+      (sut/apply-cli! "/cli-root" {:logging {:level :info}})
+      (should= :info (log/level)))
+
+    (it "lets the explicit CLI log level override config"
+      (sut/apply-cli! "/cli-root" {:logging {:level :info}} :log-level :error)
+      (should= :error (log/level))))

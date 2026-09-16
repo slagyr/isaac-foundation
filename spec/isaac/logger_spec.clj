@@ -3,6 +3,7 @@
     [clojure.edn :as edn]
     [clojure.string :as str]
     [isaac.log.file :as lfile]
+    [isaac.log.output :as log-output]
     [isaac.logger :as sut]
     [isaac.fs :as fs]
     [isaac.nexus :as nexus]
@@ -164,6 +165,11 @@
   ;; region ----- Level Filtering -----
 
   (describe "level filtering"
+
+    (it "honors a level configured through the logging output path"
+      (log-output/apply-cli! "/tmp/isaac-test" {:logging {:level :warn}})
+      (should (sut/enabled? :warn))
+      (should-not (sut/enabled? :info)))
 
     (it "logs entries at or above the configured level"
       (sut/set-level! :warn)

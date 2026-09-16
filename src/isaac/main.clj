@@ -81,12 +81,13 @@
 
 (defn- configure-cli-logging!
   ([root fs* log-file-path]
-   (configure-cli-logging! root fs* log-file-path {}))
-  ([root fs* log-file-path extra-opts]
+   (configure-cli-logging! root fs* log-file-path nil {}))
+  ([root fs* log-file-path log-level extra-opts]
    (let [config (or (read-user-config root fs* extra-opts) {})]
      (log-output/apply-cli! root config
-                            {:log-file-path log-file-path
-                             :env-log-file  (env-log-file)}))))
+                            :log-file-path log-file-path
+                            :env-log-file (env-log-file)
+                            :log-level log-level))))
 
 (defn- resolve-alias
   "Resolve command aliases. 'models auth ...' → 'auth ...', 'gateway ...' → 'server ...'"
@@ -104,7 +105,7 @@
   "Run the CLI. Returns exit code."
   [args]
   (config-api/clear-process-memo!)
-  (let [{after-root :args :keys [root log-file]} (cli-args/extract-root-flag args)
+  (let [{after-root :args :keys [root log-file log-level]} (cli-args/extract-root-flag args)
         args          (resolve-alias after-root)
         cmd           (first args)
         opts          (rest args)
@@ -136,7 +137,7 @@
                pairs        (:pairs compose)]
           (if (and cache-fresh? fast-cmd?)
             (do
-              (configure-cli-logging! resolved-root fs* log-file extra-opts)
+              (configure-cli-logging! resolved-root fs* log-file log-level extra-opts)
               (if (contains? #{"--version" "-V" "version"} cmd)
                 (do (println (version/version-string)) 0)
                 (do (println (registry/usage-text
@@ -146,7 +147,7 @@
               (binding [classpath/*skip-preload-planned?* (boolean pairs)
                          classpath/*planned-classpath-pairs* pairs]
                  (register-module-cli-commands! resolved-root fs* cmd extra-opts))
-              (configure-cli-logging! resolved-root fs* log-file extra-opts)
+              (configure-cli-logging! resolved-root fs* log-file log-level extra-opts)
               (when (and (not= "modules" cmd)
                          (or (not cache-fresh?) (not (:from-cache? compose))))
                 (startup-cp/write-classpath-cache!
@@ -167,6 +168,7 @@
               (nexus/init! {:fs fs* :root resolved-root})
               (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
                                                         :root         resolved-root
+                                                        :log-level    log-level
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
               (println (registry/usage-text))

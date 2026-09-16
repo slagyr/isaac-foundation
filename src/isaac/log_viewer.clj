@@ -150,8 +150,23 @@
 (defn tty? []
   (color/tty?))
 
-(defn- print-line! [line row {:keys [color? zebra? plain?]}]
-  (when (and line (not (str/blank? line)))
+(def ^:private level-ranks {:report 0 :error 1 :warn 2 :info 3 :debug 4})
+
+(defn- line-level [line]
+  (try
+    (let [entry (edn/read-string {:default tagged-literal} (str/trim (or line "")))]
+      (when (map? entry) (:level entry)))
+    (catch Exception _ nil)))
+
+(defn- visible-level? [line level]
+  (let [entry-rank (get level-ranks (line-level line) Long/MAX_VALUE)
+        limit-rank (get level-ranks level (get level-ranks :debug))]
+    (<= entry-rank limit-rank)))
+
+(defn- print-line! [line row {:keys [color? zebra? plain? level]}]
+  (when (and line
+             (not (str/blank? line))
+             (or plain? (nil? level) (visible-level? line level)))
     (let [out (if plain? line (format-line line color?))]
       (when out
         (println (if (and zebra? color? (odd? row))
@@ -186,13 +201,19 @@
               (recur (dec pointer) line lines))
             (recur (dec pointer) (.insert line 0 (char ch)) lines)))))))
 
-(defn- read-initial-lines [^java.io.RandomAccessFile raf limit]
-  (let [lines (if (and limit (pos? limit))
-                (read-last-n-lines raf limit)
-                (loop [acc []]
-                  (if-let [line (.readLine raf)]
-                    (recur (conj acc line))
-                    acc)))]
+(defn- read-all-lines [^java.io.RandomAccessFile raf]
+  (loop [acc []]
+    (if-let [line (.readLine raf)]
+      (recur (conj acc line))
+      acc)))
+
+(defn- read-initial-lines [^java.io.RandomAccessFile raf limit level plain?]
+  (let [filter? (and level (not plain?))
+        lines   (cond
+                  filter? (let [visible (filterv #(visible-level? % level) (read-all-lines raf))]
+                            (if (and limit (pos? limit)) (vec (take-last limit visible)) visible))
+                  (and limit (pos? limit)) (read-last-n-lines raf limit)
+                  :else (read-all-lines raf))]
     (.seek raf (.length raf))
     lines))
 
@@ -249,18 +270,19 @@
           (recur raf key))))))
 
 (defn- tail-open-file!
-  [path {:keys [color? follow? zebra? plain? limit]
+  [path {:keys [color? follow? zebra? plain? level limit]
          :or   {color? false follow? false zebra? false plain? false}}]
   (let [opts {:color? (and color? (not plain?))
               :zebra? (and zebra? (not plain?))
-              :plain? plain?}
+              :plain? plain?
+              :level  level}
         row  (atom 0)
         emit (fn [line]
                (when (print-line! line @row opts)
                  (swap! row inc)))]
     (let [raf (java.io.RandomAccessFile. path "r")]
       (try
-        (doseq [line (read-initial-lines raf limit)]
+        (doseq [line (read-initial-lines raf limit level plain?)]
           (emit line))
         (when follow?
           (follow-tail! path emit (file-key path) raf))
@@ -273,7 +295,8 @@
      :color?  (bool, default false)
      :follow? (bool, default false) — watch file for new lines; never returns
      :zebra?  (bool, default false)
-     :plain?  (bool, default false) — raw passthrough, no parsing/coloring/zebra
+     :plain?  (bool, default false) — raw passthrough, no parsing/coloring/zebra/filtering
+     :level   (keyword, default nil) — show this severity and above
      :limit   (int, default nil)    — show only the last N lines (nil/0/neg = all)"
   [path {:keys [follow?] :as opts :or {follow? false}}]
   (let [file (java.io.File. path)]

@@ -156,7 +156,6 @@ Feature: isaac logs — colorized log tail
     And the stdout contains "not edn at all"
     And the stdout does not contain "["
 
-  @wip
   Scenario: --level shows that severity and above (isaac-1hs0)
     Given a file "app.log" exists with content:
       """
@@ -171,7 +170,6 @@ Feature: isaac logs — colorized log tail
     And the stdout does not contain ":a"
     And the stdout does not contain ":d"
 
-  @wip
   Scenario: --level debug shows everything (isaac-1hs0)
     Given a file "app.log" exists with content:
       """
@@ -182,7 +180,6 @@ Feature: isaac logs — colorized log tail
     Then the stdout contains ":a"
     And the stdout contains ":d"
 
-  @wip
   Scenario: an unknown level is more verbose than debug and is hidden above it (isaac-1hs0)
     Given a file "app.log" exists with content:
       """
@@ -193,7 +190,6 @@ Feature: isaac logs — colorized log tail
     Then the stdout contains ":a"
     And the stdout does not contain ":e"
 
-  @wip
   Scenario: --plain bypasses level filtering (isaac-1hs0)
     Given a file "app.log" exists with content:
       """

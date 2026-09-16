@@ -251,14 +251,46 @@
             (should (str/includes? result ":e03")))
           (finally (.delete f)))))
 
-    (it "in plain mode echoes original lines verbatim with no parsing"
+    (it "filters formatted entries at or above the requested level"
+      (let [f (java.io.File/createTempFile "test-log" ".log")]
+        (try
+          (spit (.getAbsolutePath f)
+                (str "{:level :error :event :err}\n"
+                     "{:level :warn :event :wrn}\n"
+                     "{:level :info :event :inf}\n"
+                     "{:level :debug :event :dbg}\n"
+                     "{:level :trace :event :foreign}\n"))
+          (let [result (with-out-str
+                         (sut/tail! (.getAbsolutePath f) {:color? false :level :warn :limit 0}))]
+            (should (str/includes? result ":err"))
+            (should (str/includes? result ":wrn"))
+            (should-not (str/includes? result ":inf"))
+            (should-not (str/includes? result ":dbg"))
+            (should-not (str/includes? result ":foreign")))
+          (finally (.delete f)))))
+
+    (it "applies limit after level filtering"
+      (let [f (java.io.File/createTempFile "test-log" ".log")]
+        (try
+          (spit (.getAbsolutePath f)
+                (str "{:level :warn :event :old}\n"
+                     "{:level :debug :event :noise}\n"
+                     "{:level :error :event :new}\n"))
+          (let [result (with-out-str
+                         (sut/tail! (.getAbsolutePath f) {:color? false :level :warn :limit 2}))]
+            (should (str/includes? result ":old"))
+            (should (str/includes? result ":new"))
+            (should-not (str/includes? result ":noise")))
+          (finally (.delete f)))))
+
+    (it "in plain mode echoes original lines verbatim with no parsing or filtering"
       (let [f (java.io.File/createTempFile "test-log" ".log")]
         (try
           (spit (.getAbsolutePath f)
                 (str "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :foo :port 8080}\n"
                      "not edn at all\n"))
           (let [result (with-out-str
-                         (sut/tail! (.getAbsolutePath f) {:color? true :follow? false :zebra? true :plain? true}))]
+                         (sut/tail! (.getAbsolutePath f) {:color? true :follow? false :zebra? true :plain? true :level :error}))]
             (should (str/includes? result "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :foo :port 8080}"))
             (should (str/includes? result "not edn at all"))
             (should-not (str/includes? result "\033[")))
