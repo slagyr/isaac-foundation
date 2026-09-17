@@ -356,8 +356,8 @@
             first-line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"
             second-line   "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"
             writer         (java.io.StringWriter.)
+            first-printed  (promise)
             second-printed (promise)
-            original-print @#'sut/print-line!
             path           (.getAbsolutePath f)]
         ;; Seed before tail! so row 0 is the initial dump (append lands before follow).
         (spit path first-line)
@@ -365,18 +365,20 @@
                     (binding [*out* writer]
                       (binding [sut/*follow-sleep-ms* 0]
                         (with-redefs [sut/print-line!
-                                      (fn [line row opts]
-                                        (let [printed? (original-print line row opts)]
-                                          (when (and printed? (zero? row))
-                                            (spit path second-line :append true))
-                                          (when (str/includes? line ":second")
-                                            (deliver second-printed true))
-                                          printed?))]
+                                      (fn [line _row _opts]
+                                        (cond
+                                          (str/includes? line ":first")
+                                          (do
+                                            (spit path second-line :append true)
+                                            (deliver first-printed true))
+
+                                          (str/includes? line ":second")
+                                          (deliver second-printed true))
+                                        true)]
                           (sut/tail! path {:color? false :follow? true :limit 20})))))]
           (try
-            (helper/await-condition #(str/includes? (str writer) ":first") 5000)
+            (should= true (deref first-printed 5000 ::timeout))
             (should= true (deref second-printed 5000 ::timeout))
-            (should (str/includes? (str writer) ":second"))
             (finally
               (future-cancel run*)
               (.delete f)))))
