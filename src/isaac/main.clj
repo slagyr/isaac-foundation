@@ -2,6 +2,7 @@
 (ns isaac.main
   (:require
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.cli.registry :as registry]
     [isaac.config.api :as config-api]
     [isaac.config.env :as env]
@@ -63,9 +64,9 @@
    (register-module-cli-commands! root fs* cmd {}))
   ([root fs* _cmd extra-opts]
    (try
-     (with-redefs [log/log* (fn [& _])]
+     (binding [log/*quiet?* true]
        (let [config  (or (read-user-config root fs* extra-opts) {})
-             context {:cwd (System/getProperty "user.dir")}
+             context {:cwd (host/cwd)}
              {:keys [index]}
              (nexus/-with-nested-nexus {:fs fs*}
                (discovery/discover! config context))]
@@ -124,11 +125,11 @@
               config     (or (:config load-result) {})
               extra-opts (assoc extra-opts :config config :load-result load-result)
               watched    (cache/watched-files (paths/root-config-file resolved-root)
-                                              config (System/getProperty "user.dir"))
+                                              config (host/cwd))
               cache-fresh? (and (not= "modules" cmd) (cache/fresh? fs* resolved-root watched))
               fast-cmd?  (or (nil? cmd) (str/blank? cmd)
                              (contains? #{"--help" "-h" "--version" "-V" "version"} cmd))
-               cwd          (System/getProperty "user.dir")
+               cwd          (host/cwd)
                compose      (when (and (not= "modules" cmd)
                                        classpath/*resolve-classpath?*
                                        (not (and cache-fresh? fast-cmd?)))
@@ -175,6 +176,12 @@
               1))))))))))
 
 (defn -main [& args]
-  (let [exit-code (run args)]
+  (let [exit-code (binding [host/*host* host/process-host]
+                    (try
+                      (run args)
+                      (catch clojure.lang.ExceptionInfo e
+                        (if-some [code (:isaac.cli/process-exit (ex-data e))]
+                          code
+                          (throw e)))))]
     (when (pos? exit-code)
       (System/exit exit-code))))

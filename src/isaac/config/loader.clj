@@ -10,6 +10,7 @@
   (:require
     [c3kit.apron.schema :as cs]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.config.berths :as berths]
     [isaac.config.check-compose :as check-compose]
     [isaac.config.companions :as companions]
@@ -210,7 +211,7 @@
                                         discovery-input (cond-> {}
                                                           (contains? root-data :modules) (assoc :modules (:modules root-data)))
                                         discovery       (discovery/discover! discovery-input {:root root
-                                                                                                  :cwd  (System/getProperty "user.dir")})
+                                                                                                  :cwd  (host/cwd)})
                                         [effective-schema compose-error] (compose-or-fallback (:index discovery))
                                         {root-errors :errors root-warnings :warnings root-sources :sources}
                                         (-validate-root-config effective-schema root-read)

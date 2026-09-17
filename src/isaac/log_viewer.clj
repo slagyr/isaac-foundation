@@ -2,7 +2,8 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
-    [isaac.cli.color :as color]))
+    [isaac.cli.color :as color]
+    [isaac.cli.host :as host]))
 
 ;; region ----- ANSI helpers -----
 
@@ -250,7 +251,9 @@
 
 (defn- follow-tail! [path emit tracked-key ^java.io.RandomAccessFile raf]
   (loop [raf raf key tracked-key]
-    (if-let [line (.readLine raf)]
+    (if (host/cancelled?)
+      nil
+      (if-let [line (.readLine raf)]
       (do (emit line) (recur raf key))
       (let [f (java.io.File. path)]
         (Thread/sleep *follow-sleep-ms*)
@@ -267,7 +270,7 @@
             (recur new-raf (file-key path)))
 
           :else
-          (recur raf key))))))
+          (recur raf key)))))))
 
 (defn- tail-open-file!
   [path {:keys [color? follow? zebra? plain? level limit]

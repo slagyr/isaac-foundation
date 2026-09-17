@@ -5,6 +5,7 @@
     [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.fs :as fs]
     [isaac.module.classpath :as classpath]
     [isaac.module.coords :as coords]
@@ -406,7 +407,7 @@
   [config context]
   (let [declared    (get config :modules {})
         raw-modules (when (map? declared) declared)]
-    (preload-planned-module-deps! raw-modules (or (:cwd context) (System/getProperty "user.dir")))
+    (preload-planned-module-deps! raw-modules (or (:cwd context) (host/cwd)))
     (if (and (some? declared) (not (map? declared)))
       {:index  (builtin-index)
        :errors [{:key "modules"

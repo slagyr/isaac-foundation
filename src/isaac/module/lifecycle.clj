@@ -12,6 +12,11 @@
 (declare activate!)
 
 (defonce ^:private activated-modules* (atom #{}))
+
+(defn activated-modules
+  "Returns the immutable set of activated module ids."
+  []
+  @activated-modules*)
 (defonce ^:private started-modules* (atom []))
 
 ;; ----- Registry handler injection -----

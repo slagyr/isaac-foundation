@@ -6,6 +6,7 @@
     [clojure.tools.cli :as tools-cli]
     [clojure.walk :as walk]
     [isaac.cli.color :as color]
+    [isaac.cli.host :as host]
     [isaac.config.env :as env]
     [isaac.config.loader :as loader]
     [isaac.config.schema.resolve :as schema-resolve]
@@ -180,7 +181,7 @@
   (binding [*out* *err*]
     (print "type REVEAL to confirm: ")
     (flush))
-  (= "REVEAL" (some-> (read-line) str/trim)))
+  (= "REVEAL" (some-> (binding [*in* (host/in)] (read-line)) str/trim)))
 
 (defn print-reveal-refused! []
   (binding [*out* *err*]

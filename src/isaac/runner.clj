@@ -3,6 +3,7 @@
    stop components/modules in reverse lifecycle order. Transport modules remain
    ordinary component contributors."
   (:require
+    [isaac.cli.host :as host]
     [isaac.component.runtime :as components]
     [isaac.component.supervisor :as supervisor]
     [isaac.config.api :as config-api]
@@ -36,7 +37,7 @@
 (defn- resolve-module-index [config opts]
   (or (:module-index opts)
       (let [{:keys [index]} (discovery/discover! config {:root (:root opts)
-                                                         :cwd  (System/getProperty "user.dir")})]
+                                                         :cwd  (host/cwd)})]
         index)))
 
 (defn start!

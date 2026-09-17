@@ -2,6 +2,7 @@
   (:require
     [clojure.java.io :as io]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
     [isaac.nexus :as nexus]))
@@ -9,6 +10,10 @@
 ;; region ----- Configuration -----
 
 (def ^:private levels {:report 0 :error 1 :warn 2 :info 3 :debug 4})
+
+(def ^:dynamic *quiet?*
+  "Suppress logging in the current binding and conveyed child threads."
+  false)
 
 (defonce ^:private state
          (atom {:level    :debug
@@ -43,6 +48,11 @@
 (defn clear-entries! []
   (swap! state assoc :entries []))
 
+(defn snapshot
+  "Returns the immutable logger state for identity/change checks."
+  []
+  @state)
+
 ;; endregion ^^^^^ Configuration ^^^^^
 
 ;; region ----- Core -----
@@ -54,7 +64,7 @@
   (str (lfile/instant-now)))
 
 (defn- normalize-file-path [file]
-  (let [workspace  (System/getProperty "user.dir")
+  (let [workspace  (host/cwd)
         normalized (str/replace file "\\" "/")
         workspace* (str/replace workspace "\\" "/")
         relative   (if (str/starts-with? normalized (str workspace* "/"))
@@ -138,7 +148,7 @@
             (catch Exception _ nil)))))))
 
 (defn log* [level event file line & kvs]
-  (when (enabled? level)
+  (when (and (not *quiet?*) (enabled? level))
     (let [context (normalize-context kvs)
           entry   (build-entry level event context file line)]
       (save-entry entry))))

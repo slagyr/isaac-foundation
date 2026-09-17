@@ -7,6 +7,7 @@
     [isaac.cli.api :as cli-api]
     [isaac.cli.color :as color]
     [isaac.cli.common :as cli-common]
+    [isaac.cli.host :as host]
     [isaac.config.api :as config-api]
     [isaac.config.cli.common :as common]
     [isaac.config.mutate :as mutate]
@@ -301,7 +302,7 @@
     (if (and edn json)
       (common/print-cli-error! "choose one of --edn or --json")
       (let [config  (or (read-root-config (:root opts)) {})
-            context {:cwd (System/getProperty "user.dir")}
+            context {:cwd (host/cwd)}
             {:keys [modules conflicts drift]}
             (loader/list-configured-modules config context)]
         (cond
@@ -316,7 +317,7 @@
     (if (and classpath edn)
       (common/print-cli-error! "choose one of --edn or --classpath")
       (let [config      (or (read-root-config (:root opts)) {})
-            cwd         (System/getProperty "user.dir")
+            cwd         (host/cwd)
             launch-deps (loader/config->launch-deps config cwd)]
         (if classpath
           (if-not (shell/cmd-available? "clojure")
@@ -492,7 +493,7 @@
 
 (defn- run-pins [opts _arguments _options]
   (let [root   (:root opts)
-        cwd    (System/getProperty "user.dir")
+        cwd    (host/cwd)
         local  (pins/read-sibling-pins cwd)
         pins   (if (or (seq local) (= cwd root)) local (pins/read-sibling-pins root))]
     (if (empty? pins)
@@ -519,7 +520,7 @@
       :else
       (let [root     (:root opts)
             config   (or (read-root-config root) {})
-            context  {:cwd (System/getProperty "user.dir")}
+            context  {:cwd (host/cwd)}
             {:keys [modules]}
             (loader/list-configured-modules config context)
             module   (find-module-by-name modules module-name)]

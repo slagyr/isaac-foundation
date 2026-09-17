@@ -29,6 +29,11 @@
 (defn all-commands []
   (sort-by :name (vals @commands)))
 
+(defn snapshot
+  "Returns the immutable command-registry value for identity/change checks."
+  []
+  @commands)
+
 (defn usage-text
   "Top-level CLI usage listing. Optional cmds defaults to all-commands.
    Footer points operators at `isaac help help` for topics."
@@ -221,13 +226,14 @@
    data alone. A later module reusing an id overrides the earlier
    command (last-wins, per the module-contribution collision policy);
    the berth pass surfaces the swap as a :cli/override warning."
-  [[id {:keys [usage summary namespace]}]]
+  [[id {:keys [usage summary namespace local-only]}]]
   (let [name   (clojure.core/name id)
-        cmd    {:name      name
-                :id        id
-                :usage     usage
-                :summary   summary
-                :namespace namespace}
+        cmd    {:name       name
+                :id         id
+                :usage      usage
+                :summary    summary
+                :namespace  namespace
+                :local-only (boolean local-only)}
         run-fn (fn [{:keys [_raw-args] :as opts}]
                  (if (#{"--help" "-h"} (first (or _raw-args [])))
                    (do (println (command-help cmd)) 0)

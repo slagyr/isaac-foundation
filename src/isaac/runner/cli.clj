@@ -3,6 +3,7 @@
     [clojure.tools.cli :as tools-cli]
     [isaac.cli.api :as cli-api]
     [isaac.cli.common :as cli-common]
+    [isaac.cli.host :as host]
     [isaac.component.protocol :as component]
     [isaac.component.registry :as component-registry]
     [isaac.config.root :as root]
@@ -25,15 +26,8 @@
    [nil "--zebra" "Enable zebra striping for --logs"]
    ["-h" "--help" "Show help"]])
 
-(defonce ^:private shutdown-hook-registered? (atom false))
-
-(defn- register-shutdown-hook! []
-  (when (compare-and-set! shutdown-hook-registered? false true)
-    (.addShutdownHook (Runtime/getRuntime)
-                      (Thread. #(runner/stop!) "isaac-runner-shutdown"))))
-
 (defn block! []
-  @(promise))
+  (host/block-until-cancelled!))
 
 (defn- start-log-tail! [log-path root-dir {:keys [no-color zebra]}]
   (when log-path
@@ -70,7 +64,7 @@
         (log/info :server/dev-mode-enabled :host started-host :port started-port))
       (log/info :server/started :host started-host :port started-port)
       (println (str "Isaac server running on " started-host ":" started-port))
-      (register-shutdown-hook!)
+      (host/on-shutdown! runner/stop!)
       (block!)
       started)))
 

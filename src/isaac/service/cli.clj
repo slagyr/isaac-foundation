@@ -1,6 +1,7 @@
 (ns isaac.service.cli
   (:require
     [isaac.cli.api :as cli-api]
+    [isaac.cli.host :as host]
     [clojure.string :as str]
     [clojure.tools.cli :as tools-cli]
     [isaac.cli.registry :as cli]
@@ -11,8 +12,7 @@
     [isaac.shell :as shell]))
 
 (def ^:dynamic *caller-path*
-  "Caller shell PATH for service install (tests bind this). nil → read
-   (System/getenv \"PATH\")."
+  "Caller shell PATH for service install (tests bind this). nil reads host env."
   nil)
 
 (def ^:private install-options
@@ -49,13 +49,13 @@
   (or isaac-bin-override (find-on-path "isaac")))
 
 (defn- bb-edn-dir [isaac-dir-override]
-  (or isaac-dir-override (System/getProperty "user.dir")))
+  (or isaac-dir-override (host/cwd)))
 
 (defn- install-root [opts options]
   (or (:root options) (:root opts) (:display-root opts)))
 
 (defn- shell-path []
-  (or *caller-path* (System/getenv "PATH")))
+  (or *caller-path* (host/env "PATH")))
 
 (defn- install-path [options isaac-bin bb-bin]
   (launch/service-path {:path        (:path options)

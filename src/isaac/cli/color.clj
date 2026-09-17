@@ -1,4 +1,5 @@
-(ns isaac.cli.color)
+(ns isaac.cli.color
+  (:require [isaac.cli.host :as host]))
 
 (def bold   "[1m")
 (def dim    "[2m")
@@ -8,7 +9,7 @@
 
 (def codes {:bold bold :dim dim :red red :yellow yellow})
 
-(defn env [name] (System/getenv name))
+(defn env [name] (host/env name))
 
 (defn- env-set? [name]
   (let [value (env name)]
@@ -23,7 +24,7 @@
   (env-set? "NO_COLOR"))
 
 (defn console? []
-  (some? (System/console)))
+  (host/tty?))
 
 (defn tty? []
   (cond

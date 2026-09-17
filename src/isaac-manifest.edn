@@ -19,9 +19,11 @@
                                                                         :summary   {:type        :string
                                                                                     :validations [:present?]
                                                                                     :description "One-line description shown in command listings and the help header."}
-                                                                        :namespace {:type        :symbol
-                                                                                    :validations [:present?]
-                                                                                    :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}}}}}
+                                                                        :namespace  {:type        :symbol
+                                                                                     :validations [:present?]
+                                                                                     :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}
+                                                                        :local-only {:type        :boolean
+                                                                                     :description "Refuse in-process embedded dispatch; command must run on the host."}}}}}
              :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Foundation contributes :cli (logs/cli.log) and :server (logs/server.log). Other modules may add streams."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
@@ -90,12 +92,14 @@
                     :server {:file        "logs/server.log"
                              :description "HTTP server logs"}}
 
- :isaac/cli {:server  {:usage     "server [options]"
-                       :summary   "Start the Isaac process runner"
-                       :namespace isaac.runner.cli}
-             :service {:usage     "service [options] <subcommand>"
-                       :summary   "Manage Isaac as a background service"
-                       :namespace isaac.service.cli}
+ :isaac/cli {:server  {:usage      "server [options]"
+                       :summary    "Start the Isaac process runner"
+                       :namespace  isaac.runner.cli
+                       :local-only true}
+             :service {:usage      "service [options] <subcommand>"
+                       :summary    "Manage Isaac as a background service"
+                       :namespace  isaac.service.cli
+                       :local-only true}
              :init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
                       :namespace isaac.cli.registry}
@@ -108,6 +112,7 @@
              :config  {:usage     "config <subcommand> [options]"
                        :summary   "Inspect and validate Isaac configuration"
                        :namespace isaac.config.cli.command}
-             :modules {:usage     "modules <subcommand> [options]"
-                       :summary   "Inspect and manage configured extension modules"
-                       :namespace isaac.modules.cli}}}
+             :modules {:usage      "modules <subcommand> [options]"
+                       :summary    "Inspect and manage configured extension modules"
+                       :namespace  isaac.modules.cli
+                       :local-only true}}}

@@ -8,6 +8,7 @@
    Foundation-internal callers require the owning namespace directly."
   (:require
     [clojure.set :as set]
+    [isaac.cli.host :as host]
     [isaac.module.berths :as berths]
     [isaac.module.classpath :as classpath]
     [isaac.module.coords :as coords]
@@ -67,7 +68,7 @@
     (let [declared (get config :modules {})]
       (if (or (nil? declared) (not (map? declared)))
         {:modules [] :conflicts [] :drift []}
-        (let [cwd              (or (:cwd context) (System/getProperty "user.dir"))
+        (let [cwd              (or (:cwd context) (host/cwd))
               _                (discovery/preload-planned-module-deps! declared cwd)
               explicit-modules (discovery/explicit-module-map declared context)
               explicit-ids     (set (keys explicit-modules))
@@ -106,7 +107,7 @@
    are resolved relative to `cwd` (default user.dir) so packaged launchers can
    live outside the checkout. Foundation is excluded from module transitive
    deps — the seed on the classpath is authoritative."
-  ([config] (compose-config-modules! config (System/getProperty "user.dir")))
+  ([config] (compose-config-modules! config (host/cwd)))
   ([config cwd]
    (when-let [modules (and (map? (:modules config)) (seq (:modules config)))]
      (discovery/preload-planned-module-deps! modules cwd))))
@@ -115,7 +116,7 @@
   "Materialize gitlib checkouts for `:modules` even when the caller has
    `*resolve-classpath?*` bound false (as `isaac modules` does). 'Upgraded'
    must mean the pin is installed, not will-install-on-demand."
-  ([config] (warm-module-checkouts! config (System/getProperty "user.dir")))
+  ([config] (warm-module-checkouts! config (host/cwd)))
   ([config cwd]
    (binding [classpath/*resolve-classpath?* true]
      (compose-config-modules! config cwd))))
@@ -136,7 +137,7 @@
    `:paths` plus every resolved module coord (`:deps`), mirroring the exact
    dependency set `compose-config-modules!` adds to bb's dynamic classpath.
    No `org.clojure/clojure` is injected — the clojure CLI's root deps supply it."
-  ([config] (config->launch-deps config (System/getProperty "user.dir")))
+  ([config] (config->launch-deps config (host/cwd)))
   ([config cwd]
    (let [raw-modules (when (map? (:modules config)) (:modules config))
          pairs       (or (discovery/plan-module-classpath-pairs raw-modules cwd) [])]

@@ -17,6 +17,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.fs :as fs]
     [isaac.logger :as log]))
 
@@ -53,7 +54,7 @@
 (defn- absolute-path [path]
   (if (and (string? path) (str/starts-with? path "/"))
     path
-    (str (System/getProperty "user.dir") "/" path)))
+    (str (host/cwd) "/" path)))
 
 (defn- expand-tilde [path]
   (cond
@@ -78,7 +79,7 @@
       (pointer-value (str (user-home) "/.isaac.edn") fs*)))
 
 (defn- env-root []
-  (let [v (System/getenv "ISAAC_ROOT")]
+  (let [v (host/env "ISAAC_ROOT")]
     (when-not (str/blank? v) v)))
 
 (defn resolve-root

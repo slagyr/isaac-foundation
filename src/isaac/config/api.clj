@@ -22,6 +22,11 @@
 ;; call still re-resolves.
 (defonce ^:private process-memo* (atom {}))
 
+(defn process-memo-snapshot
+  "Returns the immutable process memo for identity/change checks."
+  []
+  @process-memo*)
+
 (defn clear-process-memo!
   "Drop the process-local load-resolved memo. Called at the start of each CLI
    run and whenever env overrides change."

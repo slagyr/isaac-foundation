@@ -1,6 +1,7 @@
 (ns isaac.runner.runtime
   (:require
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.config.api :as config]
     [isaac.config.root :as root]
     [isaac.fs :as fs]
@@ -44,7 +45,7 @@
   (let [root-dir (root/default-root opts)
         fs*      (or (:fs opts) (nexus/get :fs) (fs/real-fs))
         cfg      (:config (config/load-resolved {:root root-dir :fs fs*}))
-        cwd      (System/getProperty "user.dir")]
+        cwd      (host/cwd)]
     (module-loader/config->launch-deps cfg cwd)))
 
 (defn trampoline-argv

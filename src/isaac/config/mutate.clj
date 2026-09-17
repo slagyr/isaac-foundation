@@ -14,6 +14,7 @@
      [c3kit.apron.schema.path :as path]
      [clojure.edn :as edn]
      [clojure.string :as str]
+     [isaac.cli.host :as host]
      [isaac.config.loader :as loader]
      [isaac.config.paths :as paths]
      [isaac.config.schema-compose :as schema-compose]
@@ -271,7 +272,7 @@
   (if (or (str/starts-with? local-root "/")
           (re-matches #"[A-Za-z]:.*" local-root))
     local-root
-    (str (System/getProperty "user.dir") "/" local-root)))
+    (str (host/cwd) "/" local-root)))
 
 (defn- copy-declared-local-modules! [source-fs stage-fs root]
   (when-let [config (read-edn-on-fs stage-fs (paths/root-config-file root))]

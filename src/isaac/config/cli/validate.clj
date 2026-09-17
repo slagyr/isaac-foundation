@@ -3,6 +3,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
     [isaac.config.loader :as loader]))
@@ -49,14 +50,14 @@
 (defn- validate-stdin! [opts options]
   (report-validation!
     (loader/load-config-result {:root          (common/resolve-root opts)
-                                :overlay-content    (slurp *in*)
+                                :overlay-content    (slurp (host/in))
                                 :overlay-path       "isaac.edn"
                                 :skip-entity-files? true})
     options))
 
 (defn- validate-overlay-data! [opts data-path-str options]
   (let [stdin-value (try
-                      {:value (edn/read-string (slurp *in*))}
+                      {:value (edn/read-string (slurp (host/in)))}
                       (catch Exception e
                         {:error (.getMessage e)}))]
     (if (:error stdin-value)

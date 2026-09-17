@@ -4,6 +4,7 @@
     [c3kit.apron.schema.path :as path]
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
     [isaac.config.loader :as loader]
@@ -37,7 +38,7 @@
 
 (defn read-stdin-value []
   (try
-    {:value (edn/read-string (slurp *in*))}
+    {:value (edn/read-string (slurp (host/in)))}
     (catch Exception _
       {:error "stdin must contain valid EDN"})))
 
