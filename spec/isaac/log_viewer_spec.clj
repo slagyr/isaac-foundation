@@ -355,9 +355,10 @@
       (let [f             (java.io.File/createTempFile "test-log" ".log")
             first-line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"
             second-line   "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"
-            writer        (java.io.StringWriter.)
+            writer         (java.io.StringWriter.)
+            second-printed (promise)
             original-print @#'sut/print-line!
-            path          (.getAbsolutePath f)]
+            path           (.getAbsolutePath f)]
         ;; Seed before tail! so row 0 is the initial dump (append lands before follow).
         (spit path first-line)
         (let [run* (future
@@ -368,11 +369,13 @@
                                         (let [printed? (original-print line row opts)]
                                           (when (and printed? (zero? row))
                                             (spit path second-line :append true))
+                                          (when (str/includes? line ":second")
+                                            (deliver second-printed true))
                                           printed?))]
                           (sut/tail! path {:color? false :follow? true :limit 20})))))]
           (try
             (helper/await-condition #(str/includes? (str writer) ":first") 5000)
-            (helper/await-condition #(str/includes? (str writer) ":second") 5000)
+            (should= true (deref second-printed 5000 ::timeout))
             (should (str/includes? (str writer) ":second"))
             (finally
               (future-cancel run*)
