@@ -18,7 +18,7 @@
 
   (it "foundation contributes the server stream so isaac logs server works without http"
     (let [manifest (edn/read-string (slurp "src/isaac-manifest.edn"))]
-      (should= {:file "logs/server.log" :description "HTTP server logs"}
+      (should= {:file "logs/server.log" :description "Isaac process logs"}
                (get-in manifest [:isaac/log-stream :server]))
       (should= {:file "logs/cli.log" :description "CLI command logs"}
                (get-in manifest [:isaac/log-stream :cli]))))

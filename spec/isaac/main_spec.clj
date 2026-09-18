@@ -47,12 +47,12 @@
 
   (helper/with-captured-logs)
 
-  (it "logs dev mode before server started"
-    (with-redefs [runner/start!                   (fn [_] {})
-                  runner-cli/block!               (fn [] nil)
-                  isaac.log.output/apply-server!  (fn [& _] nil)]
+  (it "logs dev mode from the command while process startup owns server started"
+    (with-redefs [runner/start!                  (fn [_] {})
+                  runner-cli/block!              (fn [] nil)
+                  isaac.log.output/apply-server! (fn [& _] nil)]
       (with-out-str (runner-cli/run {:dev true :host "127.0.0.1" :port "7001"})))
-    (should= [:server/dev-mode-enabled :server/started]
+    (should= [:server/dev-mode-enabled]
              (->> @log/captured-logs
                   (filter #(#{:server/dev-mode-enabled :server/started} (:event %)))
                   (mapv :event))))

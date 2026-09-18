@@ -1,4 +1,3 @@
-@wip
 Feature: isaac server process start
   `isaac server` starts the Isaac process runner. `:server/started`
   means the process is up. It does not carry HTTP bind host or port.

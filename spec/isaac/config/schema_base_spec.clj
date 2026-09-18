@@ -25,6 +25,11 @@
 
   (describe "base-root"
 
-    (it "contains :modules and :module-registry"
-      (should= #{:modules :module-registry}
-               (set (keys (sut/schema-fields sut/base-root)))))))
+    (it "contains process-owned config and retired server settings"
+      (let [fields (sut/schema-fields sut/base-root)]
+        (should= #{:hot-reload :module-registry :modules :server}
+                 (set (keys fields)))
+        (should= [[:retired? "use :http :host"]]
+                 (get-in fields [:server :schema :host :validations]))
+        (should= [[:retired? "use :bridge :suspend-timeout-ms"]]
+                 (get-in fields [:server :schema :suspend-timeout-ms :validations]))))))

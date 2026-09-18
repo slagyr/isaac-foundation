@@ -54,6 +54,7 @@
                    scheduler* (assoc :scheduler scheduler*)))
     (lifecycle/reset-hello!)
     (lifecycle/emit-hello! (:root opts) (boolean (:dev opts)))
+    (log/info :server/started)
     (config-api/dangerously-install-config! config "runner boot")
     (modules/reconcile-modules! module-index)
     (modules/activate-modules! module-index)

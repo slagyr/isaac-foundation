@@ -94,7 +94,7 @@
  :isaac/log-stream {:cli    {:file        "logs/cli.log"
                              :description "CLI command logs"}
                     :server {:file        "logs/server.log"
-                             :description "HTTP server logs"}}
+                             :description "Isaac process logs"}}
 
  :isaac/cli {:server  {:usage      "server [options]"
                        :summary    "Start the Isaac process runner"

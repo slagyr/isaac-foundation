@@ -4,8 +4,6 @@
     [isaac.cli.api :as cli-api]
     [isaac.cli.common :as cli-common]
     [isaac.cli.host :as host]
-    [isaac.component.protocol :as component]
-    [isaac.component.registry :as component-registry]
     [isaac.config.root :as root]
     [isaac.fs :as fs]
     [isaac.log.file :as log-file]
@@ -56,13 +54,10 @@
                                   :port (some-> port str parse-long)
                                   :root root-dir
                                   :dev dev?})
-          started-port (or (some-> (component-registry/instance-for :http)
-                                   component/bound-port)
-                           (some-> port str parse-long))
+          started-port (some-> port str parse-long)
           started-host (or host "127.0.0.1")]
       (when dev?
         (log/info :server/dev-mode-enabled :host started-host :port started-port))
-      (log/info :server/started :host started-host :port started-port)
       (println (str "Isaac server running on " started-host ":" started-port))
       (host/on-shutdown! runner/stop!)
       (block!)
