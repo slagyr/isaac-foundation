@@ -39,9 +39,15 @@
 
   (it "keeps the transitional hosted marker from manifest entries"
     (sut/register-cli-command! [:voyage {:summary   "Sail"
-                               :namespace 'isaac.voyage
-                               :hosted    true}])
+                                         :namespace 'isaac.voyage
+                                         :hosted    true}])
     (should= true (:hosted (sut/get-command "voyage"))))
+
+  (it "keeps read-only command hints from manifest entries"
+    (sut/register-cli-command! [:voyage {:summary   "Sail"
+                                         :namespace 'isaac.voyage
+                                         :read-only #{"list"}}])
+    (should= #{"list"} (:read-only (sut/get-command "voyage"))))
 
   (describe "register!"
 
@@ -94,13 +100,6 @@
         (should= {:_raw-args [] :flag true} @called?))))
 
   (describe "register-cli-command!"
-
-    (it "preserves the hosted marker from the manifest entry"
-      (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"
-                                        :summary   "Manage a service"
-                                        :namespace 'isaac.cli-spec
-                                        :hosted    true}])
-      (should= true (:hosted (sut/get-command "svc"))))
 
     (it "renders api/subcommands implementations in command-help"
       (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"

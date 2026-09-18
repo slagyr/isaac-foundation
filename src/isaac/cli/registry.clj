@@ -226,7 +226,7 @@
    data alone. A later module reusing an id overrides the earlier
    command (last-wins, per the module-contribution collision policy);
    the berth pass surfaces the swap as a :cli/override warning."
-  [[id {:keys [usage summary namespace local-only hosted]}]]
+  [[id {:keys [usage summary namespace local-only hosted read-only]}]]
   (let [name   (clojure.core/name id)
         cmd    {:name       name
                 :id         id
@@ -234,7 +234,8 @@
                 :summary    summary
                 :namespace  namespace
                 :local-only (boolean local-only)
-                :hosted     (boolean hosted)}
+                :hosted     (boolean hosted)
+                :read-only  read-only}
         run-fn (fn [{:keys [_raw-args] :as opts}]
                  (if (#{"--help" "-h"} (first (or _raw-args [])))
                    (do (println (command-help cmd)) 0)

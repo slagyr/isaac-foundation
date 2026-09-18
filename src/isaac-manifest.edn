@@ -25,7 +25,9 @@
                                                                         :local-only {:type        :boolean
                                                                                      :description "Refuse in-process embedded dispatch; command must run on the host."}
                                                                         :hosted     {:type        :boolean
-                                                                                     :description "Command supports in-process embedded dispatch."}}}}}
+                                                                                     :description "Command supports in-process embedded dispatch."}
+                                                                        :read-only  {:type        :ignore
+                                                                                     :description "True, or a set of read-only subcommand names; stale servers may run these safely."}}}}}
              :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Foundation contributes :cli (logs/cli.log) and :server (logs/server.log). Other modules may add streams."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
