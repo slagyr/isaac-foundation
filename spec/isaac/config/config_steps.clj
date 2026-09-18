@@ -299,6 +299,11 @@
         (doseq [row (:rows table)]
           (g/should (re-find (re-pattern (str/trim (first row))) content)))))))
 
+(defn config-path-matches [path pattern]
+  (let [config (:config (load-result))
+        actual (get-path config path)]
+    (g/should (re-matches (re-pattern pattern) (str actual)))))
+
 (defn config-file-does-not-contain [path expected]
   (with-config-fs
     (fn []
@@ -428,6 +433,8 @@
    in the file. Order and structure are not enforced.")
 
 (defthen "the config file {path:string} does not contain {expected:string}" isaac.config.config-steps/config-file-does-not-contain)
+
+(defthen "the isaac config path {path:string} matches {pattern:string}" isaac.config.config-steps/config-path-matches)
 
 (defthen "the config file {path:string} does not exist" isaac.config.config-steps/config-file-does-not-exist)
 

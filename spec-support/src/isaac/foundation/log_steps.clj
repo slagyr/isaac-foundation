@@ -81,6 +81,14 @@
       (let [result (match/match-entries {:headers headers :rows [row]} entries)]
         (g/should-not (:pass? result))))))
 
+(defn log-entries-match-count [expected table]
+  (let [entries (log/get-entries)
+        headers (:headers table)]
+    (doseq [row (:rows table)]
+      (let [single {:headers headers :rows [row]}
+            actual (count (filter #(empty? (:failures (match/match-entries single [%]))) entries))]
+        (g/should= (long expected) actual)))))
+
 ;; region ----- Routing -----
 
 (defthen "the log has entries matching:" isaac.foundation.log-steps/log-entries-match
@@ -88,5 +96,7 @@
    ordered subsequence, awaiting :turn-future if one is pending.")
 
 (defthen "the log has no entries matching:" isaac.foundation.log-steps/log-entries-dont-match)
+
+(defthen "the log has exactly {n:int} entries matching:" isaac.foundation.log-steps/log-entries-match-count)
 
 ;; endregion ^^^^^ Routing ^^^^^
