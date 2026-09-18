@@ -101,6 +101,22 @@
       (should= 1 (sut/run-embedded throwing))
       (should (str/includes? (str throw-err) "boom"))))
 
+  (it "runs with a caller-owned embedded host so the caller can cancel it"
+    (let [host       (sut/embedded-host {:env {} :cwd "/srv" :tty? false})
+          registered (promise)
+          stopped    (promise)]
+      (registry/register! {:name "wait-for-cancel"
+                           :run-fn (fn [_]
+                                     (sut/on-shutdown! #(deliver stopped true))
+                                     (deliver registered true)
+                                     (sut/block-until-cancelled!)
+                                     0)})
+      (let [result (future (sut/run-embedded* host {:argv ["wait-for-cancel"] :root "/srv/isaac"}))]
+        (should= true (deref registered 1000 false))
+        (sut/cancel! host)
+        (should= true (deref stopped 1000 false))
+        (should= 0 (deref result 1000 ::timeout)))))
+
   (it "unblocks cancellation and runs shutdown callbacks once"
     (let [host    (sut/embedded-host {:env {} :cwd "/srv" :tty? false})
           stopped (promise)

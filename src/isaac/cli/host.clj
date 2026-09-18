@@ -125,21 +125,25 @@
                 0)))
         (do (print-err! (str "Unknown command: " cmd)) 1)))))
 
+(defn run-embedded*
+  "Dispatch argv with a caller-owned embedded host, allowing external cancellation."
+  [host {:keys [argv root] :as opts}]
+  (binding [*host* host
+            *in*     (-in host)
+            *out*    (-out host)
+            *err*    (-err host)]
+    (try
+      (ensure-runtime! opts)
+      (dispatch-embedded (vec argv) root)
+      (catch clojure.lang.ExceptionInfo e
+        (if-some [code (:isaac.cli/exit (ex-data e))]
+          code
+          (do (print-err! (.getMessage e)) 1)))
+      (catch Throwable t
+        (print-err! (or (.getMessage t) (str t)))
+        1))))
+
 (defn run-embedded
   "Dispatch argv against the live command registry and nexus without process setup."
-  [{:keys [argv root] :as opts}]
-  (let [host (embedded-host opts)]
-    (binding [*host* host
-              *in*     (-in host)
-              *out*    (-out host)
-              *err*    (-err host)]
-      (try
-        (ensure-runtime! opts)
-        (dispatch-embedded (vec argv) root)
-        (catch clojure.lang.ExceptionInfo e
-          (if-some [code (:isaac.cli/exit (ex-data e))]
-            code
-            (do (print-err! (.getMessage e)) 1)))
-        (catch Throwable t
-          (print-err! (or (.getMessage t) (str t)))
-          1)))))
+  [opts]
+  (run-embedded* (embedded-host opts) opts))

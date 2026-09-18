@@ -23,7 +23,9 @@
                                                                                      :validations [:present?]
                                                                                      :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}
                                                                         :local-only {:type        :boolean
-                                                                                     :description "Refuse in-process embedded dispatch; command must run on the host."}}}}}
+                                                                                     :description "Refuse in-process embedded dispatch; command must run on the host."}
+                                                                        :hosted     {:type        :boolean
+                                                                                     :description "Command supports in-process embedded dispatch."}}}}}
              :isaac/log-stream    {:description "Log streams viewable via `isaac logs`. Foundation contributes :cli (logs/cli.log) and :server (logs/server.log). Other modules may add streams."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}

@@ -95,6 +95,13 @@
 
   (describe "register-cli-command!"
 
+    (it "preserves the hosted marker from the manifest entry"
+      (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"
+                                        :summary   "Manage a service"
+                                        :namespace 'isaac.cli-spec
+                                        :hosted    true}])
+      (should= true (:hosted (sut/get-command "svc"))))
+
     (it "renders api/subcommands implementations in command-help"
       (sut/register-cli-command! [:svc {:usage     "svc <subcommand>"
                                         :summary   "Manage a service"
