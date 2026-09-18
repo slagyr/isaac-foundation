@@ -352,36 +352,43 @@
             (.delete (java.io.File. missing))))))
 
     (it "does not skip a line appended between the initial dump and follow seek"
-      (let [f             (java.io.File/createTempFile "test-log" ".log")
-            first-line    "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"
-            second-line   "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"
-            writer         (java.io.StringWriter.)
-            first-printed  (promise)
-            second-printed (promise)
-            path           (.getAbsolutePath f)]
-        ;; Seed before tail! so row 0 is the initial dump (append lands before follow).
+      ;; Synchronous dump→follow (no live tail! loop): emit dumped lines,
+      ;; append as if a writer raced the dump, then one follow read from the
+      ;; pre-dump pointer. Replaces the previous promise/timeout race.
+      (let [f           (java.io.File/createTempFile "test-log" ".log")
+            path        (.getAbsolutePath f)
+            first-line  "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"
+            second-line "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"
+            emitted     (atom [])]
         (spit path first-line)
-        (let [run* (future
-                    (binding [*out* writer]
-                      (binding [sut/*follow-sleep-ms* 0]
-                        (with-redefs [sut/print-line!
-                                      (fn [line _row _opts]
-                                        (cond
-                                          (str/includes? line ":first")
-                                          (do
-                                            (spit path second-line :append true)
-                                            (deliver first-printed true))
+        (try
+          (with-open [raf (java.io.RandomAccessFile. path "r")]
+            (doseq [line (@#'sut/read-initial-lines raf 20 nil false)]
+              (swap! emitted conj line)
+              (when (str/includes? line ":first")
+                (spit path second-line :append true)))
+            (when-let [grown (.readLine raf)]
+              (swap! emitted conj grown))
+            (should= [(str/trim-newline first-line) (str/trim-newline second-line)]
+                     @emitted))
+          (finally
+            (.delete f))))
 
-                                          (str/includes? line ":second")
-                                          (deliver second-printed true))
-                                        true)]
-                          (sut/tail! path {:color? false :follow? true :limit 20})))))]
-          (try
-            (should= true (deref first-printed 5000 ::timeout))
-            (should= true (deref second-printed 5000 ::timeout))
-            (finally
-              (future-cancel run*)
-              (.delete f)))))
+    (it "follow seek starts at the last dumped byte so an append during dump is read once"
+      (let [f           (java.io.File/createTempFile "test-log" ".log")
+            path        (.getAbsolutePath f)
+            first-line  "{:ts \"2026-05-12T00:00:00Z\" :level :info :event :first}\n"
+            second-line "{:ts \"2026-05-12T00:00:01Z\" :level :info :event :second}\n"]
+        (spit path first-line)
+        (with-open [raf (java.io.RandomAccessFile. path "r")]
+          (let [dumped (@#'sut/read-initial-lines raf 20 nil false)]
+            (should= [(str/trim-newline first-line)] dumped)
+            ;; Grow the file after the dump, as if another writer appended
+            ;; while we were scanning. Follow must still see that line.
+            (spit path second-line :append true)
+            (should= (str/trim-newline second-line) (.readLine raf))
+            (should-be-nil (.readLine raf))))
+        (.delete f)))
 
     (it "follows across log rotation when the path is replaced"
       (let [dir        (java.nio.file.Files/createTempDirectory "isaac-log-rotate-" (into-array java.nio.file.attribute.FileAttribute []))

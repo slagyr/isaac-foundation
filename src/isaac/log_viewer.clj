@@ -209,13 +209,17 @@
       acc)))
 
 (defn- read-initial-lines [^java.io.RandomAccessFile raf limit level plain?]
-  (let [filter? (and level (not plain?))
+  ;; Snapshot length before the dump so follow resumes at the pre-dump EOF.
+  ;; Seeking to the live length after the scan skips a line appended while
+  ;; we were reading (isaac-efb5).
+  (let [end     (.length raf)
+        filter? (and level (not plain?))
         lines   (cond
                   filter? (let [visible (filterv #(visible-level? % level) (read-all-lines raf))]
                             (if (and limit (pos? limit)) (vec (take-last limit visible)) visible))
                   (and limit (pos? limit)) (read-last-n-lines raf limit)
                   :else (read-all-lines raf))]
-    (.seek raf (.length raf))
+    (.seek raf end)
     lines))
 
 (defn- missing-file-message [path follow?]
@@ -254,23 +258,36 @@
     (if (host/cancelled?)
       nil
       (if-let [line (.readLine raf)]
-      (do (emit line) (recur raf key))
-      (let [f (java.io.File. path)]
-        (Thread/sleep *follow-sleep-ms*)
-        (cond
-          (not (.exists f))
-          (let [_ (.close raf)]
-            (wait-for-file! f)
-            (let [new-raf (java.io.RandomAccessFile. path "r")]
-              (recur new-raf (file-key path))))
+        (do (emit line) (recur raf key))
+        (let [f   (java.io.File. path)
+              pos (.getFilePointer raf)
+              ;; File.length hits the filesystem; RAF.length can stay at the
+              ;; pre-dump size and skip the resync (isaac-efb5 flake).
+              len (.length f)]
+          (if (> len pos)
+            ;; File grew past our pointer but readLine still hit EOF
+            ;; (cached length). Resync and retry without sleeping.
+            (do (.seek raf pos)
+                (if-let [grown (.readLine raf)]
+                  (do (emit grown) (recur raf key))
+                  (do (Thread/sleep *follow-sleep-ms*)
+                      (recur raf key))))
+            (do
+              (Thread/sleep *follow-sleep-ms*)
+              (cond
+                (not (.exists f))
+                (let [_ (.close raf)]
+                  (wait-for-file! f)
+                  (let [new-raf (java.io.RandomAccessFile. path "r")]
+                    (recur new-raf (file-key path))))
 
-          (rotated? path raf key)
-          (let [_ (.close raf)
-                new-raf (java.io.RandomAccessFile. path "r")]
-            (recur new-raf (file-key path)))
+                (rotated? path raf key)
+                (let [_ (.close raf)
+                      new-raf (java.io.RandomAccessFile. path "r")]
+                  (recur new-raf (file-key path)))
 
-          :else
-          (recur raf key)))))))
+                :else
+                (recur raf key)))))))))
 
 (defn- tail-open-file!
   [path {:keys [color? follow? zebra? plain? level limit]
