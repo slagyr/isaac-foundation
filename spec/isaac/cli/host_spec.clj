@@ -32,6 +32,21 @@
       (should= 7 (sut/run-embedded (embedded-options ["leave"])))
       (should= false @after?)))
 
+  (it "installs a process runtime once per installer identity"
+    (let [calls    (atom 0)
+          install! #(swap! calls inc)]
+      (sut/ensure-runtime! {:install! install!})
+      (sut/ensure-runtime! {:install! install!})
+      (should= 1 @calls)))
+
+  (it "does not mark a failed installer as complete"
+    (let [calls    (atom 0)
+          install! #(do (swap! calls inc)
+                        (when (= 1 @calls) (throw (ex-info "boom" {}))))]
+      (try (sut/ensure-runtime! {:install! install!}) (catch Exception _))
+      (sut/ensure-runtime! {:install! install!})
+      (should= 2 @calls)))
+
   (it "captures future output and embedded stdin"
     (let [printed (promise)]
       (registry/register! {:name "streams"

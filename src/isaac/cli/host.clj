@@ -18,10 +18,15 @@
   (-cancelled? [host])
   (-cancel! [host]))
 
-(deftype ProcessHost []
+(deftype ProcessHost [installed]
   Host
   (-exit! [_ code] (throw (ex-info "process exit" {:isaac.cli/process-exit code})))
-  (-ensure-runtime! [_ _opts] nil)
+  (-ensure-runtime! [_ {:keys [install!]}]
+    (when (and install! (not (contains? @installed install!)))
+      (locking installed
+        (when (not (contains? @installed install!))
+          (install!)
+          (swap! installed conj install!)))))
   (-in [_] *in*)
   (-out [_] *out*)
   (-err [_] *err*)
@@ -55,7 +60,7 @@
       (deliver latch true))
     true))
 
-(def process-host (ProcessHost.))
+(def process-host (ProcessHost. (atom #{})))
 (def ^:dynamic *host* process-host)
 
 (defn embedded-host [{:keys [in out err env cwd tty?]

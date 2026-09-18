@@ -37,6 +37,12 @@
       (reset! @#'sut/commands saved)
       (reset! @#'sut/berth-command-names* saved-berth)))
 
+  (it "keeps the transitional hosted marker from manifest entries"
+    (sut/register-cli-command! [:voyage {:summary   "Sail"
+                               :namespace 'isaac.voyage
+                               :hosted    true}])
+    (should= true (:hosted (sut/get-command "voyage"))))
+
   (describe "register!"
 
     (it "registers a command by name"
