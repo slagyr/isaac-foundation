@@ -15,14 +15,12 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     And an empty Isaac root at "target/test-remote-routing"
     And environment variable "ZANE_TOK" is "stub-secret"
 
-  @wip
   Scenario: with no remote setting the command runs locally
     Given a stub remote runner is installed
     When isaac is run with "--version"
     Then the exit code is 0
     And the stub remote runner was not invoked
 
-  @wip
   Scenario: a remote setting ships the command to the server without resolving the config
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
@@ -36,7 +34,6 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     And the config resolution spy was invoked exactly 0 times
     And the exit code is 0
 
-  @wip
   Scenario: the remote runner's exit code becomes the local exit code
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
@@ -46,7 +43,6 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     When isaac is run with "sessions list"
     Then the exit code is 4
 
-  @wip
   Scenario: --local bypasses the remote for one invocation
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
@@ -58,7 +54,6 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     And the stdout contains "isaac"
     And the stub remote runner was not invoked
 
-  @wip
   Scenario: ISAAC_CLI_LOCAL=1 bypasses the remote for scripts
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
@@ -70,7 +65,6 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     Then the exit code is 0
     And the stub remote runner was not invoked
 
-  @wip
   Scenario: a local-only command always runs locally
     server, service, modules and remote are :local-only — a down server must
     still be startable with the setting on.
@@ -83,7 +77,6 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     Then the exit code is 0
     And the stub remote runner was not invoked
 
-  @wip
   Scenario: an unreachable remote fails the command with the reason and never falls back to local
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
@@ -98,12 +91,13 @@ Feature: Remote-by-default CLI routing (isaac-gar0)
     And the stderr contains "--local"
     And the config resolution spy was invoked exactly 0 times
 
-  @wip
   Scenario: a remote setting without the remote CLI module installed is an error naming the module
     Given the file "/tmp/user/.config/isaac.edn" exists with:
       """
       {:cli {:remote {:url "wss://zanebot.example/cli" :token "${ZANE_TOK}"}}}
       """
+    And a stub remote runner is installed
+    And the remote runner module becomes unavailable
     When isaac is run with "sessions list"
     Then the exit code is 69
     And the stderr contains "isaac.cli-proxy"

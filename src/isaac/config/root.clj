@@ -23,6 +23,7 @@
 
 (def ^:dynamic *root* nil)
 (def ^:dynamic *user-home* nil)
+(def ^:dynamic *pointer-config* nil)
 
 (defonce ^:private process-root* (atom nil))
 
@@ -63,20 +64,24 @@
     (str/starts-with? path "~/") (str (user-home) (subs path 1))
     :else                        path))
 
-(defn- pointer-value [path fs*]
-  (when (fs/exists? fs* path)
-    (try
-      (let [data (edn/read-string (fs/slurp fs* path))
-            r    (:root data)]
-        (when (string? r)
-          (expand-tilde r)))
-      (catch Exception _
-        (log/warn :root/pointer-file-invalid :path path)
-        nil))))
+(defn pointer-config
+  "Raw home pointer config. XDG file wins; malformed/missing files fall through."
+  [fs*]
+  (or *pointer-config*
+      (letfn [(read-pointer [path]
+            (try
+              (let [real-fs? (= "isaac.fs.RealFs" (.getName (class fs*)))
+                    content (or (when (fs/exists? fs* path) (fs/slurp fs* path))
+                                (when (and real-fs? (.exists (java.io.File. path))) (slurp path)))]
+                (when content (edn/read-string content)))
+              (catch Exception _
+                (log/warn :root/pointer-file-invalid :path path)
+                nil)))]
+        (or (read-pointer (str (user-home) "/.config/isaac.edn"))
+            (read-pointer (str (user-home) "/.isaac.edn"))))))
 
 (defn- pointer-root [fs*]
-  (or (pointer-value (str (user-home) "/.config/isaac.edn") fs*)
-      (pointer-value (str (user-home) "/.isaac.edn") fs*)))
+  (some-> (pointer-config fs*) :root expand-tilde))
 
 (defn- env-root []
   (let [v (host/env "ISAAC_ROOT")]
