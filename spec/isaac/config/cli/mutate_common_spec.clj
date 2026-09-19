@@ -2,8 +2,9 @@
     (:require
       [clojure.string :as str]
       [isaac.config.cli.common :as common]
-      [isaac.marigold :as marigold]
+      [isaac.config.cli.inspect :as inspect]
       [isaac.config.cli.mutate-common :as sut]
+      [isaac.marigold :as marigold]
       [speclj.core :refer :all]))
 
  (def path-str (str "berths." marigold/captain ".ledger"))
@@ -37,11 +38,39 @@
         (let [logged (atom [])]
           (with-redefs [common/print-warnings! (fn [_] nil)
                         sut/log-mutation!                        (fn [& args] (swap! logged conj args))]
-            (should= 0 (sut/handle-mutate-result! :set path-str {:status :ok :file "config"} "hi"))
-            (should= 0 (sut/handle-mutate-result! :unset path-str {:status :ok :file "config"} nil)))
+            (with-out-str
+              (should= 0 (sut/handle-mutate-result! :set path-str {:status :ok :file "config"} "hi"))
+              (should= 0 (sut/handle-mutate-result! :unset path-str {:status :ok :file "config"} nil))))
           (should= [[:info :config/set "config" path-str :value "hi"]
                     [:info :config/unset "config" path-str]]
                    @logged)))
+
+     (it "prints a one-line confirmation on successful set"
+       (let [out (with-out-str
+                   (with-redefs [common/print-warnings! (fn [_] nil)
+                                 sut/log-mutation! (fn [& _] nil)]
+                     (should= 0 (sut/handle-mutate-result! :set path-str {:status :ok :file "crew/joe.edn"} :echo))))]
+         (should-contain "set " out)
+         (should-contain path-str out)
+         (should-contain "crew/joe.edn" out)))
+
+     (it "prints a one-line confirmation on successful unset"
+       (let [out (with-out-str
+                   (with-redefs [common/print-warnings! (fn [_] nil)
+                                 sut/log-mutation! (fn [& _] nil)]
+                     (should= 0 (sut/handle-mutate-result! :unset path-str {:status :ok :file "crew/joe.edn"} nil))))]
+         (should-contain "unset " out)
+         (should-contain path-str out)
+         (should-contain "crew/joe.edn" out)))
+
+     (it "suppresses the confirmation when --edn is requested"
+       (let [out (with-out-str
+                   (with-redefs [common/print-warnings! (fn [_] nil)
+                                 sut/log-mutation! (fn [& _] nil)
+                                 inspect/print-structured! (fn [& _] nil)
+                                 inspect/structured-requested? (constantly true)]
+                     (should= 0 (sut/handle-mutate-result! :set path-str {:status :ok :file "crew/joe.edn"} :echo {:edn true}))))]
+         (should-not (str/includes? out "set "))))
 
      (it "prints validation errors and logs set failures"
         (let [printed (atom nil)

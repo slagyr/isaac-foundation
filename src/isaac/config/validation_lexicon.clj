@@ -42,6 +42,7 @@
                               (set (known-fn (or (:raw *config*) *config*))))
                           (->id value)))
    :message  message
+   :reference? true
    :known    (fn []
                (or (get-in *config* [:known-values ref-key])
                    (known-fn (or (:raw *config*) *config*))))})

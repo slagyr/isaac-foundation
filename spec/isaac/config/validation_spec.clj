@@ -103,6 +103,18 @@
                                           {:validations [[:less-than? :head :threshold]]}
                                           nil {:head 0.3} :head-threshold))))
 
+  (describe "existence-ref tagging"
+
+    (it "tags :model-exists? errors as :reference?"
+      (let [entry (first (sut/annotation-errors* nil [:model] {:validations [:model-exists?]} "ghost"))]
+        (should= "references undefined model" (:value entry))
+        (should= true (:reference? entry))))
+
+    (it "does not tag a value-validator error as :reference?"
+      (let [entry (first (sut/annotation-errors* nil [:tags] {:validations [:keyword-set?]} "jackalope"))]
+        (should= "must be a set of keywords" (:value entry))
+        (should-not (:reference? entry)))))
+
   (describe "validate-manifest-config"
 
     (it "reports unknown keys as warnings"

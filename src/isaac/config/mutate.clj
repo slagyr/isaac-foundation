@@ -312,9 +312,13 @@
 
 (defn- reference-error?
   "True for errors produced by existence-ref validators (model-exists?,
-   crew-exists?, etc.). These carry :bad-value; type errors do not."
+   crew-exists?, etc.). Value-validator errors carry :bad-value too; only
+   entries tagged :reference? — or check contributions that reuse the
+   existence-ref message — are skipped under skip-ref-validation?."
   [e]
-  (contains? e :bad-value))
+  (or (true? (:reference? e))
+      (and (string? (:value e))
+           (str/starts-with? (:value e) "references undefined "))))
 
 (defn- module-discovery-error? [e]
   (and (string? (:key e))

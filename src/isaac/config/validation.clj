@@ -57,11 +57,12 @@
    (validation-error-entry root key ref-def value nil))
   ([root key ref-def value override-message]
    (let [known-fn (:known ref-def)]
-     {:key          key
-      :value        (or override-message (:message ref-def))
-      :file         (config-source-file root key)
-      :bad-value    (->id value)
-      :valid-values (when known-fn (known-fn))})))
+     (cond-> {:key          key
+              :value        (or override-message (:message ref-def))
+              :file         (config-source-file root key)
+              :bad-value    (->id value)
+              :valid-values (when known-fn (known-fn))}
+       (or (contains? ref-def :known) (true? (:reference? ref-def))) (assoc :reference? true)))))
 
 (defn- resolve-ref-def [validation]
   (let [[ref-key & args] (if (vector? validation) validation [validation])

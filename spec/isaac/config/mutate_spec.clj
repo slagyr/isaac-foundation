@@ -201,6 +201,34 @@
         (should= [{:key "gauges.sparky.foundry" :value "must be one of [\"helm-systems\"]" :bad-value "nonexistent" :valid-values ["helm-systems"]}]
                  (mapv #(select-keys % [:key :value :bad-value :valid-values]) (:errors result)))))
 
+    (it "still blocks a value-validator error when skip-ref-validation? is true"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root "server.port" "not-a-number"
+                                   :skip-ref-validation? true)]
+        (should= :invalid (:status result))
+        (should (seq (:errors result)))))
+
+    (it "still accepts a missing-entity reference when skip-ref-validation? is true"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge")
+                                   :not-yet-defined
+                                   :skip-ref-validation? true)]
+        (should= :ok (:status result))
+        (should= :not-yet-defined (get-in (read-edn "isaac.edn") [:berths test-berth-id :gauge]))))
+
+    (it "still accepts a missing-entity reference when the error is an untagged check contribution"
+      (config-marigold/write-baseline!)
+      (let [ghost {:key "crew.joe.model" :value "references undefined model" :bad-value "not-yet-defined"}]
+        (with-redefs [loader/load-config-result
+                      (fn [opts]
+                        (if (:fs opts)
+                          {:config {} :errors [ghost] :warnings []}
+                          {:config {} :errors [] :warnings []}))]
+          (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge")
+                                       :helm-mark-iii
+                                       :skip-ref-validation? true)]
+            (should= :ok (:status result))))))
+
   (describe "unset-config"
 
     (config-marigold/aboard)

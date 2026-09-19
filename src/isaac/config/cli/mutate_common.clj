@@ -65,6 +65,16 @@
     {:root (common/resolve-root opts)
      :path-str  (common/normalize-path path-arg)}))
 
+(defn- print-confirmation! [operation path-str file value options]
+  (when-not (inspect/structured-requested? options)
+    (println (case operation
+               :set   (if (and (map? options) (:member options))
+                        (str "set " (or (:parent options) path-str) " += " (pr-str value) " (" file ")")
+                        (str "set " path-str " = " (pr-str value) " (" file ")"))
+               :unset (if (and (map? options) (:member options))
+                        (str "unset " (or (:parent options) path-str) " -= " (pr-str (:member options)) " (" file ")")
+                        (str "unset " path-str " (" file ")"))))))
+
 (defn handle-mutate-result!
   ([operation path-str result value]
    (handle-mutate-result! operation path-str result value nil))
@@ -76,23 +86,24 @@
        (let [file (or (:file result) "config")]
          (case operation
            :set   (log-mutation! :info :config/set   file path-str :value value)
-           :unset (log-mutation! :info :config/unset file path-str)))
+           :unset (log-mutation! :info :config/unset file path-str))
+         (print-confirmation! operation path-str file value options))
        (when (inspect/structured-requested? options)
          (let [{:keys [edn json]} options]
            (inspect/print-structured! edn json (inspect/mutation-result-record path-str result))))
        0)
 
-    :invalid
-    (do
-      (common/print-errors! (:errors result) "error")
-      (when (= :set operation)
-        (log-mutation! :error :config/set-failed "config" path-str :error (format-errors (:errors result))))
-      1)
+     :invalid
+     (do
+       (common/print-errors! (:errors result) "error")
+       (when (= :set operation)
+         (log-mutation! :error :config/set-failed "config" path-str :error (format-errors (:errors result))))
+       1)
 
-    :invalid-config
-    (do
-      (common/print-errors! (:errors result) "error")
-      1)
+     :invalid-config
+     (do
+       (common/print-errors! (:errors result) "error")
+       1)
 
      (do
        (print-status-error! (:status result) path-str)
@@ -112,7 +123,8 @@
   (let [pp          (parent-path path-str)
         current-set (or (current-config-value root pp) #{})
         new-set     (conj current-set member)
-        result      (mutate/set-config root pp new-set :skip-ref-validation? true)]
+        result      (mutate/set-config root pp new-set :skip-ref-validation? true)
+        options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :set path-str result member options)))
 
 (defn- unset-member! [root path-str member options]
@@ -121,7 +133,8 @@
         new-set     (disj current-set member)
         result      (if (empty? new-set)
                       (mutate/unset-config root pp)
-                      (mutate/set-config root pp new-set :skip-ref-validation? true))]
+                      (mutate/set-config root pp new-set :skip-ref-validation? true))
+        options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :unset path-str result nil options)))
 
 ;; endregion ^^^^^ Set-typed helpers ^^^^^

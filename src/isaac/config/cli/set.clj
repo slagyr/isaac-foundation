@@ -18,7 +18,10 @@
      :option-spec inspect/structured-option-spec
      :examples    (str "  isaac config set crew.marvin.model llama\n"
                        "  isaac config set crew.marvin.model llama --json\n"
-                       "  echo '{:soul \"paranoid\"}' | isaac config set crew.marvin -")}))
+                       "  echo '{:soul \"paranoid\"}' | isaac config set crew.marvin -\n"
+                       "\n"
+                       "Set-typed fields take the member in the path:\n"
+                       "  isaac config set crew.marvin.tags.role/worker")}))
 
 (defn run [opts arguments options]
   (if-let [{:keys [path-str]} (mutate-common/target-root+path! opts (first arguments))]
