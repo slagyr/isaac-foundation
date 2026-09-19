@@ -20,7 +20,8 @@
      [isaac.config.schema-compose :as schema-compose]
      [isaac.schema.lexicon :as lexicon]
      [isaac.fs :as fs]
-     [isaac.nexus :as nexus]))
+     [isaac.nexus :as nexus]
+     [isaac.util.edn :as edn-pretty]))
 
 (defn- entity-sections []
   (set (map keyword (schema-compose/entity-dir-names))))
@@ -176,7 +177,7 @@
         (update :deletes conj relative))
     (-> plan
         (update :deletes disj relative)
-        (assoc-in [:writes relative] (pr-str data)))))
+        (assoc-in [:writes relative] (str (edn-pretty/pretty data) "\n")))))
 
 (defn- update-text-file [plan relative content]
   (-> plan

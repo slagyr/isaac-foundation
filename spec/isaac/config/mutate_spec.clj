@@ -1,12 +1,14 @@
 (ns isaac.config.mutate-spec
   (:require
     [clojure.edn :as edn]
+    [clojure.string :as str]
     [isaac.config.loader :as loader]
     [isaac.config.marigold :as config-marigold]
     [isaac.config.mutate :as sut]
     [isaac.fs :as fs]
     [isaac.marigold :as marigold]
     [isaac.nexus :as nexus]
+    [isaac.util.edn :as edn-pretty]
     [speclj.core :refer :all]))
 
 (def ^:private config-root (str marigold/root "/config"))
@@ -90,6 +92,17 @@
         (should= (str "berths/" test-berth-path ".edn") (:file result))
         (should= "Steady." (:ledger (read-edn (str "berths/" test-berth-path ".edn"))))
         (should-not (file-exists? (str "berths/" test-berth-path ".md")))))
+
+    (it "rewrites the affected EDN file with isaac.util.edn/pretty and one trailing newline"
+      (config-marigold/write-baseline!)
+      (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii})
+      (let [relative (str "berths/" test-berth-path ".edn")
+            result   (sut/set-config marigold/root (str "berths." test-berth-path ".ledger") "Steady.")]
+        (should= :ok (:status result))
+        (let [body (slurp-file relative)]
+          (should= (str (edn-pretty/pretty (edn/read-string body)) "\n") body)
+          (should (str/ends-with? body "\n"))
+          (should-not (str/ends-with? body "\n\n")))))
 
     (it "refuses to write a value that fails schema validation"
       (config-marigold/write-baseline!)
@@ -199,6 +212,17 @@
         (should= :ok (:status result))
         (should= (str "berths/" test-berth-path ".edn") (:file result))
         (should= {:gauge :helm-mark-iii} (read-edn (str "berths/" test-berth-path ".edn")))))
+
+    (it "rewrites the remaining EDN with isaac.util.edn/pretty and one trailing newline"
+      (config-marigold/write-baseline!)
+      (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii :ledger "Steady."})
+      (let [relative (str "berths/" test-berth-path ".edn")
+            result   (sut/unset-config marigold/root (str "berths." test-berth-path ".ledger"))]
+        (should= :ok (:status result))
+        (let [body (slurp-file relative)]
+          (should= (str (edn-pretty/pretty (edn/read-string body)) "\n") body)
+          (should (str/ends-with? body "\n"))
+          (should-not (str/ends-with? body "\n\n")))))
 
     (it "deletes the entity file when the removal empties it"
       (config-marigold/write-baseline!)
