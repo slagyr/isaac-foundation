@@ -127,3 +127,24 @@
         (should= {:provider/routes 2}
                  (:counts (first (filter #(= :berth/registration-summary (:event %))
                                          @log/captured-logs))))))))
+
+(describe "contribution-validation-errors"
+
+  (it "accepts a seq-of-strings contribution against a :seq berth"
+    (should-be-nil (berths/contribution-validation-errors
+                     :isaac.google :isaac.google/scopes ["openid" "https://www.googleapis.com/auth/chat.messages"]
+                     {:type :seq :spec {:type :string}})))
+
+  (it "reports a seq element of the wrong type"
+    (let [errors (berths/contribution-validation-errors
+                   :isaac.google :isaac.google/scopes [1 "not-a-port"]
+                   {:type :seq :spec {:type :int}})]
+      (should-not (empty? errors))
+      (should-contain "module-index[\"isaac.google\"].isaac.google/scopes" (:key (first errors)))))
+
+  (it "keeps the entry path for a map berth's field error"
+    (let [errors (berths/contribution-validation-errors
+                   :isaac.google :isaac.http/identity {:google-pubsub {:ttl "soon"}}
+                   {:type :map :key-spec {:type :keyword}
+                    :value-spec {:type :map :schema {:ttl {:type :int}}}})]
+      (should= "module-index[\"isaac.google\"].isaac.http/identity[:google-pubsub].ttl" (:key (first errors))))))

@@ -255,11 +255,16 @@
 (defn contribution-validation-errors [consumer-id berth-key value berth-schema]
   (let [prefix (str "module-index[\"" (coords/id-str consumer-id) "\"]."
                     (ns-keyword->str berth-key))
+        ;; apron conforms map schemas at the top level; a berth declared as
+        ;; a :seq (or any scalar) is wrapped in a one-field map so a seq of
+        ;; strings is checked as strings, not walked as map entries.
         result (try (binding [cs/*lexicon* (berth-lexicon)]
-                      (cs/conform berth-schema value))
+                      (cs/conform {:type :map :schema {:contribution berth-schema}}
+                                  {:contribution value}))
                     (catch Throwable _ nil))]
     (when (and result (cs/error? result))
       (->> (cs/message-map result)
+           :contribution
            flatten-error-paths
            (mapv (fn [[path msg]]
                    {:key   (str prefix (format-contribution-suffix path))
