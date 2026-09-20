@@ -7,6 +7,7 @@
     [isaac.component.runtime :as components]
     [isaac.component.supervisor :as supervisor]
     [isaac.config.api :as config-api]
+    [isaac.config.watch :as config-watch]
     [isaac.fs :as fs]
     [isaac.logger :as log]
     [isaac.module.berths :as berths]
@@ -64,9 +65,17 @@
     (*after-components* {:config config :module-index module-index :opts opts})
     (supervisor/reset-health!)
     (supervisor/start! components/started-components)
-    (let [started {:config       config
+    ;; The process owns noticing that config changed — not whichever transport
+    ;; module happened to load (isaac-1pi2).
+    (let [watch (config-watch/start! {:config config
+                                      :root   (:root opts)
+                                      :fs     fs*
+                                      :host   {:module-index module-index
+                                               :root         (:root opts)}})
+          started {:config       config
                    :module-index module-index
                    :scheduler    scheduler*
+                   :config-watch watch
                    :components   (count (components/started-components))}]
       (reset! state started)
       (log/info :runner/started :components (:components started))
@@ -75,6 +84,7 @@
 (defn stop! []
   (when-let [running @state]
     (*before-stop* running)
+    (config-watch/stop! (:config-watch running))
     (supervisor/stop!)
     (components/stop-all!)
     (modules/shutdown-modules!)
