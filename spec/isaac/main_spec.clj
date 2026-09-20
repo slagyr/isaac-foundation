@@ -221,7 +221,11 @@
         (should-not-contain "~/.config/isaac.edn" output)
         (should-contain "--help, -h" output)
         (should-contain "Commands:" output)
-        (should-contain "isaac help help" output))))
+        (should-contain "isaac help help" output)))
+
+    (it "lists the version flag in top-level usage output"
+      (let [output (with-out-str (should= 0 (sut/run ["--help"])))]
+        (should-contain "--version, -V" output))))
 
   (describe "alias resolution"
 

@@ -86,7 +86,6 @@ Feature: CLI
     And the stdout contains "root"
     And the exit code is 0
 
-  @wip
   Scenario: Top-level usage lists the version flag (isaac-2y86)
     When isaac is run with "--help"
     Then the stdout contains "--version"
