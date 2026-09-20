@@ -66,21 +66,28 @@
 (defn start!
   "Start watching the config root, if this host wants it. Returns a handle to
    pass to stop!, or nil when watching is off or impossible. Always says which
-   way it went: a watcher that silently does not exist is how isaac-1pi2 hid."
-  [{:keys [config root fs host]}]
+   way it went: a watcher that silently does not exist is how isaac-1pi2 hid.
+
+   opts:
+     :source    - an explicit change source (tests and embedders inject one;
+                  a file watcher is built from :root otherwise)
+     :reloader? - false runs the source without the polling loop, for callers
+                  that drive reloads themselves"
+  [{:keys [config root fs host source reloader?]}]
   (cond
-    (not root)
+    (and (not root) (not source))
     (do (log/info :config.watch/disabled :reason :no-root) nil)
 
     (not (hot-reload? config))
     (do (log/info :config.watch/disabled :reason :configured-off) nil)
 
     :else
-    (let [source (runtime/watch-service-source root)]
+    (let [source (or source (runtime/watch-service-source root))]
       (runtime/start! source)
-      {:source source
-       :reloader (reload-loop! {:source source :root root :fs fs
-                                :host host :registries (registries)})})))
+      {:source   source
+       :reloader (when-not (false? reloader?)
+                   (reload-loop! {:source source :root root :fs fs
+                                  :host host :registries (registries)}))})))
 
 (defn stop!
   "Stop the watcher and its reload loop."

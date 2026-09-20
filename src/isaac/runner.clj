@@ -67,11 +67,13 @@
     (supervisor/start! components/started-components)
     ;; The process owns noticing that config changed — not whichever transport
     ;; module happened to load (isaac-1pi2).
-    (let [watch (config-watch/start! {:config config
-                                      :root   (:root opts)
-                                      :fs     fs*
-                                      :host   {:module-index module-index
-                                               :root         (:root opts)}})
+    (let [watch (config-watch/start! {:config    config
+                                      :root      (:root opts)
+                                      :fs        fs*
+                                      :source    (:config-change-source opts)
+                                      :reloader? (:start-config-reloader? opts)
+                                      :host      {:module-index module-index
+                                                  :root         (:root opts)}})
           started {:config       config
                    :module-index module-index
                    :scheduler    scheduler*

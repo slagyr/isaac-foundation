@@ -41,6 +41,24 @@
           (should-be-nil (sut/start! {:config {:hot-reload false} :root "/tmp/x"})))
         (should= [:no-root :configured-off] (mapv #(:reason (nth % 2)) @entries))))
 
+    (it "uses a change source the caller injects, instead of building a watcher"
+      ;; Tests and embedders supply their own source; a mem-fs root has no real
+      ;; directory to watch.
+      (with-redefs [isaac.config.runtime/start! identity
+                    isaac.config.runtime/stop! identity
+                    isaac.config.watch/registries (constantly [])]
+        (let [handle (sut/start! {:config {} :root nil :source ::injected :host {}})]
+          (should= ::injected (:source handle))
+          (sut/stop! handle))))
+
+    (it "can run a source without the polling loop, for callers that drive reloads"
+      (with-redefs [isaac.config.runtime/start! identity
+                    isaac.config.runtime/stop! identity
+                    isaac.config.watch/registries (constantly [])]
+        (let [handle (sut/start! {:config {} :source ::injected :reloader? false :host {}})]
+          (should-be-nil (:reloader handle))
+          (sut/stop! handle))))
+
     (it "watches the config root when the host says nothing"
       (let [watched (atom nil)]
         (with-redefs [isaac.config.runtime/watch-service-source (fn [root] (reset! watched root) {:fake true})
