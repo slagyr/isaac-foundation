@@ -28,7 +28,7 @@
 
   (it "treats trailing tokens after the path as arguments, not help options"
     (let [captured (atom nil)]
-      (with-redefs [mutate/unset-config (fn [_home path]
+      (with-redefs [mutate/unset-config (fn [_home path & _opts]
                                           (reset! captured path)
                                           {:status :ok :warnings [] :file "isaac.edn"})]
         (should= 0 (sut/run {:root test-root} ["unset" (str "berths." marigold/first-mate ".ledger") "--help"])))

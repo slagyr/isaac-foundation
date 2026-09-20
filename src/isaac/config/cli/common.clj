@@ -29,7 +29,7 @@
                      (into {}))}))
 
 (defn- structured-flag? [arg]
-  (#{"--edn" "--json"} arg))
+  (#{"--edn" "--json" "--force"} arg))
 
 (defn parse-in-order-with-structured-flags
   "Like parse-option-map with :in-order true, but --edn/--json may trail positional args."

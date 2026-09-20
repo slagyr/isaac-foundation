@@ -75,6 +75,9 @@
                         (str "unset " (or (:parent options) path-str) " -= " (pr-str (:member options)) " (" file ")")
                         (str "unset " path-str " (" file ")"))))))
 
+(defn- parent-path [path-str]
+  (str/join "." (butlast (str/split path-str #"\."))))
+
 (defn handle-mutate-result!
   ([operation path-str result value]
    (handle-mutate-result! operation path-str result value nil))
@@ -87,7 +90,11 @@
          (case operation
            :set   (log-mutation! :info :config/set   file path-str :value value)
            :unset (log-mutation! :info :config/unset file path-str))
-         (print-confirmation! operation path-str file value options))
+         (print-confirmation! operation path-str file value options)
+         (when (seq (:warnings result))
+           (println (str "wrote " path-str " to " file " with "
+                         (count (:warnings result))
+                         " validation error(s) outstanding — run: isaac config validate"))))
        (when (inspect/structured-requested? options)
          (let [{:keys [edn json]} options]
            (inspect/print-structured! edn json (inspect/mutation-result-record path-str result))))
@@ -97,7 +104,11 @@
      (do
        (common/print-errors! (:errors result) "error")
        (when (= :set operation)
-         (log-mutation! :error :config/set-failed "config" path-str :error (format-errors (:errors result))))
+         (log-mutation! :error :config/set-failed "config" path-str :error (format-errors (:errors result)))
+         (when-not (:force options)
+           (binding [*out* *err*]
+             (println (str "(use --force to write anyway, or set the whole map: echo '{…}' | isaac config set "
+                           (parent-path path-str) " -)")))))
        1)
 
      :invalid-config
@@ -111,9 +122,6 @@
 
 ;; region ----- Set-typed helpers -----
 
-(defn- parent-path [path-str]
-  (str/join "." (butlast (str/split path-str #"\."))))
-
 (defn- current-config-value [root path-str]
   (let [result (loader/load-config-result {:root root})
         config (common/queryable-config (:config result))]
@@ -123,7 +131,7 @@
   (let [pp          (parent-path path-str)
         current-set (or (current-config-value root pp) #{})
         new-set     (conj current-set member)
-        result      (mutate/set-config root pp new-set :skip-ref-validation? true)
+        result      (mutate/set-config root pp new-set :skip-ref-validation? true :force? (boolean (:force options)))
         options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :set path-str result member options)))
 
@@ -132,8 +140,8 @@
         current-set (or (current-config-value root pp) #{})
         new-set     (disj current-set member)
         result      (if (empty? new-set)
-                      (mutate/unset-config root pp)
-                      (mutate/set-config root pp new-set :skip-ref-validation? true))
+                      (mutate/unset-config root pp :force? (boolean (:force options)))
+                      (mutate/set-config root pp new-set :skip-ref-validation? true :force? (boolean (:force options))))
         options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :unset path-str result nil options)))
 
@@ -165,7 +173,7 @@
                   (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
                   1)
                 (let [value  (:value value-result)
-                      result (mutate/set-config root path-str value :skip-ref-validation? true)]
+                      result (mutate/set-config root path-str value :skip-ref-validation? true :force? (boolean (:force options)))]
                   (handle-mutate-result! :set path-str result value options))))))))))
 
 (defn unset-config! [opts path-str options]
@@ -176,4 +184,4 @@
           path-result (nav/path->spec root-schema path-str)]
       (if-let [member (:member path-result)]
         (unset-member! root path-str member options)
-        (handle-mutate-result! :unset path-str (mutate/unset-config root path-str) nil options)))))
+        (handle-mutate-result! :unset path-str (mutate/unset-config root path-str :force? (boolean (:force options))) nil options)))))

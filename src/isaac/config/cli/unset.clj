@@ -11,8 +11,9 @@
      :params      "<config-path> [options]"
      :description (str "Remove a value at a config path. Deletes the key from whichever file\n"
                        "defines it; deletes the entity file entirely if unset empties it.")
-     :option-spec inspect/structured-option-spec
-     :examples    "  isaac config unset crew.marvin.soul"}))
+     :option-spec inspect/mutate-option-spec
+     :examples    (str "  isaac config unset crew.marvin.soul\n"
+                       "  isaac config unset models.echo.model --force")}))
 
 (defn run [opts arguments options]
   (if-let [{:keys [path-str]} (mutate-common/target-root+path! opts (first arguments))]
@@ -20,7 +21,7 @@
     1))
 
 (def subcommand
-  {:option-spec inspect/structured-option-spec
+  {:option-spec inspect/mutate-option-spec
    :parse-fn    common/parse-in-order-with-structured-flags
    :runner      run
    :help-text   help})

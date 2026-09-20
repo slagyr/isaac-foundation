@@ -15,13 +15,18 @@
      :arguments   (str "  <config-path>     Config path (e.g. crew.marvin.model)\n"
                        "  <value>           Scalar value; keywords, numbers, and strings are inferred\n"
                        "  -                 Read the value as EDN from stdin")
-     :option-spec inspect/structured-option-spec
+     :option-spec inspect/mutate-option-spec
      :examples    (str "  isaac config set crew.marvin.model llama\n"
                        "  isaac config set crew.marvin.model llama --json\n"
                        "  echo '{:soul \"paranoid\"}' | isaac config set crew.marvin -\n"
+                       "  isaac config set google.oauth.client-id 6094… --force\n"
                        "\n"
                        "Set-typed fields take the member in the path:\n"
-                       "  isaac config set crew.marvin.tags.role/worker")}))
+                       "  isaac config set crew.marvin.tags.role/worker\n"
+                       "\n"
+                       "Required-field groups cannot be built one key at a time without --force.\n"
+                       "Write anyway and print remaining errors as warnings, or set the whole map:\n"
+                       "  echo '{:client-id \"…\" :client-secret \"…\"}' | isaac config set google.oauth -")}))
 
 (defn run [opts arguments options]
   (if-let [{:keys [path-str]} (mutate-common/target-root+path! opts (first arguments))]
@@ -29,7 +34,7 @@
     1))
 
 (def subcommand
-  {:option-spec inspect/structured-option-spec
+  {:option-spec inspect/mutate-option-spec
    :parse-fn    common/parse-in-order-with-structured-flags
    :runner      run
    :help-text   help})

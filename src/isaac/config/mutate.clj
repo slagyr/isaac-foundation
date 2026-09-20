@@ -320,6 +320,20 @@
       (and (string? (:value e))
            (str/starts-with? (:value e) "references undefined "))))
 
+(defn- coercion-error?
+  "True for errors raised while coercing the written value to its declared
+   type. `force?` never bypasses these: a value that cannot become the
+   declared type is a typo, not a policy decision."
+  [e]
+  (and (string? (:value e))
+       (str/starts-with? (:value e) "can't coerce")))
+
+(defn- blocking-errors
+  "Errors that stop the mutation. Without `force?` every new error blocks;
+   with it only coercion errors do."
+  [force? errors]
+  (if force? (filter coercion-error? errors) errors))
+
 (defn- module-discovery-error? [e]
   (and (string? (:key e))
        (str/starts-with? (:key e) "modules[")))
@@ -343,9 +357,10 @@
    crew-exists?, etc.) are never treated as new errors — only type errors
    can block the mutation. Use this from the CLI so operators can wire up
    values that reference entities not yet defined."
-  [root path value & {:keys [skip-ref-validation? skip-module-validation?]
+  [root path value & {:keys [skip-ref-validation? skip-module-validation? force?]
                       :or   {skip-ref-validation? false
-                             skip-module-validation? false}}]
+                             skip-module-validation? false
+                             force? false}}]
   (let [parsed (parse-config-path path)]
     (cond
       (:status parsed)
@@ -370,18 +385,21 @@
                                 $))
              warnings       (concat (:warnings result)
                                     (pre-existing->warnings carried-errors))]
-         (if (seq new-errors)
+         (if (seq (blocking-errors force? new-errors))
            {:status :invalid :file nil :errors new-errors :warnings warnings}
           (do
             (apply-plan! root plan)
-            {:status :ok :file (:file plan) :errors [] :warnings warnings}))))))
+            {:status :ok :file (:file plan) :errors []
+             :warnings (if force?
+                         (concat warnings new-errors)
+                         warnings)}))))))
 
 (defn unset-config
   "Removes dotted `path` under `root`. See ns docstring for return shape.
 
    Pre-existing config errors do not block the unset; they're surfaced
    as warnings."
-  [root path & {:keys [skip-module-validation?] :or {skip-module-validation? false}}]
+  [root path & {:keys [skip-module-validation? force?] :or {skip-module-validation? false force? false}}]
   (let [parsed (parse-config-path path)]
     (cond
       (:status parsed)
@@ -404,10 +422,13 @@
                              new-errors)
                 warnings (concat (:warnings result)
                                  (pre-existing->warnings carried-errors))]
-            (if (seq new-errors)
+            (if (seq (blocking-errors force? new-errors))
               {:status :invalid :file nil :errors new-errors :warnings warnings}
               (do
                 (apply-plan! root plan)
-                {:status :ok :file (:file plan) :errors [] :warnings warnings}))))))))
+                {:status :ok :file (:file plan) :errors []
+                 :warnings (if force?
+                             (concat warnings new-errors)
+                             warnings)}))))))))
 
 ;; endregion ^^^^^ Public API ^^^^^

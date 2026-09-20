@@ -15,6 +15,10 @@
         [[nil "--edn" "Print structured EDN output"]
          [nil "--json" "Print structured JSON output"]]))
 
+(def mutate-option-spec
+  (into structured-option-spec
+        [[nil "--force" "Write even when the resulting config fails schema validation"]]))
+
 (defn- config-root [opts]
   (paths/config-root (common/resolve-root opts)))
 

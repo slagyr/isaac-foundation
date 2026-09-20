@@ -229,6 +229,33 @@
                                        :skip-ref-validation? true)]
             (should= :ok (:status result))))))
 
+    (it "still blocks a required-sibling error when skip-ref-validation? is true"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root "gauges.echo.reading" "echo-v1"
+                                   :skip-ref-validation? true)]
+        (should= :invalid (:status result))
+        (should-contain "gauges.echo.foundry"
+                        (map :key (:errors result)))))
+
+    (it "writes a required-sibling error when force? is true and surfaces it as a warning"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root "gauges.echo.reading" "echo-v1"
+                                   :skip-ref-validation? true
+                                   :force? true)]
+        (should= :ok (:status result))
+        (should= "echo-v1" (get-in (read-edn "isaac.edn") [:gauges :echo :reading]))
+        (should= [] (:errors result))
+        (should-contain "gauges.echo.foundry" (map :key (:warnings result)))))
+
+    (it "force? does not bypass a coercion error"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root "relay.alpha.gain" "not-a-number"
+                                   :skip-ref-validation? true
+                                   :force? true)]
+        (should= :invalid (:status result))
+        (should-contain "relay.alpha.gain" (map :key (:errors result)))
+        (should-be-nil (get-in (read-edn "isaac.edn") [:relay "alpha" :gain]))))
+
   (describe "unset-config"
 
     (config-marigold/aboard)
