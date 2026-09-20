@@ -2,6 +2,7 @@
   "Babashka file-watcher backed by org.babashka/fswatcher (Go fsnotify).
    Uses FSEvents on macOS and inotify on Linux — event-driven, not polling."
   (:require
+    [isaac.logger :as log]
     [isaac.config.change-source-log :as change-log]
     [isaac.config.change-source-protocol :as proto]
     [isaac.config.paths :as paths])
@@ -16,6 +17,12 @@
   proto/ConfigChangeSource
   (proto/-start! [_]
     (let [config-root (java.io.File. (paths/config-root home))]
+      ;; A watcher that cannot watch must say so. Silence here is what let
+      ;; isaac-1pi2 look like "hot reload is on" while nothing was watched.
+      (when-not (.isDirectory config-root)
+        (log/warn :config.watch/unavailable
+                  :reason :no-config-dir
+                  :config-root (str config-root)))
       (when (and (nil? @state) (.isDirectory config-root))
         (when-not (find-ns 'pod.babashka.fswatcher)
           ((requiring-resolve 'babashka.pods/load-pod) 'org.babashka/fswatcher "0.0.7"))
