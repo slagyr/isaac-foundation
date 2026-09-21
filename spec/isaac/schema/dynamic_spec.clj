@@ -5,7 +5,7 @@
     [isaac.schema.lexicon :as lexicon]
     [speclj.core :refer :all]))
 
-(def berth-key :isaac.http/comm)
+(def berth-key :isaac.agent/comm)
 
 (defn- module-entry [contributions]
   {:manifest {berth-key contributions}})

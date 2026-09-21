@@ -151,7 +151,7 @@
       ;; this test covers for the other capabilities.
       ;; Phase 8 (isaac-qqgv): :comm-exists? no longer lives in
       ;; existence-refs — comm validation goes through
-      ;; [:registered-in? :isaac.http/comm [:comms]] which reads
+      ;; [:registered-in? :isaac.agent/comm [:comms]] which reads
       ;; the live module-index instead of a memoized known-set.
       (let [berth-calls  (atom 0)
             gauge-calls  (atom 0)

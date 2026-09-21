@@ -8,15 +8,15 @@
   (:import (java.io File)))
 
 (def pigeon-manifest
-  ;; Phase 8 (isaac-qqgv): comm contributions live at :isaac.http/comm,
-  ;; not the deleted :comm extension kind.
+  ;; Phase 8 (isaac-qqgv) put comm contributions at :isaac.http/comm;
+  ;; isaac-deds renamed the berth to :isaac.agent/comm.
   {:id                :isaac.comm/pigeon
    :version           "0.1.0"
    :bootstrap         'isaac.comm.pigeon/bootstrap
    :description       "Carrier pigeon comm"
-   :isaac.http/comm {:pigeon {:namespace 'isaac.comm.pigeon
-                                :schema  {:loft      {:type :string :validations [:present?]}
-                                          :max-bytes {:type :int :coercions [[:default 140]]}}}}})
+   :isaac.agent/comm {:pigeon {:namespace 'isaac.comm.pigeon
+                               :schema  {:loft      {:type :string :validations [:present?]}
+                                         :max-bytes {:type :int :coercions [[:default 140]]}}}}})
 
 (def api-manifest
   ;; Phase 7 (isaac-ho18): llm/api contributions live at

@@ -218,7 +218,9 @@
   (str (namespace kw) "/" (name kw)))
 
 (def ^:private retired-berth-messages
-  {:isaac.http/service ":isaac.http/service is retired; use :isaac/component"})
+  {:isaac.http/service ":isaac.http/service is retired; use :isaac/component"
+   :isaac.http/comm   ":isaac.http/comm is retired; use :isaac.agent/comm"
+   :isaac.server/comm ":isaac.server/comm is retired; use :isaac.agent/comm"})
 
 (defn unknown-berth-error [consumer-id berth-key]
   {:key   (str "module-index[\"" (coords/id-str consumer-id) "\"][" berth-key "]")

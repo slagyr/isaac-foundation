@@ -8,14 +8,13 @@
   "Returns sorted user-configurable comm kind names from the given module index.
    Filters out entries where :configurable? is false. With no args, falls back
    to the builtin manifest index."
-  ([] (comm-kinds (discovery/builtin-index)))
-  ([module-index]
-   (->> (vals module-index)
-        (mapcat (fn [entry]
-                  (or (get-in entry [:manifest :isaac.http/comm])
-                      (get-in entry [:manifest :isaac.agent/comm]))))
-        (remove (fn [[_ v]] (false? (:configurable? v))))
-        (map (fn [[k _]] (name k)))
-        sort
-        distinct
-        vec)))
+   ([] (comm-kinds (discovery/builtin-index)))
+   ([module-index]
+    (->> (vals module-index)
+         (mapcat (fn [entry]
+                   (get-in entry [:manifest :isaac.agent/comm])))
+         (remove (fn [[_ v]] (false? (:configurable? v))))
+         (map (fn [[k _]] (name k)))
+         sort
+         distinct
+         vec)))
