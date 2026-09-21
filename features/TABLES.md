@@ -131,7 +131,7 @@ The same-looking cell is not parsed the same way everywhere.
 - Leading `[`, `{`, `:`, or `"` => EDN read
 - `tools.allow` => comma-separated keyword vector
 - Some file/path combinations coerce bare words to keywords:
-  `defaults.crew`, `defaults.model`, crew `model`, cron `crew`, provider `api`
+  `defaults.frequencies.crew`, `defaults.crew.model`, crew `model`, cron `crew`, provider `api`
 - Otherwise values stay strings
 - `#delete` removes the key from the current file
 

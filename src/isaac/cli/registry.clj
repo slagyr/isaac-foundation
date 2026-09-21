@@ -139,7 +139,8 @@
 
 (defn- scaffold! [root fs*]
   (write-edn! fs* (paths/config-path root "isaac.edn")
-               {:defaults            {:crew :skipper :model :llama}
+               {:defaults            {:frequencies {:crew :skipper}
+                                      :crew        {:model :llama}}
                 :tz                  "America/Chicago"
                 :prefer-entity-files true})
   (write-markdown-entity! fs* (paths/config-path root "crew/skipper.md")

@@ -16,8 +16,8 @@ Feature: The CLI resolves the config once per command
   Scenario: a real command resolves the config exactly once
     Given an empty Isaac root at "target/test-config-resolution"
     And the isaac EDN file "config/isaac.edn" exists with:
-      | path            | value |
-      | defaults.crew   | main  |
+      | path                      | value |
+      | defaults.frequencies.crew | main  |
     And the config resolution spy is armed
     When isaac is run with "config get defaults"
     Then the exit code is 0
@@ -26,8 +26,8 @@ Feature: The CLI resolves the config once per command
   Scenario: a second process still validates even when the classpath cache is warm
     Given an empty Isaac root at "target/test-config-resolution"
     And the isaac EDN file "config/isaac.edn" exists with:
-      | path          | value |
-      | defaults.crew | main  |
+      | path                      | value |
+      | defaults.frequencies.crew | main  |
     And a warm classpath cache exists from a prior non-fast-path run
     And the config validation spy is armed
     When isaac is run with "config get defaults"
@@ -72,7 +72,7 @@ Feature: The CLI resolves the config once per command
       """
     And the isaac file "config/isaac.edn" exists with:
       """
-      {:defaults {:crew "main"}
+      {:defaults {:frequencies {:crew "main"}}
        :comms {:discord {:token "${DISCORD_TOKEN}"}}}
       """
     When isaac is run with "config get comms"
@@ -89,7 +89,7 @@ Feature: The CLI resolves the config once per command
       """
     And the isaac file "config/isaac.edn" exists with:
       """
-      {:defaults {:crew "main"}
+      {:defaults {:frequencies {:crew "main"}}
        :providers {:anthropic {:api-key "${CONFIG_TEST_API_KEY}"}}}
       """
     When the isaac launcher is run with "config get providers.anthropic.api-key"

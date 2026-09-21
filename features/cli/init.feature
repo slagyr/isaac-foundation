@@ -44,8 +44,8 @@ Feature: isaac init
     When isaac is run with "--root target/test-state init"
     Then the isaac file "config/isaac.edn" EDN contains:
       | path                 | value           |
-      | defaults.crew        | skipper         |
-      | defaults.model       | llama           |
+      | defaults.frequencies.crew | skipper    |
+      | defaults.crew.model       | llama      |
       | tz                   | America/Chicago |
       | prefer-entity-files  | true            |
     And the isaac file "config/crew/skipper.md" contains:
@@ -75,7 +75,7 @@ Feature: isaac init
       """
 
   Scenario: isaac init refuses when a config already exists
-    Given a file "/tmp/user/.isaac/config/isaac.edn" exists with content "{:defaults {:crew :main :model :llama}}"
+    Given a file "/tmp/user/.isaac/config/isaac.edn" exists with content "{:defaults {:frequencies {:crew :main} :crew {:model :llama}}}"
     When isaac is run with "init"
     Then the stderr contains "config already exists at /tmp/user/.isaac/config/isaac.edn; edit it directly."
     And the exit code is 1
