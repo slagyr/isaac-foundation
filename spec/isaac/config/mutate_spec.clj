@@ -256,6 +256,44 @@
         (should-contain "relay.alpha.gain" (map :key (:errors result)))
         (should-be-nil (get-in (read-edn "isaac.edn") [:relay "alpha" :gain]))))
 
+    (describe "an unresolvable ${VAR} reference (isaac-rxun)"
+
+      ;; The writer's shell is not the server's, so a variable missing here
+      ;; proves nothing: warn, never refuse.
+
+      (it "writes an optional field and warns instead of refusing"
+        (config-marigold/write-baseline!)
+        (let [result (sut/set-config marigold/root
+                                     (str "foundries." marigold/helm-systems ".api-key")
+                                     "${RXUN_MISSING}")]
+          (should= :ok (:status result))
+          (should-contain {:key            (str "foundries." marigold/helm-systems ".api-key")
+                           :value          "RXUN_MISSING is not set"
+                           :unresolved-ref "RXUN_MISSING"}
+                          (:warnings result))))
+
+      (it "keeps the literal in the file — raw reads are unaffected by substitution"
+        (config-marigold/write-baseline!)
+        (sut/set-config marigold/root (str "foundries." marigold/helm-systems ".api-key") "${RXUN_MISSING}")
+        (should= "${RXUN_MISSING}"
+                 (get-in (read-edn "isaac.edn") [:foundries (keyword marigold/helm-systems) :api-key])))
+
+      (it "writes a required field and warns instead of refusing"
+        (config-marigold/write-baseline!)
+        (let [path   (str "gauges." marigold/helm-mark-iii ".reading")
+              result (sut/set-config marigold/root path "${RXUN_MISSING}")]
+          (should= :ok (:status result))
+          (should= [] (:errors result))
+          (should-contain {:key            path
+                           :value          "RXUN_MISSING is not set"
+                           :unresolved-ref "RXUN_MISSING"}
+                          (:warnings result))))
+
+      (it "still refuses a value that cannot become the declared type"
+        (config-marigold/write-baseline!)
+        (let [result (sut/set-config marigold/root (str "relay." marigold/first-mate ".gain") "not-an-int")]
+          (should= :invalid (:status result)))))
+
   (describe "unset-config"
 
     (config-marigold/aboard)

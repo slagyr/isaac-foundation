@@ -158,4 +158,70 @@
                                             true
                                             false))))
 
+  (describe "unresolvable ${VAR} references (isaac-rxun)"
+
+    (it "substitutes a reference that resolves"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (should= "sk-real" (parse/substitute-env "${RXUN_KEY}")))
+
+    (it "resolves to absent rather than the literal when the variable is unset"
+      (should-be-nil (parse/substitute-env "${RXUN_MISSING}")))
+
+    (it "treats a partly-resolvable string as unresolvable — a half-substituted literal still gets sent"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (should-be-nil (parse/substitute-env "${RXUN_KEY}-${RXUN_MISSING}")))
+
+    (it "leaves a string with no references alone"
+      (should= "plain" (parse/substitute-env "plain")))
+
+    (it "names every unresolvable reference in a string, once each"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (should= ["RXUN_MISSING" "RXUN_ALSO_MISSING"]
+               (parse/unresolved-references "${RXUN_KEY} ${RXUN_MISSING} ${RXUN_ALSO_MISSING} ${RXUN_MISSING}")))
+
+    (it "drops a map field whose reference is unset, keeping its siblings"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (should= {:model "gpt-5" :key "sk-real"}
+               (parse/substitute-env-recursive {:model "gpt-5" :key "${RXUN_KEY}" :secret "${RXUN_MISSING}"})))
+
+    (it "records the dropped field's path and the variable that was not set"
+      (binding [parse/*unresolved-refs* (atom [])]
+        (parse/substitute-env-recursive {:episodes {:embedding {:api-key "${RXUN_MISSING}"}}})
+        (should= [{:path [:episodes :embedding :api-key] :ref "RXUN_MISSING"}]
+                 @parse/*unresolved-refs*)))
+
+    (it "records nothing when every reference resolves"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (binding [parse/*unresolved-refs* (atom [])]
+        (parse/substitute-env-recursive {:key "${RXUN_KEY}"})
+        (should= [] @parse/*unresolved-refs*)))
+
+    (it "prefixes recorded paths with *reference-path* so an entity file reports its full path"
+      (binding [parse/*unresolved-refs* (atom [])
+                parse/*reference-path*  [:crew "main"]]
+        (parse/substitute-env-recursive {:gauge "${RXUN_MISSING}"})
+        (should= [{:path [:crew "main" :gauge] :ref "RXUN_MISSING"}]
+                 @parse/*unresolved-refs*)))
+
+    (it "drops an unresolvable entry from a sequence and records its index"
+      (env/set-env-override! "RXUN_KEY" "sk-real")
+      (binding [parse/*unresolved-refs* (atom [])]
+        (should= {:args ["sk-real"]}
+                 (parse/substitute-env-recursive {:args ["${RXUN_KEY}" "${RXUN_MISSING}"]}))
+        (should= [{:path [:args 1] :ref "RXUN_MISSING"}] @parse/*unresolved-refs*)))
+
+    (it "keeps an explicit nil — absent by reference is the only thing it drops"
+      (should= {:gauge nil} (parse/substitute-env-recursive {:gauge nil})))
+
+    (it "leaves non-string scalars alone"
+      (should= {:port 8080 :on? true} (parse/substitute-env-recursive {:port 8080 :on? true})))
+
+    (it "drops the field when read through read-edn-string"
+      (should= {:providers {:zane {:model "gpt-5"}}}
+               (parse/read-edn-string "{:providers {:zane {:model \"gpt-5\" :api-key \"${RXUN_MISSING}\"}}}" true)))
+
+    (it "keeps the literal when substitution is off — raw reads are unaffected"
+      (should= {:api-key "${RXUN_MISSING}"}
+               (parse/read-edn-string "{:api-key \"${RXUN_MISSING}\"}" false))))
+
 )

@@ -38,15 +38,83 @@
     {:frontmatter frontmatter
      :body        (str/replace body #"^\r?\n" "")}))
 
-(defn substitute-env [s]
-  (str/replace s #"\$\{([^}]+)\}" (fn [[match var-name]] (or (env/env var-name) match))))
+;; region ----- ${VAR} substitution -----
 
-(defn substitute-env-recursive [value]
-  (cond
-    (string? value) (substitute-env value)
-    (map? value) (into {} (map (fn [[k v]] [k (substitute-env-recursive v)]) value))
-    (sequential? value) (mapv substitute-env-recursive value)
-    :else value))
+(def ^:private reference-pattern #"\$\{([^}]+)\}")
+
+(def ^:dynamic *unresolved-refs*
+  "When bound to an atom, substitution appends `{:path [...] :ref \"VAR\"}` for
+   every field it dropped because a `${...}` reference could not be resolved.
+   Unbound (nil) substitution still drops the field; it just keeps no record."
+  nil)
+
+(def ^:dynamic *reference-path*
+  "Config path prefix for recorded references. An entity file substitutes values
+   whose paths are relative to the entity, so `crew/main.edn` binds `[:crew
+   \"main\"]` and a dropped `:gauge` records `[:crew \"main\" :gauge]`."
+  [])
+
+(defn unresolved-references
+  "Every `${...}` reference in `s` that has no value, in order, once each."
+  [s]
+  (->> (re-seq reference-pattern s)
+       (keep (fn [[_ var-name]] (when (nil? (env/env var-name)) var-name)))
+       (distinct)
+       (vec)))
+
+(defn substitute-env
+  "Replace every `${VAR}` in `s` with its value, or return nil when any reference
+   cannot be resolved.
+
+   An unresolvable reference is an unset field, never the literal text: the
+   literal looks like a real value, so it goes out as the API key and the
+   provider answers 401 — the error then blames auth instead of the missing
+   variable (isaac-rxun). A partly-resolvable string is unresolvable for the
+   same reason."
+  [s]
+  (when (empty? (unresolved-references s))
+    (str/replace s reference-pattern (fn [[_ var-name]] (env/env var-name)))))
+
+(defn- record-unresolved!
+  "Record the dropped field. Always returns nil — it is the `or` fallback in
+   substitute-env-recursive, so a truthy return would resurrect the literal."
+  [path refs]
+  (when *unresolved-refs*
+    (swap! *unresolved-refs* into (map (fn [ref] {:path (vec path) :ref ref}) refs)))
+  nil)
+
+(defn substitute-env-recursive
+  "Substitute `${VAR}` references through a config value. A field whose reference
+   cannot be resolved is dropped — absent, exactly as if it had never been set —
+   and recorded in `*unresolved-refs*` under its path. An explicit nil is kept:
+   an unresolvable reference is the only thing this drops."
+  ([value] (substitute-env-recursive *reference-path* value))
+  ([path value]
+   (cond
+     (string? value)
+     (or (substitute-env value)
+         (record-unresolved! path (unresolved-references value)))
+
+     (map? value)
+     (reduce-kv (fn [acc k v]
+                  (let [substituted (substitute-env-recursive (conj (vec path) k) v)]
+                    (if (and (some? v) (nil? substituted))
+                      acc
+                      (assoc acc k substituted))))
+                {}
+                value)
+
+     (sequential? value)
+     (into []
+           (keep-indexed (fn [idx v]
+                           (let [substituted (substitute-env-recursive (conj (vec path) idx) v)]
+                             (when-not (and (some? v) (nil? substituted))
+                               substituted))))
+           value)
+
+     :else value)))
+
+;; endregion ^^^^^ ${VAR} substitution ^^^^^
 
 (defn read-edn-string [content substitute-env?]
   (-> content

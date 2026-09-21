@@ -195,8 +195,13 @@
   [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
        :or   {substitute-env? true}
        :as   opts}]]
-  (let [fs*  (parse/runtime-fs opts)
-        opts (assoc opts :fs fs* :substitute-env? substitute-env?)]
+  (let [fs*         (parse/runtime-fs opts)
+        opts        (assoc opts :fs fs* :substitute-env? substitute-env?)
+        ;; One collector for the whole load: every read below substitutes ${VAR}
+        ;; references, and an unresolvable one drops its field rather than
+        ;; passing the literal through (isaac-rxun).
+        unresolved* (atom [])]
+   (binding [parse/*unresolved-refs* unresolved*]
     (nexus/-with-nested-nexus {:fs fs*}
                               (env/lock-dotenv! root)
                               (let [config-root (paths/config-root root)]
@@ -285,18 +290,28 @@
                                                                       (:errors slices)
                                                                       (when compose-error [compose-error]))
                                                             (into (:errors result))
-                                                            (berths/normalize-errors (:index discovery)))]
-                                    {:config   config
-                                     :errors   (vec (distinct (sort-by :key errors)))
-                                     ;; Log the unknown keys as they leave the loader: a key the
-                                     ;; schema silently prunes is otherwise invisible until someone
-                                     ;; separately runs `isaac config validate` (isaac-nq4c).
-                                     :warnings (->> (concat (:warnings result) (:warnings contributed) (:warnings slices))
-                                                    (berths/normalize-errors (:index discovery))
-                                                    (sort-by :key)
-                                                    vec
-                                                    (warnings/log-unknown-keys!))
-                                     :sources  (vec (sort (:sources result)))}))))))
+                                                            (berths/normalize-errors (:index discovery)))
+                                        all-warnings     (->> (concat (:warnings result) (:warnings contributed) (:warnings slices)
+                                                                      (warnings/reference-warnings @unresolved*))
+                                                              (berths/normalize-errors (:index discovery))
+                                                              (sort-by :key)
+                                                              vec)
+                                        ;; Read back off the normalized rows so these paths match the keys
+                                        ;; validation errors use (isaac-rxun).
+                                        unresolved-refs  (warnings/unresolved-ref-index all-warnings)]
+                                    {:config   (cond-> config
+                                                (seq unresolved-refs) (assoc :unresolved-refs unresolved-refs))
+                                     :errors   (->> (sort-by :key errors)
+                                                    (distinct)
+                                                    (warnings/attach-reference-reasons unresolved-refs))
+                                     ;; Log both as they leave the loader: a key the schema silently prunes
+                                     ;; (isaac-nq4c) and a field an unresolvable reference silently emptied
+                                     ;; (isaac-rxun) are otherwise invisible until someone separately runs
+                                     ;; `isaac config validate`.
+                                     :warnings (->> all-warnings
+                                                    (warnings/log-unknown-keys!)
+                                                    (warnings/log-unresolved-refs!))
+                                     :sources  (vec (sort (:sources result)))})))))))
 
 ;; region ----- Ambient Config Snapshot -----
 
@@ -315,6 +330,16 @@
    greppable and reviewable. See set-snapshot!."
   [reason]
   @(config-atom))
+
+(defn unresolved-ref
+  "The `${VAR}` name a config field referenced but could not resolve, or nil.
+   `path` is the dotted field path the warnings use (`providers.zane.api-key`).
+
+   The field itself is absent — an unresolvable reference is an unset field
+   (isaac-rxun) — so the code that needs it cannot see why. This is how the
+   point of use names the variable instead of reporting a bare \"not set\"."
+  ([path] (unresolved-ref (snapshot "unresolved-ref: which ${VAR} emptied this field") path))
+  ([config path] (get-in config [:unresolved-refs path])))
 
 (defn set-snapshot!
   "Low-level primitive: reset the process-wide config snapshot to `cfg`. Internal

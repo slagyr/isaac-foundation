@@ -151,10 +151,17 @@
                     (when (seq valid-values)
                       (str " [valid: " (str/join ", " valid-values) "]")))))))
 
+(def ^:private shell-caveat
+  "An unresolvable ${VAR} is reported from the CLI's own environment, which is
+   not the one the service runs under — so the CLI says so and never refuses
+   the write (isaac-rxun)."
+  " (not set in this shell; the server's environment may differ)")
+
 (defn print-warnings! [entries]
   (binding [*out* *err*]
-    (doseq [{:keys [bad-value file key valid-values value]} entries]
+    (doseq [{:keys [bad-value file key unresolved-ref valid-values value]} entries]
       (println (str "warning: :" key " - " value
+                    (when unresolved-ref shell-caveat)
                     (when file
                       (str " [file: " file "]"))
                     (when bad-value

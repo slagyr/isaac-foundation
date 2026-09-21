@@ -147,6 +147,58 @@
       (log/warn :config/unknown-key :slice slice :key unknown :path key)))
   warnings)
 
+;; region ----- Unresolvable ${VAR} references (isaac-rxun) -----
+
+(defn- reference-path-part [segment]
+  (cond
+    (keyword? segment) (name segment)
+    (integer? segment) (str "[" segment "]")
+    :else              (str segment)))
+
+(defn reference-warnings
+  "Warning rows for the `${...}` references substitution could not resolve. The
+   field was dropped rather than passed through as its literal text, so this row
+   is the only trace the operator gets: it names the field path and the variable.
+   `:unresolved-ref` marks the row for logging and for the required-field reason."
+  [unresolved]
+  (mapv (fn [{:keys [path ref]}]
+          {:key            (join-path (mapv reference-path-part path))
+           :value          (str ref " is not set")
+           :unresolved-ref ref})
+        unresolved))
+
+(defn unresolved-ref-index
+  "field path -> unresolved variable, read back off the normalized warning rows
+   so the paths match the keys validation errors use."
+  [warnings]
+  (into {} (keep (fn [{:keys [key unresolved-ref]}]
+                   (when unresolved-ref [key unresolved-ref]))
+                 warnings)))
+
+(defn attach-reference-reasons
+  "Attach the reason to any error on a field whose reference could not be
+   resolved. An unresolvable reference is exactly an unset field, so a required
+   one gets the ordinary required-field error — but `is required` on its own
+   sends the operator looking at the config file, where the field IS set."
+  [unresolved-by-key errors]
+  (mapv (fn [error]
+          (if-let [ref (and (string? (:value error)) (get unresolved-by-key (:key error)))]
+            (update error :value str " (unset because ${" ref "} is not set)")
+            error))
+        errors))
+
+(defn log-unresolved-refs!
+  "Warn-log every unresolvable reference. Boot and hot reload are where the
+   environment that actually counts is read, so this is the one report the
+   operator can trust; it never fails the load. Returns `warnings`."
+  [warnings]
+  (doseq [{:keys [key unresolved-ref]} warnings
+          :when unresolved-ref]
+    (log/warn :config/unresolved-reference :path key :ref unresolved-ref))
+  warnings)
+
+;; endregion ^^^^^ Unresolvable ${VAR} references ^^^^^
+
 (defn nested-unknown-key-warnings
   "Recursively collect unknown-key warnings for a config value against
    its schema. A closed map (a :schema, no :value-spec) rejects keys

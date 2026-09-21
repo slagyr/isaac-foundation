@@ -77,6 +77,12 @@
   [cfg reason]
   (loader/set-snapshot! cfg reason))
 
+(defn unresolved-ref
+  "The `${VAR}` a config field referenced but could not resolve, or nil. See
+   isaac.config.loader/unresolved-ref."
+  ([path] (loader/unresolved-ref path))
+  ([config path] (loader/unresolved-ref config path)))
+
 (defn set-env-override!
   "Sets an env-var override (test support). Clears the load cache."
   [name value]

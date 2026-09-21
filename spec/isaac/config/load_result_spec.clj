@@ -10,6 +10,7 @@
     [isaac.logger :as log]
     [isaac.config.paths :as paths]
     [isaac.spec-helper :as helper]
+    [isaac.config.install :as install]
     [isaac.config.loader :as sut]
     [isaac.config.env :as env]
     [isaac.config.parse :as parse]
@@ -276,11 +277,102 @@
       (let [result (marigold/load-config)]
         (should= [] (filter #(= (str "berths/" marigold/captain ".md") (:key %)) (:warnings result)))))
 
+    ;; The value is a literal, not "${HELM_API_KEY}": an unresolvable reference is
+    ;; now dropped before the unknown-key pass sees it (isaac-rxun), which would
+    ;; hide the camelCase cutover this example exists to pin.
     (it "treats camelCase config keys as unknown after the hard cutover"
-      (config-marigold/write-foundry! :helm-systems {:apiKey "${HELM_API_KEY}"})
+      (config-marigold/write-foundry! :helm-systems {:apiKey "sk-literal"})
       (let [result (marigold/load-config)]
         (should= [] (:errors result))
         (should= [{:key "foundries.helm-systems.apiKey" :value "unknown key"}] (:warnings result))))
+
+    (describe "unresolvable ${VAR} references (isaac-rxun)"
+
+      (it "drops an optional field whose variable is unset and still loads"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}" :base-url "https://helm"})
+        (let [result (marigold/load-config)]
+          (should= [] (:errors result))
+          (should-be-nil (get-in result [:config :foundries "helm-systems" :api-key]))
+          (should= "https://helm" (get-in result [:config :foundries "helm-systems" :base-url]))))
+
+      (it "warns with the field path and the variable that is not set"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}"})
+        (let [result (marigold/load-config)]
+          (should-contain {:key            "foundries.helm-systems.api-key"
+                           :value          "RXUN_MISSING is not set"
+                           :unresolved-ref "RXUN_MISSING"}
+                          (:warnings result))))
+
+      (it "never warns 'unknown key' for the field it dropped"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}"})
+        (let [result (marigold/load-config)]
+          (should= [] (filter #(= "unknown key" (:value %)) (:warnings result)))))
+
+      (it "logs the reference at warn so the server's own environment is the one reported"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}"})
+        (marigold/load-config)
+        (should (some (fn [entry] (and (= :warn (:level entry))
+                                       (= :config/unresolved-reference (:event entry))
+                                       (= "foundries.helm-systems.api-key" (:path entry))
+                                       (= "RXUN_MISSING" (:ref entry))))
+                      @log/captured-logs)))
+
+      (it "records the dropped reference on the config so the point of use can name the variable"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}"})
+        (let [result (marigold/load-config)]
+          (should= {"foundries.helm-systems.api-key" "RXUN_MISSING"}
+                   (get-in result [:config :unresolved-refs]))))
+
+      (it "records nothing when every reference resolves"
+        (env/set-env-override! "RXUN_PRESENT" "sk-real")
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_PRESENT}"})
+        (let [result (marigold/load-config)]
+          (should= "sk-real" (get-in result [:config :foundries "helm-systems" :api-key]))
+          (should-be-nil (get-in result [:config :unresolved-refs]))))
+
+      (it "gives a required field the required-field error with the reason attached"
+        (write-config-with-entities!
+          {:gauges    {:grover {:reading "${RXUN_MISSING}" :foundry (keyword marigold/helm-systems)}}
+           :foundries {(keyword marigold/helm-systems) {}}})
+        (let [result (marigold/load-config)]
+          (should-contain {:key   "gauges.grover.reading"
+                           :value "is required (unset because ${RXUN_MISSING} is not set)"}
+                          (mapv #(select-keys % [:key :value]) (:errors result)))))
+
+      (it "boots with an optional unresolvable reference — load-and-install! commits the config and reports no error"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}" :base-url "https://helm"})
+        (nexus/-with-nested-nexus {:config (atom nil)}
+          (let [result (marigold/with-module-seam #(install/load-and-install! {:root marigold/root}))]
+            (should= [] (:errors result))
+            (should-be-nil (get-in result [:config :foundries "helm-systems" :api-key]))
+            (should= "https://helm" (get-in result [:config :foundries "helm-systems" :base-url])))))
+
+      (it "hot-reloads with an optional unresolvable reference — reload! keeps going instead of rejecting the config"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}" :base-url "https://helm"})
+        (nexus/-with-nested-nexus {:config (atom nil)}
+          (let [reloaded (marigold/with-module-seam
+                           #(install/reload! {:root marigold/root
+                                              :fs   (nexus/get :fs)
+                                              :path "isaac.edn"}))]
+            (should-not-be-nil reloaded)
+            (should-be-nil (get-in reloaded [:foundries "helm-systems" :api-key]))
+            (should= "https://helm" (get-in reloaded [:foundries "helm-systems" :base-url])))))
+
+      (it "hands the variable name to the point of use through loader/unresolved-ref"
+        (config-marigold/write-foundry! :helm-systems {:api-key "${RXUN_MISSING}"})
+        (let [config (:config (marigold/load-config))]
+          (should= "RXUN_MISSING" (sut/unresolved-ref config "foundries.helm-systems.api-key"))
+          (should-be-nil (sut/unresolved-ref config "foundries.helm-systems.base-url"))))
+
+      (it "reports a reference inside an entity file under the entity's full path"
+        (config-marigold/write-gauge! :grover {:reading "helm-mk-3-1.0"
+                                               :foundry (keyword marigold/helm-systems)
+                                               :id      "${RXUN_MISSING}"})
+        (let [result (marigold/load-config)]
+          (should-contain {:key            "gauges.grover.id"
+                           :value          "RXUN_MISSING is not set"
+                           :unresolved-ref "RXUN_MISSING"}
+                          (:warnings result)))))
 
     (it "validates semantic references across watch berths gauges and foundries"
       (write-config-with-entities!

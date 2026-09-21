@@ -338,6 +338,19 @@
   (and (string? (:key e))
        (str/starts-with? (:key e) "modules[")))
 
+(defn- unresolved-reference-paths
+  "The field paths whose `${...}` reference this shell cannot resolve. Such a
+   field reads as unset, so validation raises the ordinary required-field error
+   on it — but writing config must never refuse over that: the writer's
+   environment is not the server's, so a variable missing here proves nothing,
+   and a file reference may be written before the file exists (isaac-rxun).
+   The warning still fires; only the refusal is dropped."
+  [load-result]
+  (set (keys (get-in load-result [:config :unresolved-refs]))))
+
+(defn- unresolved-reference-error? [unresolved-paths e]
+  (contains? unresolved-paths (:key e)))
+
 
 (defn- pre-existing->warnings
   "Format pre-existing errors as warnings so the user sees them without
@@ -376,13 +389,15 @@
              plan           (set-plan parsed state value)
              result         (validate-plan root plan)
              [new-errors carried-errors] (partition-errors pre-errors (:errors result))
+             unresolved     (unresolved-reference-paths result)
              new-errors     (as-> new-errors $
                               (if skip-ref-validation?
                                 (vec (remove reference-error? $))
                                 $)
                               (if skip-module-validation?
                                 (vec (remove module-discovery-error? $))
-                                $))
+                                $)
+                              (vec (remove #(contains? unresolved (:key %)) $)))
              warnings       (concat (:warnings result)
                                     (pre-existing->warnings carried-errors))]
          (if (seq (blocking-errors force? new-errors))
@@ -417,9 +432,11 @@
           :else
           (let [result   (validate-plan root plan)
                 [new-errors carried-errors] (partition-errors pre-errors (:errors result))
-                new-errors (if skip-module-validation?
-                             (vec (remove module-discovery-error? new-errors))
-                             new-errors)
+                unresolved (unresolved-reference-paths result)
+                new-errors (cond->> new-errors
+                             skip-module-validation? (remove module-discovery-error?)
+                             :always                 (remove (partial unresolved-reference-error? unresolved))
+                             :always                 vec)
                 warnings (concat (:warnings result)
                                  (pre-existing->warnings carried-errors))]
             (if (seq (blocking-errors force? new-errors))

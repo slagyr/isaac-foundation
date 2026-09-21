@@ -120,18 +120,23 @@
       {:files    (vec (sort-by :relative (map #(assoc % :format :edn) edn-files)))
        :warnings []})))
 
-(defn- read-entity-entry [entry substitute-env? raw-parse-errors?]
-  (let [{:keys [content format overlay? path]} entry]
-    (case format
-      :md-frontmatter
-      (parse/read-frontmatter-file entry substitute-env? raw-parse-errors?)
+(defn- read-entity-entry
+  "Read one entity file. `kind` and the entry's id prefix the reference path so a
+   dropped `${VAR}` inside crew/main.edn reports as `crew.main.<field>` rather
+   than a bare field name (isaac-rxun)."
+  [kind entry substitute-env? raw-parse-errors?]
+  (let [{:keys [content format overlay? path id]} entry]
+    (binding [parse/*reference-path* [kind id]]
+      (case format
+        :md-frontmatter
+        (parse/read-frontmatter-file entry substitute-env? raw-parse-errors?)
 
-      (if overlay?
-        (try
-          {:data (parse/read-edn-string content substitute-env?)}
-          (catch Exception e
-            {:error (if raw-parse-errors? (.getMessage e) "EDN syntax error")}))
-        (parse/read-edn-file path substitute-env? raw-parse-errors?)))))
+        (if overlay?
+          (try
+            {:data (parse/read-edn-string content substitute-env?)}
+            (catch Exception e
+              {:error (if raw-parse-errors? (.getMessage e) "EDN syntax error")}))
+          (parse/read-edn-file path substitute-env? raw-parse-errors?))))))
 
 (defn- resolve-entity-data [root kind id format raw-data body]
   (if-not (map? raw-data)
@@ -211,7 +216,7 @@
 (defn load-entity-file
   ([result root kind entry substitute-env? raw-parse-errors?]
    (let [{:keys [format id relative]} entry
-         {raw-data :data error :error body :body} (read-entity-entry entry substitute-env? raw-parse-errors?)
+         {raw-data :data error :error body :body} (read-entity-entry kind entry substitute-env? raw-parse-errors?)
          {data :data error :error extra-errors :extra-errors}
          (if error
            {:data raw-data :error error :extra-errors []}
@@ -228,7 +233,7 @@
        :else
        (finalize-entity-load result kind id relative data extra-errors))))
   ([root-schema result root kind {:keys [format id relative] :as entry} substitute-env? raw-parse-errors?]
-   (let [{raw-data :data error :error body :body} (read-entity-entry entry substitute-env? raw-parse-errors?)
+   (let [{raw-data :data error :error body :body} (read-entity-entry kind entry substitute-env? raw-parse-errors?)
          {data :data error :error extra-errors :extra-errors}
          (if error
            {:data raw-data :error error :extra-errors []}

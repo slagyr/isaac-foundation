@@ -244,16 +244,21 @@
           [(str root "/resources/isaac-manifest.edn")
            (str root "/src/isaac-manifest.edn")])))
 
+(defn with-module-seam
+  "Run `f` with the module classpath lookup emulated. Marigold module fixtures
+   live on mem-fs, so there is no in-memory local/root to add to the real JVM
+   classpath — anything that discovers modules goes through this seam."
+  [f]
+  (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [_])
+                isaac.module.discovery/manifest-resource local-module-manifest-path]
+    (f)))
+
 (defn load-config
   "Load the configuration from the Marigold's home. Optional opts merge
    into the loader call (e.g. {:raw-parse-errors? true})."
   ([] (load-config nil))
   ([opts]
-   ;; Marigold module fixtures live on mem-fs, so emulate the classpath lookup
-   ;; seam instead of trying to add an in-memory local/root to the real JVM classpath.
-   (with-redefs [isaac.module.classpath/invoke-add-deps! (fn [_])
-                 isaac.module.discovery/manifest-resource local-module-manifest-path]
-     (loader/load-config-result (merge {:root root} opts)))))
+   (with-module-seam #(loader/load-config-result (merge {:root root} opts)))))
 
 (defn write-config!
   "Write isaac.edn at the Marigold home, replacing any prior contents."

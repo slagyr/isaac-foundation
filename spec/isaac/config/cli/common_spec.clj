@@ -24,6 +24,29 @@
         (binding [*out* (java.io.PrintWriter. (java.io.StringWriter.))]
           (should-not (sut/stdout-tty?))))))
 
+  (describe "print-warnings!"
+
+    (defn- warning-output [entries]
+      (let [err (java.io.StringWriter.)]
+        (binding [*err* err] (sut/print-warnings! entries))
+        (str err)))
+
+    (it "prints the field path and the reason"
+      (should-contain "warning: :foundries.helm.api-key - RXUN_MISSING is not set"
+                      (warning-output [{:key            "foundries.helm.api-key"
+                                        :value          "RXUN_MISSING is not set"
+                                        :unresolved-ref "RXUN_MISSING"}])))
+
+    (it "caveats an unresolvable reference — the CLI's shell is not the server's (isaac-rxun)"
+      (should-contain "not set in this shell; the server's environment may differ"
+                      (warning-output [{:key            "foundries.helm.api-key"
+                                        :value          "RXUN_MISSING is not set"
+                                        :unresolved-ref "RXUN_MISSING"}])))
+
+    (it "leaves other warnings uncaveated"
+      (should-not-contain "the server's environment may differ"
+                          (warning-output [{:key "foundries.helm.bogus" :value "unknown key"}]))))
+
   (describe "normalize-path"
 
     (it "preserves dotted paths without a leading slash"
