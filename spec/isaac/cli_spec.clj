@@ -216,7 +216,7 @@
 
   (it "scaffolds the default config files in a fresh root"
     (should= 0 (sut/init-run {:root test-home}))
-    (should= {:defaults {:crew :skipper :model :llama}
+    (should= {:defaults {:frequencies {:crew :skipper} :crew {:model :llama}}
                :tz "America/Chicago"
                :prefer-entity-files true}
               (slurp-edn (str test-home "/config/isaac.edn")))
@@ -273,7 +273,7 @@
   (it "accepts an explicit fs via opts"
     (let [mem (fs/mem-fs)]
       (should= 0 (sut/init-run {:root test-home :fs mem}))
-      (should= {:defaults {:crew :skipper :model :llama}
+      (should= {:defaults {:frequencies {:crew :skipper} :crew {:model :llama}}
                 :tz "America/Chicago"
                 :prefer-entity-files true}
                (edn/read-string (fs/slurp mem (str test-home "/config/isaac.edn")))))))

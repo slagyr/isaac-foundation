@@ -89,6 +89,18 @@
                    (entries (join-path prefix (segment-name field)) message))
                  (cs/message-map result)))))
 
+(defn- demands-a-field?
+  "Does this map spec declare a field that must be present? Such a map cannot
+   be satisfied by leaving the map itself out — omitting `:defaults
+   :frequencies` is omitting the default crew — so validation descends into an
+   absent one to say which field is missing (isaac-ruom)."
+  [spec]
+  (letfn [(present? [validation]
+            (or (= :present? validation)
+                (and (vector? validation) (= :present? (first validation)))))]
+    (boolean (some (fn [[_ field-spec]] (some present? (:validations field-spec)))
+                   (:schema spec)))))
+
 (defn annotation-errors* [root path spec value & [entity field-key]]
   (let [path-str   (dotted-path path)
         own-errors (->> (:validations spec)
@@ -109,6 +121,9 @@
                                         (validation-error-entry root path-str ref-def value
                                                                 (or (:message (ex-data e))
                                                                     (ex-message e))))))))))
+        value      (if (and (nil? value) (= :map (:type spec)) (demands-a-field? spec))
+                     {}
+                     value)
         map-errors (when (and (= :map (:type spec)) (map? value))
                      (concat
                        (mapcat (fn [[field-key field-spec]]
