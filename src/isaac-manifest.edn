@@ -8,7 +8,22 @@
                                                 :value-spec {:type   :map
                                                              :schema {:namespace {:type        :symbol
                                                                                   :validations [:present?]}}}}}
-:isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
+:isaac.config/component
+             {:description "Components whose configuration foundation reconciles on reload: it diffs the module's config slice old against new and starts, notifies, or stops the live instance. Declare one per config slice you own. Foundation walks what is declared and knows no module by name (isaac-bbe0)."
+              :schema      {:type       :map
+                            :key-spec   {:type :keyword}
+                            :value-spec {:type   :map
+                                         :schema {:path    {:type        :seq
+                                                            :spec        {:type :keyword}
+                                                            :validations [:present?]
+                                                            :description "Config path this component owns, e.g. [:hooks]."}
+                                                  :factory {:type        :symbol
+                                                            :validations [:present?]
+                                                            :description "Fully qualified fn that builds the instance from the config slice."}
+                                                  :impl    {:type        :string
+                                                            :description "Name for lifecycle logs."}}}}}
+
+             :isaac/cli           {:description "CLI commands installed into the top-level isaac command registry."
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
                                                  :value-spec {:type    :map

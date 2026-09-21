@@ -12,6 +12,7 @@
    them. The watcher is recursive over the config root, so a file created after
    boot is seen like any other."
   (:require
+    [isaac.config.configurator :as configurator]
     [isaac.config.loader :as loader]
     [isaac.config.runtime :as runtime]
     [isaac.logger :as log]))
@@ -36,20 +37,11 @@
 
       :else true)))
 
-(def ^:private optional-registry-syms
-  "Config-driven registries contributed by modules. Resolved by name because a
-   module may not be installed; absent ones are skipped. TODO: invert this into
-   a berth so modules declare their registry instead of foundation naming them."
-  '[isaac.hail.bands/registry
-    isaac.hooks/registry
-    isaac.cron.service/registry])
-
-(defn- resolve-registry [sym]
-  (when-let [v (try (requiring-resolve sym) (catch Throwable _ nil))]
-    (if (var? v) @v v)))
-
-(defn registries []
-  (vec (keep resolve-registry optional-registry-syms)))
+(defn registries
+  "What reload should reconcile: whatever modules declared through
+   :isaac.config/component. Foundation names no module (isaac-bbe0)."
+  [module-index]
+  (configurator/declared-registries module-index))
 
 (defn- reload-loop! [{:keys [source root fs host registries]}]
   (future
@@ -87,7 +79,8 @@
       {:source   source
        :reloader (when-not (false? reloader?)
                    (reload-loop! {:source source :root root :fs fs
-                                  :host host :registries (registries)}))})))
+                                  :host host
+                                  :registries (registries (:module-index host))}))})))
 
 (defn stop!
   "Stop the watcher and its reload loop."

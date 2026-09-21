@@ -73,6 +73,31 @@
       (and (not= old-slice new-slice) (some? new-slice) (nil? existing))
       (start-instance! factory host path new-slice impl))))
 
+(defn declared-registries
+  "The reconcilable components modules declare through :isaac.config/component.
+   Foundation walks what is declared; it does not know hooks, cron or hail by
+   name, and a module that is not installed simply is not declared
+   (isaac-bbe0)."
+  [module-index]
+  (vec
+    (for [[_module-id entry] module-index
+          [_id contribution] (get-in entry [:manifest :isaac.config/component])
+          :let [factory (:factory contribution)
+                factory-fn (cond
+                             (fn? factory) factory
+                             (symbol? factory) (try (requiring-resolve factory)
+                                                    (catch Throwable e
+                                                      (log/warn :config.component/factory-unresolved
+                                                                :factory factory
+                                                                :error (.getMessage e))
+                                                      nil))
+                             :else nil)]
+          :when factory-fn]
+      {:kind    :component
+       :path    (vec (:path contribution))
+       :impl    (:impl contribution)
+       :factory factory-fn})))
+
 (defn reconcile!
   "Reconciles singleton :component registries (hail bands, hooks, cron)
    against config slices — boot (old nil), reload, and shutdown (new
