@@ -288,10 +288,14 @@
                                                             (berths/normalize-errors (:index discovery)))]
                                     {:config   config
                                      :errors   (vec (distinct (sort-by :key errors)))
+                                     ;; Log the unknown keys as they leave the loader: a key the
+                                     ;; schema silently prunes is otherwise invisible until someone
+                                     ;; separately runs `isaac config validate` (isaac-nq4c).
                                      :warnings (->> (concat (:warnings result) (:warnings contributed) (:warnings slices))
                                                     (berths/normalize-errors (:index discovery))
                                                     (sort-by :key)
-                                                    vec)
+                                                    vec
+                                                    (warnings/log-unknown-keys!))
                                      :sources  (vec (sort (:sources result)))}))))))
 
 ;; region ----- Ambient Config Snapshot -----

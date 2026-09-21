@@ -288,6 +288,51 @@
                             (= "must be a schema map of field → spec" (:value %)))
                       (:errors result)))))
 
+    (it "warns on an undeclared :extra-schema key in a declared module's slot (the isaac-mm7o shape)"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:local/root "/marigold/.isaac/modules/isaac.comm.crow"}}
+         :signals {:mychan {:kind :crow :token "abc" :account-id "someone@example.com"}}})
+      (write-crow-module!)
+      (let [result (marigold/load-config)]
+        (should= [] (:errors result))
+        (should (some #(and (= "signals[:mychan].account-id" (:key %))
+                            (= "unknown key" (:value %)))
+                      (:warnings result)))))
+
+    (it "logs a warning naming the slice and the undeclared key, and still loads (isaac-nq4c)"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:local/root "/marigold/.isaac/modules/isaac.comm.crow"}}
+         :signals {:mychan {:kind :crow :token "abc" :account-id "someone@example.com"}}})
+      (write-crow-module!)
+      (let [result (marigold/load-config)
+            logged (filter #(= :config/unknown-key (:event %)) @log/captured-logs)]
+        (should= [] (:errors result))
+        (should= "abc" (get-in result [:config :signals "mychan" :token]))
+        (should (some #(and (= :warn (:level %))
+                            (= "signals[:mychan]" (:slice %))
+                            (= "account-id" (:key %))
+                            (= "signals[:mychan].account-id" (:path %)))
+                      logged))))
+
+    (it "warns on every key inside a bare :map extension field whose contents conform prunes"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:local/root "/marigold/.isaac/modules/isaac.comm.crow"}}
+         :signals {:mychan {:kind :crow :token "abc"
+                            :allow-from {:domain "example.com"}}}})
+      (write-crow-module!)
+      (let [result (marigold/load-config)]
+        (should= [] (:errors result))
+        (should (some #(and (= "signals[:mychan].allow-from.domain" (:key %))
+                            (= "unknown key" (:value %)))
+                      (:warnings result)))
+        ;; the isaac-12fo :env shape must reach the log too, not only :warnings
+        (should (some #(and (= :warn (:level %))
+                            (= :config/unknown-key (:event %))
+                            (= "signals[:mychan].allow-from" (:slice %))
+                            (= "domain" (:key %)))
+                      @log/captured-logs))))
+
+
     (it "generates unknown-key warnings for signal slot fields when module is not declared"
       (config-marigold/write-config!
         {:signals {:bert {:kind :telly :loft "rooftop"}}})
@@ -306,3 +351,4 @@
 
 )
 )
+
