@@ -10,6 +10,14 @@
 
 (def ^:private ->id schema-base/->id)
 
+(defn- key-name [key]
+  ;; A qualified keyword renders whole (`gchat/allow-from`) — a namespaced
+  ;; unknown key must be reported under the name it was set with, not its
+  ;; bare name (isaac-cgxa).
+  (if (qualified-keyword? key)
+    (str (namespace key) "/" (name key))
+    (name key)))
+
 (defn collect-unknown-key-warnings [warnings kind id entity entity-schema]
   ;; A non-map entity (e.g. a vector where the schema expects a map) can't have
   ;; unknown keys — leave it for schema conform to report as a type error rather
@@ -20,7 +28,7 @@
       (reduce (fn [acc key]
                 (if (contains? entity-fields key)
                   acc
-                  (conj acc (parse/warning (str kind "." id "." (name key)) "unknown key"))))
+                  (conj acc (parse/warning (str kind "." id "." (key-name key)) "unknown key"))))
               warnings
               (keys entity)))))
 
@@ -30,7 +38,7 @@
    (reduce (fn [acc key]
              (if (contains? (schema-base/schema-fields root-schema) key)
                acc
-               (conj acc (parse/warning (name key) "unknown key"))))
+               (conj acc (parse/warning (key-name key) "unknown key"))))
            []
            (keys data))))
 

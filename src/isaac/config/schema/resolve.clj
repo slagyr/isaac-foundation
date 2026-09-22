@@ -3,6 +3,7 @@
   (:require
     [c3kit.apron.schema.path :as path]
     [clojure.string :as str]
+    [isaac.config.paths :as paths]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.module.discovery :as discovery]
 ))
@@ -21,10 +22,22 @@
   [config result]
   (schema-compose/effective-root-schema (module-index-for-config config result)))
 
+(defn- unparse-segment [segment]
+  ;; c3kit's unparse renders a qualified keyword as a bracketed form its own
+  ;; parse cannot re-read as that keyword. This isaac-side unparse keeps
+  ;; `ns/name` as an identifier so a path with namespace-qualified segments
+  ;; round-trips through schema-at (isaac-cgxa).
+  (if (and (= :key (first segment)) (qualified-keyword? (second segment)))
+    (str (namespace (second segment)) "/" (name (second segment)))
+    (path/unparse [segment])))
+
+(defn- segments->path [segments]
+  (str/join "." (map unparse-segment segments)))
+
 (defn- normalize-template-path [path-str]
-  (let [segments (path/parse path-str)]
+  (let [segments (paths/parse-path-segments path-str)]
     (when (seq segments)
-      (path/unparse
+      (segments->path
         (map (fn [segment]
                (if (and (= :key (first segment)) (= :value (second segment)))
                  [:key :value]
@@ -32,9 +45,9 @@
              segments)))))
 
 (defn- normalize-data-path [path-str]
-  (let [segments (path/parse path-str)]
+  (let [segments (paths/parse-path-segments path-str)]
     (when (seq segments)
-      (path/unparse
+      (segments->path
         (map-indexed (fn [idx segment]
                        (if (and (= 1 idx)
                                 (contains? entity-collections (second (first segments)))
@@ -48,6 +61,40 @@
     (when (and path-str (str/ends-with? path-str suffix) (> (count path-str) (count suffix)))
       (subs path-str 0 (- (count path-str) (count suffix))))))
 
+(defn- key-segment-for-schema [spec k]
+  (cond
+    (nil? spec)             nil
+    (and (= k :value) (or (:value-spec spec) (= :seq (:type spec))))
+    (or (:value-spec spec) (:spec spec))
+
+    (and (= k :key) (:key-spec spec))
+    (:key-spec spec)
+
+    (map? (:schema spec)) (get (:schema spec) k)
+    :else                 (get spec k)))
+
+(defn- schema-at-segments
+  "Descend root-schema along pre-parsed segments. A :key segment on a map
+   without a matching field falls to :value-spec (entity-collection
+   semantics), mirroring c3kit's descend-schema except that a
+   namespace-qualified keyword stays one segment (isaac-cgxa)."
+  [root-schema segments]
+  (reduce
+    (fn [spec segment]
+      (when spec
+        (case (first segment)
+          :key   (or (when (map? (:schema spec)) (get (:schema spec) (second segment)))
+                     (key-segment-for-schema spec (second segment)))
+          :str   (when (= :map (:type spec)) (:value-spec spec))
+          :index (case (:type spec)
+                   :map (:value-spec spec)
+                   :seq (:spec spec)
+                   nil))))
+    root-schema
+    segments))
+
+(declare schema-for-path)
+
 (defn schema-for-path
   [root-schema path-str]
   (cond
@@ -56,9 +103,9 @@
 
     :else
     (try
-      (or (path/schema-at root-schema path-str)
+      (or (schema-at-segments root-schema (paths/parse-path-segments path-str))
           (when-let [normalized (normalize-template-path path-str)]
-            (path/schema-at root-schema normalized))
+            (schema-at-segments root-schema (paths/parse-path-segments normalized)))
           (when-let [parent-path (parent-path-and-key-suffix path-str)]
             (:key-spec (schema-for-path root-schema parent-path))))
       (catch Exception _ nil))))
@@ -68,5 +115,5 @@
   (try
     (or (schema-for-path root-schema path-str)
         (when-let [normalized (normalize-data-path path-str)]
-          (path/schema-at root-schema normalized)))
+          (schema-at-segments root-schema (paths/parse-path-segments normalized))))
     (catch Exception _ nil)))

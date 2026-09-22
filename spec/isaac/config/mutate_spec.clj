@@ -294,6 +294,46 @@
         (let [result (sut/set-config marigold/root (str "relay." marigold/first-mate ".gain") "not-an-int")]
           (should= :invalid (:status result)))))
 
+    (it "writes a namespaced-keyword segment as one key, not two nested maps (isaac-cgxa)"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
+      (config-marigold/write-config! (merge config-marigold/baseline-config
+                                            {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                             :signals {:bert {:kind :parlor :berth :atticus}}}))
+      (let [result (sut/set-config marigold/root "signals.bert.parlor/mood" "happy")]
+        (should= :ok (:status result))
+        (should= "happy" (get-in (read-edn "isaac.edn") [:signals :bert :parlor/mood]))
+        (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor]))))
+
+    (it "writes nested namespaced keys under a namespaced map (isaac-cgxa)"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
+      (config-marigold/write-config! (merge config-marigold/baseline-config
+                                            {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                             :signals {:bert {:kind :parlor :berth :atticus}}}))
+      (let [result (sut/set-config marigold/root "signals.bert.parlor/outer.inner/key" "x")]
+        (should= :ok (:status result))
+        (should= "x" (get-in (read-edn "isaac.edn") [:signals :bert :parlor/outer :inner/key]))
+        (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor/outer :inner]))))
+
+    (it "unset removes a namespaced-keyword segment (isaac-cgxa)"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
+      (config-marigold/write-config! (merge config-marigold/baseline-config
+                                            {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                             :signals {:bert {:kind      :parlor
+                                                              :berth     :atticus
+                                                              :parlor/mood "happy"}}}))
+      (let [result (sut/unset-config marigold/root "signals.bert.parlor/mood")]
+        (should= :ok (:status result))
+        (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor/mood]))
+        (should= :parlor (get-in (read-edn "isaac.edn") [:signals :bert :kind]))))
+
+    (it "refuses a set that creates an unknown key inside a schema'd map (isaac-cgxa)"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root (str "berths." marigold/captain ".gchat/allow-from")
+                                   ["*@tonotop.com"])]
+        (should= :ok (:status result))
+        (should-contain (str "berths." marigold/captain ".gchat/allow-from")
+                        (map :key (:warnings result)))))
+
   (describe "unset-config"
 
     (config-marigold/aboard)

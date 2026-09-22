@@ -11,7 +11,6 @@
       :errors   [{:key :value} ...]   ; structured validation errors
       :warnings [{:key :value} ...]}  ; structured warnings"
   (:require
-     [c3kit.apron.schema.path :as path]
      [clojure.edn :as edn]
      [clojure.string :as str]
      [isaac.cli.host :as host]
@@ -107,7 +106,7 @@
 ;; region ----- Parse & state -----
 
 (defn- parse-config-path [path-str]
-  (let [segments (try (path/parse path-str)
+  (let [segments (try (paths/parse-path-segments path-str)
                       (catch Exception _ ::invalid))]
     (cond
       (= ::invalid segments)

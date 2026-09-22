@@ -1,7 +1,7 @@
 (ns isaac.config.cli.get
   "isaac config get — read the resolved config (or a subtree) by config path."
   (:require
-    [c3kit.apron.schema.path :as path]
+    [isaac.config.paths :as paths]
     [clojure.string :as str]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]))
@@ -24,10 +24,22 @@
                        "  isaac config get models --json\n"
                        "  isaac config get providers.anthropic.api-key --reveal")}))
 
+(defn- data-at [config path-str]
+  ;; isaac-cgxa: a `.`-separated segment containing `/` is one namespaced
+  ;; keyword (`gchat/allow-from`), not two nested keys. c3kit's tokenizer
+  ;; drops the slash; descend isaac-parsed segments instead.
+  (reduce (fn [value segment]
+            (case (first segment)
+              :key   (get value (second segment))
+              :str   (get value (second segment))
+              :index (when (sequential? value) (nth value (second segment) nil))))
+          config
+          (paths/parse-path-segments path-str)))
+
 (defn- select [config path-str]
   (if (or (nil? path-str) (str/blank? path-str))
     config
-    (let [value (path/data-at (common/queryable-config config) path-str)]
+    (let [value (data-at (common/queryable-config config) path-str)]
       (when (common/value-present? value) value))))
 
 (defn- load-result [opts raw? reveal?]
