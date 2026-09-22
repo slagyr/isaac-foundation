@@ -15,8 +15,10 @@
      [clojure.string :as str]
      [isaac.cli.host :as host]
      [isaac.config.loader :as loader]
+     [isaac.config.nav :as nav]
      [isaac.config.paths :as paths]
      [isaac.config.schema-compose :as schema-compose]
+     [isaac.config.schema.resolve :as schema-resolve]
      [isaac.schema.lexicon :as lexicon]
      [isaac.fs :as fs]
      [isaac.nexus :as nexus]
@@ -357,6 +359,29 @@
   [errors]
   (mapv (fn [e] (-> e (assoc :value (str "pre-existing: " (:value e))))) errors))
 
+(defn- root-schema-from [current]
+  (schema-resolve/root-schema-for (:config current) current))
+
+(defn- undeclared-key-message [{:keys [parent-path known-keys segment]}]
+  (str "unknown key " (pr-str segment) " — "
+       (if (str/blank? parent-path) "the config root" parent-path)
+       " knows: " (str/join ", " known-keys)))
+
+(defn- undeclared-key-refusal
+  "When `path` names a segment a STATIC schema'd map (not an open
+   :key-spec/:value-spec entity table) does not declare, refuse the
+   mutation in the same shape as a fun8 validator error — nothing is
+   written, and the message names the parent path plus the keys that
+   level knows. Open entity tables (crews, models, berths, relays, …)
+   accept any key at the id level, unchanged (nav/path->spec never fails
+   there). `force?` skips this check entirely — the caller writes and the
+   nq4c load-time warning still fires from the post-write reload."
+  [force? root-schema path]
+  (when-not force?
+    (let [result (nav/path->spec root-schema path)]
+      (when (and (not (:ok? result)) (:parent-path result))
+        {:key path :value (undeclared-key-message result)}))))
+
 (defn set-config
   "Writes `value` at dotted `path` under `root`. See ns docstring for
    return shape.
@@ -383,30 +408,33 @@
 
        :else
        (let [current        (loader/load-config-result {:root root :skip-cache? true})
-             pre-errors     (or (:errors current) [])
-             state          (config-state root parsed)
-             plan           (set-plan parsed state value)
-             result         (validate-plan root plan)
-             [new-errors carried-errors] (partition-errors pre-errors (:errors result))
-             unresolved     (unresolved-reference-paths result)
-             new-errors     (as-> new-errors $
-                              (if skip-ref-validation?
-                                (vec (remove reference-error? $))
-                                $)
-                              (if skip-module-validation?
-                                (vec (remove module-discovery-error? $))
-                                $)
-                              (vec (remove #(contains? unresolved (:key %)) $)))
-             warnings       (concat (:warnings result)
-                                    (pre-existing->warnings carried-errors))]
-         (if (seq (blocking-errors force? new-errors))
-           {:status :invalid :file nil :errors new-errors :warnings warnings}
-          (do
-            (apply-plan! root plan)
-            {:status :ok :file (:file plan) :errors []
-             :warnings (if force?
-                         (concat warnings new-errors)
-                         warnings)}))))))
+             refusal        (undeclared-key-refusal force? (root-schema-from current) path)]
+         (if refusal
+           {:status :invalid :file nil :errors [refusal] :warnings []}
+           (let [pre-errors     (or (:errors current) [])
+                 state          (config-state root parsed)
+                 plan           (set-plan parsed state value)
+                 result         (validate-plan root plan)
+                 [new-errors carried-errors] (partition-errors pre-errors (:errors result))
+                 unresolved     (unresolved-reference-paths result)
+                 new-errors     (as-> new-errors $
+                                  (if skip-ref-validation?
+                                    (vec (remove reference-error? $))
+                                    $)
+                                  (if skip-module-validation?
+                                    (vec (remove module-discovery-error? $))
+                                    $)
+                                  (vec (remove #(contains? unresolved (:key %)) $)))
+                 warnings       (concat (:warnings result)
+                                        (pre-existing->warnings carried-errors))]
+             (if (seq (blocking-errors force? new-errors))
+               {:status :invalid :file nil :errors new-errors :warnings warnings}
+               (do
+                 (apply-plan! root plan)
+                 {:status :ok :file (:file plan) :errors []
+                  :warnings (if force?
+                              (concat warnings new-errors)
+                              warnings)}))))))))
 
 (defn unset-config
   "Removes dotted `path` under `root`. See ns docstring for return shape.
@@ -420,31 +448,34 @@
       {:status (:status parsed) :file nil :errors [] :warnings []}
 
       :else
-      (let [current    (loader/load-config-result {:root root :skip-cache? true})
-            pre-errors (or (:errors current) [])
-            state      (config-state root parsed)
-            plan       (unset-plan parsed state)]
-        (cond
-          (nil? plan)
-          {:status :ok :file nil :errors [] :warnings []}
+      (let [current (loader/load-config-result {:root root :skip-cache? true})
+            refusal (undeclared-key-refusal force? (root-schema-from current) path)]
+        (if refusal
+          {:status :invalid :file nil :errors [refusal] :warnings []}
+          (let [pre-errors (or (:errors current) [])
+                state      (config-state root parsed)
+                plan       (unset-plan parsed state)]
+            (cond
+              (nil? plan)
+              {:status :ok :file nil :errors [] :warnings []}
 
-          :else
-          (let [result   (validate-plan root plan)
-                [new-errors carried-errors] (partition-errors pre-errors (:errors result))
-                unresolved (unresolved-reference-paths result)
-                new-errors (cond->> new-errors
-                             skip-module-validation? (remove module-discovery-error?)
-                             :always                 (remove (partial unresolved-reference-error? unresolved))
-                             :always                 vec)
-                warnings (concat (:warnings result)
-                                 (pre-existing->warnings carried-errors))]
-            (if (seq (blocking-errors force? new-errors))
-              {:status :invalid :file nil :errors new-errors :warnings warnings}
-              (do
-                (apply-plan! root plan)
-                {:status :ok :file (:file plan) :errors []
-                 :warnings (if force?
-                             (concat warnings new-errors)
-                             warnings)}))))))))
+              :else
+              (let [result   (validate-plan root plan)
+                    [new-errors carried-errors] (partition-errors pre-errors (:errors result))
+                    unresolved (unresolved-reference-paths result)
+                    new-errors (cond->> new-errors
+                                 skip-module-validation? (remove module-discovery-error?)
+                                 :always                 (remove (partial unresolved-reference-error? unresolved))
+                                 :always                 vec)
+                    warnings (concat (:warnings result)
+                                     (pre-existing->warnings carried-errors))]
+                (if (seq (blocking-errors force? new-errors))
+                  {:status :invalid :file nil :errors new-errors :warnings warnings}
+                  (do
+                    (apply-plan! root plan)
+                    {:status :ok :file (:file plan) :errors []
+                     :warnings (if force?
+                                 (concat warnings new-errors)
+                                 warnings)}))))))))))
 
 ;; endregion ^^^^^ Public API ^^^^^

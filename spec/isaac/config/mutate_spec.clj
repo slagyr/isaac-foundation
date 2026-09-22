@@ -135,9 +135,15 @@
             (should-contain (assoc staged-error :value "pre-existing: must be a registered contribution")
                             (:warnings result))))))
 
-    (it "warns on an unknown key but still writes"
+    (it "refuses an unknown key under a schema'd map by default (isaac-a5dx, was: warns but still writes)"
       (config-marigold/write-baseline!)
       (let [result (sut/set-config marigold/root (str "berths." marigold/captain ".experimental") true)]
+        (should= :invalid (:status result))
+        (should-not-contain :experimental (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain)]))))
+
+    (it "--force writes the unknown key and the load-time warning still fires (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root (str "berths." marigold/captain ".experimental") true :force? true)]
         (should= :ok (:status result))
         (should (seq (:warnings result)))
         (should= true (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :experimental]))))
@@ -154,12 +160,21 @@
                           (:warnings result)))
         (should= "rooftop" (get-in (read-edn "isaac.edn") [:signals :bert :loft]))))
 
-    (it "still warns on an unknown signal field via the loader"
+    (it "refuses an unknown signal field by default (isaac-a5dx)"
       (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (config-marigold/write-config! (merge config-marigold/baseline-config
                                             {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
                                              :signals {:bert {:kind :parlor :berth :atticus}}}))
       (let [result (sut/set-config marigold/root "signals.bert.bogus" 42)]
+        (should= :invalid (:status result))
+        (should-not-contain :bogus (get-in (read-edn "isaac.edn") [:signals :bert]))))
+
+    (it "still warns on an unknown signal field via the loader when forced (isaac-a5dx, was: isaac-nq4c)"
+      (config-marigold/install-fixture-module! "marigold.comm.parlor")
+      (config-marigold/write-config! (merge config-marigold/baseline-config
+                                            {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
+                                             :signals {:bert {:kind :parlor :berth :atticus}}}))
+      (let [result (sut/set-config marigold/root "signals.bert.bogus" 42 :force? true)]
         (should= :ok (:status result))
         (should-contain {:key "signals[:bert].bogus" :value "unknown key"}
                         (mapv #(select-keys % [:key :value]) (:warnings result)))))
@@ -294,45 +309,68 @@
         (let [result (sut/set-config marigold/root (str "relay." marigold/first-mate ".gain") "not-an-int")]
           (should= :invalid (:status result)))))
 
-    (it "writes a namespaced-keyword segment as one key, not two nested maps (isaac-cgxa)"
+    (it "writes a namespaced-keyword segment as one key, not two nested maps (isaac-cgxa, forced — isaac-a5dx: parlor/mood isn't the declared bare :mood key)"
       (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (config-marigold/write-config! (merge config-marigold/baseline-config
                                             {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
                                              :signals {:bert {:kind :parlor :berth :atticus}}}))
-      (let [result (sut/set-config marigold/root "signals.bert.parlor/mood" "happy")]
+      (let [result (sut/set-config marigold/root "signals.bert.parlor/mood" "happy" :force? true)]
         (should= :ok (:status result))
         (should= "happy" (get-in (read-edn "isaac.edn") [:signals :bert :parlor/mood]))
         (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor]))))
 
-    (it "writes nested namespaced keys under a namespaced map (isaac-cgxa)"
+    (it "writes nested namespaced keys under a namespaced map (isaac-cgxa, forced — isaac-a5dx: not a declared key)"
       (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (config-marigold/write-config! (merge config-marigold/baseline-config
                                             {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
                                              :signals {:bert {:kind :parlor :berth :atticus}}}))
-      (let [result (sut/set-config marigold/root "signals.bert.parlor/outer.inner/key" "x")]
+      (let [result (sut/set-config marigold/root "signals.bert.parlor/outer.inner/key" "x" :force? true)]
         (should= :ok (:status result))
         (should= "x" (get-in (read-edn "isaac.edn") [:signals :bert :parlor/outer :inner/key]))
         (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor/outer :inner]))))
 
-    (it "unset removes a namespaced-keyword segment (isaac-cgxa)"
+    (it "unset removes a namespaced-keyword segment (isaac-cgxa, forced — isaac-a5dx: not a declared key)"
       (config-marigold/install-fixture-module! "marigold.comm.parlor")
       (config-marigold/write-config! (merge config-marigold/baseline-config
                                             {:modules {:marigold.comm.parlor {:local/root parlor-module-root}}
                                              :signals {:bert {:kind      :parlor
                                                               :berth     :atticus
                                                               :parlor/mood "happy"}}}))
-      (let [result (sut/unset-config marigold/root "signals.bert.parlor/mood")]
+      (let [result (sut/unset-config marigold/root "signals.bert.parlor/mood" :force? true)]
         (should= :ok (:status result))
         (should-be-nil (get-in (read-edn "isaac.edn") [:signals :bert :parlor/mood]))
         (should= :parlor (get-in (read-edn "isaac.edn") [:signals :bert :kind]))))
 
-    (it "refuses a set that creates an unknown key inside a schema'd map (isaac-cgxa)"
+    (it "refuses a set that creates an unknown key inside a schema'd map (isaac-a5dx, split from isaac-cgxa)"
       (config-marigold/write-baseline!)
-      (let [result (sut/set-config marigold/root (str "berths." marigold/captain ".gchat/allow-from")
-                                   ["*@tonotop.com"])]
+      (let [path   (str "berths." marigold/captain ".gchat/allow-from")
+            result (sut/set-config marigold/root path ["*@tonotop.com"])]
+        (should= :invalid (:status result))
+        (should-contain path (map :key (:errors result)))
+        (should-not-contain :gchat/allow-from (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain)]))))
+
+    (it "names the parent path and known keys in the refusal message (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [path   (str "berths." marigold/captain ".gchat/allow-from")
+            result (sut/set-config marigold/root path ["*@tonotop.com"])
+            value  (:value (first (:errors result)))]
+        (should (str/includes? value (str "berths." marigold/captain)))
+        (should (str/includes? value "gauge"))
+        (should (str/includes? value "ledger"))))
+
+    (it "--force writes an undeclared key and the load-time warning still fires (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [path   (str "berths." marigold/captain ".gchat/allow-from")
+            result (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)]
         (should= :ok (:status result))
-        (should-contain (str "berths." marigold/captain ".gchat/allow-from")
-                        (map :key (:warnings result)))))
+        (should= ["*@tonotop.com"] (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :gchat/allow-from]))
+        (should-contain path (map :key (:warnings result)))))
+
+    (it "still writes a new key under an open entity table (key-spec) without force (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [result (sut/set-config marigold/root (str "berths.newcomer.gauge") :helm-mark-iii)]
+        (should= :ok (:status result))
+        (should= :helm-mark-iii (get-in (read-edn "isaac.edn") [:berths :newcomer :gauge]))))
 
   (describe "unset-config"
 
@@ -362,8 +400,27 @@
       (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii})
       (let [result (sut/unset-config marigold/root (str "berths." test-berth-path ".gauge"))]
         (should= :ok (:status result))
-        (should-not (file-exists? (str "berths/" test-berth-path ".edn"))))))
+        (should-not (file-exists? (str "berths/" test-berth-path ".edn")))))
 
     (it "rejects paths the grammar refuses to parse"
       (let [result (sut/unset-config marigold/root "berths.*.gauge")]
-        (should= :invalid-path (:status result))))))
+        (should= :invalid-path (:status result))))
+
+    (it "refuses an unset that targets an unknown key inside a schema'd map (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [path (str "berths." marigold/captain ".gchat/allow-from")]
+        (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)
+        (let [result (sut/unset-config marigold/root path)]
+          (should= :invalid (:status result))
+          (should-contain path (map :key (:errors result)))
+          (should= ["*@tonotop.com"]
+                   (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :gchat/allow-from])))))
+
+    (it "--force unsets an undeclared key (isaac-a5dx)"
+      (config-marigold/write-baseline!)
+      (let [path (str "berths." marigold/captain ".gchat/allow-from")]
+        (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)
+        (let [result (sut/unset-config marigold/root path :force? true)]
+          (should= :ok (:status result))
+          (should-not-contain :gchat/allow-from
+                              (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain)]))))))))

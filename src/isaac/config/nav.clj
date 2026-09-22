@@ -23,16 +23,41 @@
       (when (map? (:schema spec))
         (get (:schema spec) (keyword seg))))))
 
+(defn- field-name
+  "Render a schema field key the way a caller would type it in a path —
+   a qualified keyword keeps its namespace (isaac-cgxa)."
+  [k]
+  (if (qualified-keyword? k) (str (namespace k) "/" (name k)) (name k)))
+
+(defn- undeclared-segment-error
+  "Error map for a segment absent from a STATIC schema'd map (`spec` has a
+   `:schema` and no `:value-spec`/`:key-spec` of its own). Includes
+   `:parent-path` (the dotted path consumed so far) and `:known-keys` (the
+   fields that level declares) so a refusing caller (isaac-a5dx) can name
+   both without re-walking the schema. Omitted when `spec` isn't a static
+   schema'd map (e.g. the set-terminus-overrun case), which carries no
+   'known keys' to report."
+  [spec path-str seg consumed]
+  (cond-> {:ok? false
+           :error   (str "unknown path: " path-str " (unrecognized segment: " seg ")")
+           :segment seg}
+    (map? (:schema spec))
+    (assoc :parent-path (str/join "." consumed)
+           :known-keys  (vec (sort (map field-name (keys (:schema spec))))))))
+
 (defn path->spec
   "Walk dotted path-str against root-schema using data-path semantics.
    Returns:
      {:ok? true :spec <spec>}                  — scalar terminus
      {:ok? true :spec <spec> :member <keyword>} — set-typed terminus
-     {:ok? false :error <msg> :segment <seg>}  — unknown segment"
+     {:ok? false :error <msg> :segment <seg>
+      :parent-path <path> :known-keys [<key> ...]} — unknown segment under
+        a static schema'd map (:parent-path/:known-keys omitted otherwise)"
   [root-schema path-str]
   (let [segments (str/split path-str #"\.")]
     (loop [spec      root-schema
-           remaining segments]
+           remaining segments
+           consumed  []]
       (if (empty? remaining)
         {:ok? true :spec spec}
         (let [seg (first remaining)]
@@ -49,10 +74,8 @@
             :else
             (let [next-spec (advance-spec spec seg)]
               (if (nil? next-spec)
-                {:ok? false
-                 :error   (str "unknown path: " path-str " (unrecognized segment: " seg ")")
-                 :segment seg}
-                (recur next-spec (rest remaining))))))))))
+                (undeclared-segment-error spec path-str seg consumed)
+                (recur next-spec (rest remaining) (conj consumed seg))))))))))
 
 (defn- path-keys [path-str]
   (mapv keyword (str/split path-str #"\.")))

@@ -46,10 +46,20 @@
         (should= "bogus" (:segment result))
         (should (str/includes? (:error result) "bogus"))))
 
+    (it "names the parent path and known keys when a static schema'd map lacks the segment"
+      (let [result (sut/path->spec (root) "relay.r1.bogus")]
+        (should-not (:ok? result))
+        (should= "relay.r1" (:parent-path result))
+        (should= ["channel" "flags" "gain" "id" "limits"] (:known-keys result))))
+
     (it "returns error with failing segment for unknown root key"
       (let [result (sut/path->spec (root) "bogus.key")]
         (should-not (:ok? result))
         (should= "bogus" (:segment result))))
+
+    (it "does not fail past a dynamic (entity-table) segment — any id is accepted"
+      (let [result (sut/path->spec (root) "relay.brand-new-id.gain")]
+        (should (:ok? result))))
 
     (it "returns ok for a nested path"
       (let [result (sut/path->spec (root) "relay.r1.limits.ceiling")]

@@ -152,29 +152,28 @@
     format-error
     (let [root        (common/resolve-root opts)
           root-schema (root-schema opts)
+          ;; A path the composed schema doesn't recognize (a typo'd or
+          ;; undeclared segment under a schema'd map) is not refused here —
+          ;; mutate/set-config makes that call itself (isaac-a5dx), in the
+          ;; same fun8-shaped :invalid result, so `--force` can bypass it.
+          ;; This walk is only for set-typed member detection.
           path-result (nav/path->spec root-schema path-str)]
-      (if-not (:ok? path-result)
-        (do
-          (binding [*out* *err*]
-            (println (:error path-result)))
-          (log-mutation! :error :config/set-failed "config" path-str :error (:error path-result))
-          1)
-        (if-let [member (:member path-result)]
-          (set-member! root path-str member options)
-          (if (nil? raw-value)
-            (common/print-cli-error! "missing value")
-            (let [value-result (if (= "-" raw-value)
-                                 (read-stdin-value)
-                                 {:value (parse-set-value (target-spec-for opts path-str) raw-value)})]
-              (if (:error value-result)
-                (do
-                  (binding [*out* *err*]
-                    (println (:error value-result)))
-                  (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
-                  1)
-                (let [value  (:value value-result)
-                      result (mutate/set-config root path-str value :skip-ref-validation? true :force? (boolean (:force options)))]
-                  (handle-mutate-result! :set path-str result value options))))))))))
+      (if-let [member (:member path-result)]
+        (set-member! root path-str member options)
+        (if (nil? raw-value)
+          (common/print-cli-error! "missing value")
+          (let [value-result (if (= "-" raw-value)
+                               (read-stdin-value)
+                               {:value (parse-set-value (target-spec-for opts path-str) raw-value)})]
+            (if (:error value-result)
+              (do
+                (binding [*out* *err*]
+                  (println (:error value-result)))
+                (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
+                1)
+              (let [value  (:value value-result)
+                    result (mutate/set-config root path-str value :skip-ref-validation? true :force? (boolean (:force options)))]
+                (handle-mutate-result! :set path-str result value options)))))))))
 
 (defn unset-config! [opts path-str options]
   (if-let [format-error (inspect/structured-format-conflict? options)]
