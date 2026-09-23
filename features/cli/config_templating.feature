@@ -9,74 +9,80 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   inherited by proximity. `_<name>` is a template and is never addressable as a
   real entity; `_` exactly is the map's own values (isaac-49zp).
 
+  These scenarios use the chartroom fixture berth :signals rather than a real
+  kind like :crew, whose schema lives in isaac-agent and is not reachable from
+  foundation.
+
   Background:
-    Given an empty Isaac root at "target/test-h2ck"
+    Given the chartroom fixture modules are available
 
   @wip
   Scenario: an entry inherits the fields of its template
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}
-       :crew    {"_worker" {:model "grover" :tags #{:role/worker}}
-                 "marvin"  {:_base "_worker" :soul "You are Marvin."}}}
+      {:tz      "UTC"
+       :signals {:_parlour-base {:kind "parlor" :loft "upper" :color "blue"}
+                 :parlour       {:_base "_parlour-base" :mood "happy"}}}
       """
-    When isaac is run with "config get crew.marvin"
-    Then the exit code is 0
-    And the stdout contains "grover"
-    And the stdout contains "role/worker"
-    And the stdout contains "You are Marvin."
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                   | value |
+      | signals.parlour.loft  | upper |
+      | signals.parlour.color | blue  |
+      | signals.parlour.mood  | happy |
 
   @wip
-  Scenario: the entry's own keys win, maps merge key-wise, vectors replace
-    Given the isaac file "config/isaac.edn" exists with:
+  Scenario: the entry's own keys win over the template's
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}
-       :crew    {"_worker" {:model "grover"
-                            :tools {:allow [:fs/read :exec/run] :directories {:allow ["/tmp"]}}}
-                 "marvin"  {:_base "_worker"
-                            :model "sonnet"
-                            :tools {:allow [:fs/read]}}}}
+      {:tz      "UTC"
+       :signals {:_parlour-base {:kind "parlor" :loft "upper" :color "blue"}
+                 :parlour       {:_base "_parlour-base" :color "green"}}}
       """
-    When isaac is run with "config get crew.marvin"
-    Then the exit code is 0
-    And the stdout contains "sonnet"
-    And the stdout contains "directories"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                   | value |
+      | signals.parlour.color | green |
+      | signals.parlour.loft  | upper |
 
   @wip
-  Scenario: a template is not addressable as a real entity
-    Given the isaac file "config/isaac.edn" exists with:
+  Scenario: a template is never validated or instantiated as a real entry
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}
-       :crew    {"_worker" {:model "grover"}
-                 "marvin"  {:_base "_worker"}}}
+      {:tz      "UTC"
+       :signals {:_parlour-base {:color "blue"}
+                 :parlour       {:_base "_parlour-base" :kind "parlor" :loft "upper"}}}
       """
-    When isaac is run with "crew list"
-    Then the exit code is 0
-    And the stdout contains "marvin"
-    And the stdout does not contain "_worker"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                   | value |
+      | signals.parlour.color | blue  |
 
   @wip
   Scenario: a :_base naming no template is a load error
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}
-       :crew    {"marvin" {:_base "_missing"}}}
+      {:tz      "UTC"
+       :signals {:parlour {:_base "_missing" :kind "parlor" :loft "upper"}}}
       """
-    When isaac is run with "config validate"
-    Then the exit code is 1
-    And the stderr contains "marvin"
-    And the stderr contains "_missing"
+    When the config is loaded
+    Then the config has validation errors matching:
+      | key             | value                  |
+      | signals.parlour | #"(?s).*_missing.*" |
 
   @wip
   Scenario: a template cycle is a load error naming the cycle
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}
-       :crew    {"_a"     {:_base "_b"}
-                 "_b"     {:_base "_a"}
-                 "marvin" {:_base "_a"}}}
+      {:tz      "UTC"
+       :signals {:_alpha  {:_base "_beta"}
+                 :_beta   {:_base "_alpha"}
+                 :parlour {:_base "_alpha" :kind "parlor" :loft "upper"}}}
       """
-    When isaac is run with "config validate"
-    Then the exit code is 1
-    And the stderr contains "_a"
-    And the stderr contains "_b"
+    When the config is loaded
+    Then the config has validation errors matching:
+      | key             | value              |
+      | signals.parlour | #"(?s).*_alpha.*" |

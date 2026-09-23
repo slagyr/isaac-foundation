@@ -12,145 +12,161 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   nesting is expressed by a file's contents. `_` means "this map's own values"
   at every level. A key is a file or a directory, never both.
 
+  These scenarios use the chartroom fixture berths (:signals, :berths) rather
+  than real kinds like :crew, whose schema lives in isaac-agent and is not
+  reachable from foundation.
+
   Background:
-    Given an empty Isaac root at "target/test-49zp"
+    Given the chartroom fixture modules are available
 
   @wip
-  Scenario: a key in its own file is loaded
-    Given the isaac file "config/isaac.edn" exists with:
+  Scenario: a module-declared key may live in its own file
+    Given config file "isaac.edn" containing:
       """
-      {:defaults {:crew "main"}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/modules.edn" exists with:
+    And config file "signals.edn" containing:
       """
-      {:marigold.longwave {:local/root "/tmp/modules/marigold.longwave"}}
+      {:parlour {:kind "parlor" :loft "upper" :color "blue"}}
       """
-    When isaac is run with "config get modules"
-    Then the exit code is 0
-    And the stdout contains "marigold.longwave"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                   | value  |
+      | signals.parlour.loft  | upper  |
+      | signals.parlour.color | blue   |
 
   @wip
-  Scenario: a key that no module declares splits the same way
-    Given the isaac file "config/isaac.edn" exists with:
+  Scenario: a base foundation key splits the same way
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/defaults.edn" exists with:
+    And config file "defaults.edn" containing:
       """
       {:crew "atticus"}
       """
-    When isaac is run with "config get defaults.crew"
-    Then the exit code is 0
-    And the stdout contains "atticus"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key           | value   |
+      | defaults.crew | atticus |
 
   @wip
   Scenario: a key inline and in its own file is refused
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {} :defaults {:crew "main"}}
+      {:tz "UTC" :defaults {:crew "main"}}
       """
-    And the isaac file "config/defaults.edn" exists with:
+    And config file "defaults.edn" containing:
       """
       {:crew "atticus"}
       """
-    When isaac is run with "config validate"
-    Then the exit code is 1
-    And the stderr contains "defaults"
-    And the stderr contains "config/defaults.edn"
-    And the stderr contains "isaac.edn"
+    When the config is loaded
+    Then the config has validation errors matching:
+      | key      | value                   |
+      | defaults | #"(?s).*defaults\.edn.*" |
 
   @wip
   Scenario: a key as both a file and a directory is refused
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/crew.edn" exists with:
+    And config file "signals.edn" containing:
       """
-      {"marvin" {:model "grover"}}
+      {:parlour {:kind "parlor" :loft "upper"}}
       """
-    And the isaac file "config/crew/keaton.edn" exists with:
+    And config file "signals/attic.edn" containing:
       """
-      {:model "sonnet"}
+      {:kind "parlor" :loft "attic"}
       """
-    When isaac is run with "config validate"
-    Then the exit code is 1
-    And the stderr contains "crew"
-    And the stderr contains "config/crew.edn"
-    And the stderr contains "config/crew"
+    When the config is loaded
+    Then the config has validation errors matching:
+      | key     | value                  |
+      | signals | #"(?s).*signals\.edn.*" |
 
   @wip
   Scenario: `_` inside a directory holds that map's own values
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/crew/_.edn" exists with:
+    And config file "signals/_.edn" containing:
       """
-      {"marvin" {:model "grover"}
-       "pinky"  {:model "sonnet"}}
+      {:parlour {:kind "parlor" :loft "upper"}
+       :cellar  {:kind "parlor" :loft "lower"}}
       """
-    And the isaac file "config/crew/keaton.edn" exists with:
+    And config file "signals/attic.edn" containing:
       """
-      {:model "haiku"}
+      {:kind "parlor" :loft "attic"}
       """
-    When isaac is run with "config get crew"
-    Then the exit code is 0
-    And the stdout contains "marvin"
-    And the stdout contains "pinky"
-    And the stdout contains "keaton"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                  | value |
+      | signals.parlour.loft | upper |
+      | signals.cellar.loft  | lower |
+      | signals.attic.loft   | attic |
 
   @wip
   Scenario: an entity may be a directory whose files are its fields
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/crew/marvin/_.edn" exists with:
+    And config file "signals/parlour/_.edn" containing:
       """
-      {:model "grover"}
+      {:kind "parlor" :loft "upper"}
       """
-    And the isaac file "config/crew/marvin/soul.md" exists with:
+    And config file "signals/parlour/color.edn" containing:
       """
-      You are Marvin, a paranoid android.
+      "blue"
       """
-    When isaac is run with "config get crew.marvin"
-    Then the exit code is 0
-    And the stdout contains "grover"
-    And the stdout contains "paranoid android"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                   | value |
+      | signals.parlour.loft  | upper |
+      | signals.parlour.color | blue  |
 
   @wip
   Scenario: a markdown file named for the entity declares which key its body fills
-    Given the isaac file "config/isaac.edn" exists with:
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/crew/marvin.md" exists with:
+    And config file "berths/captain.md" containing:
       """
       ---
-      model: grover
-      soul: _
+      gauge: helm-mark-iii
+      ledger: _
       ---
-      You are Marvin, a paranoid android.
+      You are the Captain.
       """
-    When isaac is run with "config get crew.marvin"
-    Then the exit code is 0
-    And the stdout contains "grover"
-    And the stdout contains "paranoid android"
+    When the config is loaded
+    Then the config has no validation errors
+    And the loaded config has:
+      | key                    | value                |
+      | berths.captain.gauge   | helm-mark-iii        |
+      | berths.captain.ledger  | You are the Captain. |
 
   @wip
-  Scenario: config set writes to whichever form already holds the key
-    Given the isaac file "config/isaac.edn" exists with:
+  Scenario: editing a key's own file is picked up on reload
+    Given config file "isaac.edn" containing:
       """
-      {:modules {}}
+      {:tz "UTC"}
       """
-    And the isaac file "config/defaults.edn" exists with:
+    And config file "signals.edn" containing:
       """
-      {:crew "atticus"}
+      {:parlour {:kind "parlor" :loft "upper"}}
       """
-    When isaac is run with "config set defaults.crew marvin"
-    Then the exit code is 0
-    And the isaac file "config/defaults.edn" EDN contains:
-      | path | value  |
-      | crew | marvin |
-    And the isaac file "config/isaac.edn" does not contain "defaults"
+    When the config is loaded
+    And config file "signals.edn" containing:
+      """
+      {:parlour {:kind "parlor" :loft "attic"}}
+      """
+    And the config is reloaded
+    Then the loaded config has:
+      | key                  | value |
+      | signals.parlour.loft | attic |
