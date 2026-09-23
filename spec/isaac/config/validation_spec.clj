@@ -115,6 +115,59 @@
         (should= "must be a set of keywords" (:value entry))
         (should-not (:reference? entry)))))
 
+  (describe "absent nested maps"
+
+    ;; A nested map spec carries two obligations that isaac-ruom's first cut
+    ;; conflated. `:present?` on an inner field means "if this map is written,
+    ;; this field must be in it" — it says nothing about whether the map may be
+    ;; left out. `:required? true` on an inner field is what makes the map
+    ;; itself unskippable, and only that may make validation descend into a map
+    ;; that was never written.
+
+    (defn- optional-map-spec []
+      ;; :episodes :embedding — an optional capability (isaac-episodes)
+      {:type   :map
+       :schema {:api   {:type :id :validations [:present?]}
+                :model {:type :string :validations [:present?]}}})
+
+    (defn- demanding-map-spec []
+      ;; :defaults :frequencies — omitting it is omitting the default crew
+      {:type   :map
+       :schema {:crew  {:type :id :required? true :validations [:present?]}
+                :model {:type :id}}})
+
+    (it "an absent map whose inner fields are only :present? reports nothing"
+      (should= [] (sut/annotation-errors* nil ["episodes" "embedding"] (optional-map-spec) nil)))
+
+    (it "an absent map with a :required? true inner field still names that field"
+      (let [entries (sut/annotation-errors* nil ["defaults" "frequencies"] (demanding-map-spec) nil)]
+        (should= ["defaults.frequencies.crew"] (map :key entries))
+        (should= ["is required"] (map :value entries))))
+
+    (it "a written map still requires its :present? inner fields"
+      (should= ["episodes.embedding.api" "episodes.embedding.model"]
+               (map :key (sut/annotation-errors* nil ["episodes" "embedding"] (optional-map-spec) {}))))
+
+    (it "a populated map reports nothing"
+      (should= [] (sut/annotation-errors* nil ["episodes" "embedding"] (optional-map-spec)
+                                          {:api :marigold :model "longwave-1"})))
+
+    (it "a parent map may omit an optional child but not a demanding one"
+      (let [parent {:type   :map
+                    :schema {:embedding   (optional-map-spec)
+                             :frequencies (demanding-map-spec)}}]
+        (should= ["defaults.frequencies.crew"]
+                 (map :key (sut/annotation-errors* nil ["defaults"] parent {})))))
+
+    (it "leaves an absent principal rotation overlap alone"
+      ;; :http :auth :principals <id> :previous — inner :hash is :present? only
+      (let [principal {:type   :map
+                       :schema {:hash     {:type :string :validations [:present?]}
+                                :previous {:type   :map
+                                           :schema {:hash {:type :string :validations [:present?]}}}}}]
+        (should= [] (sut/annotation-errors* nil ["http" "auth" "principals" "skipper"] principal
+                                            {:hash "argon2id$marigold"})))))
+
   (describe "validate-manifest-config"
 
     (it "reports unknown keys as warnings"
