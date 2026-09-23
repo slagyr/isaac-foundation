@@ -166,40 +166,48 @@
           (should= true (:prefer-entity-files result))
           (should= (:modules cfg) (:modules result)))))
 
-    (it "injects default compaction policy into defaults when absent"
+    (it "leaves the operator's :defaults sections as configured"
       (with-redefs [lexicon/conform (fn [_ value] value)
                     cs/error?  (constantly false)]
-        (let [cfg    {:defaults {:crew :main :model :grover}
+        (let [cfg    {:defaults {:frequencies {:crew :main}
+                                 :crew        {:model :grover}
+                                 :provider    {:compaction {:strategy :slinky :threshold 0.7}}}
                       :crew     {"main" {}}
                       :models   {"grover" {:model "echo" :provider "ollama"}}
                       :providers {"ollama" {:api "ollama"}}}
               result (normalize/normalize-config cfg)]
-          (should= {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}
-                   (get-in result [:defaults :compaction])))))
+          (should= {:compaction {:strategy :slinky :threshold 0.7}}
+                   (get-in result [:defaults :provider])))))
 
     (it "keeps :crew when the composed schema has no :defaults table"
-      (let [cfg    {:defaults {:crew :main}
+      (let [cfg    {:defaults {:frequencies {:crew :main}}
                     :crew     {"main" {}}
                     :models   {}
                     :providers {}}
             result (normalize/normalize-config {:name :isaac :type :map :schema {}} cfg)]
-        (should= :main (get-in result [:defaults :crew]))
-        (should= {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}
-                 (get-in result [:defaults :compaction]))))
+        (should= :main (get-in result [:defaults :frequencies :crew]))))
+
+    (it "keeps an invalid :defaults as written instead of blanking it"
+      (with-redefs [lexicon/conform (fn [_ _value] :error)
+                    cs/error?       (constantly true)]
+        (let [result (normalize/normalize-defaults {:name :isaac :type :map
+                                                    :schema {:defaults {:type :map :schema {}}}}
+                                                   {:frequencies {:crew :main}})]
+          (should= :main (get-in result [:frequencies :crew])))))
 
     (it "normalizes legacy crew lists nested models and provider vectors"
       (with-redefs [lexicon/conform (fn [_ value] value)
                     cs/error?  (constantly false)]
         (let [helm-kw (keyword marigold/helm-systems)
-              cfg     {:crew   {:defaults {:crew :main :model :grover}
+              cfg     {:crew   {:defaults {:frequencies {:crew :main} :crew {:model :grover}}
                                 :list     [{:id :main :soul "You are Isaac." :model :grover}
                                            {:id "ketch" :model :grover}]
                                 :models   {:grover {:model "echo" :provider helm-kw :context-window 200000}}}
                        :models {:providers [{:name helm-kw :api-key "sk-test"}
                                             {:id :grover :base-url "https://grover.example"}]}}
               result  (normalize/normalize-config cfg)]
-          (should= {:crew :main :model :grover
-                    :compaction {:async? false :strategy :rubberband :head 0.3 :threshold 0.8}}
+          (should= {:frequencies {:crew :main}
+                    :crew        {:model :grover}}
                    (:defaults result))
           (should= {"main"  {:id :main :soul "You are Isaac." :model :grover}
                     "ketch" {:id "ketch" :model :grover}}

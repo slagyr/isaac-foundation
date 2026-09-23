@@ -22,6 +22,34 @@
                                        :type   :map
                                        :schema {:port {:type :int}}}}}}}})
 
+(def ^:private template-index
+  "A :defaults block declared as entity templates over a crew table and the
+   non-table :frequencies kind."
+  {:mod.x {:manifest {:isaac.config/schema
+                      {:crew        {:schema {:name       "crew table"
+                                              :type       :map
+                                              :key-spec   {:type :string}
+                                              :value-spec {:name   :crew
+                                                           :type   :map
+                                                           :schema {:id     {:type :id}
+                                                                    :effort {:type :int}
+                                                                    :model  {:type        :id
+                                                                             :required?   true
+                                                                             :validations [:present?]}}}}}
+                       :frequencies {:schema {:name   :frequencies
+                                              :type   :map
+                                              :schema {:crew      {:type :string}
+                                                       :reach     {:type :keyword}
+                                                       :with-crew {:type :string}}}}
+                       :defaults    {:schema {:name   :defaults
+                                              :type   :map
+                                              :schema {:crew        {:type            :map
+                                                                     :entity-template {:kind :crew :except [:id]}}
+                                                       :frequencies {:type            :map
+                                                                     :entity-template {:kind     :frequencies
+                                                                                       :except   [:with-crew]
+                                                                                       :override {:crew {:type :id :required? true}}}}}}}}}}})
+
 ;; Deferred (isaac-p5v2 #3): "root conforms a complete config" over every REAL shipped
 ;; fragment belongs as a smoke test in the top-level isaac app once it exists.
 
@@ -66,6 +94,37 @@
         (should (true? (:frontmatter? (:berths descriptors))))
         (should= "cron" (:entity-dir (:cron descriptors)))
         (should-be-nil (:frontmatter? (:cron descriptors))))))
+
+  (describe ":defaults entity templates"
+
+    (it "expands a template from the entity schema"
+      (let [root (sut/effective-root-schema template-index)]
+        (should= {:type :int} (get-in root [:schema :defaults :schema :crew :schema :effort]))))
+
+    (it "drops the marker once expanded"
+      (let [root (sut/effective-root-schema template-index)]
+        (should-be-nil (get-in root [:schema :defaults :schema :crew :entity-template]))))
+
+    (it "a template never requires a field the entity requires"
+      (let [model (get-in (sut/effective-root-schema template-index)
+                          [:schema :defaults :schema :crew :schema :model])]
+        (should-be-nil (:required? model))
+        (should-be-nil (:validations model))))
+
+    (it "omits excepted fields"
+      (let [root (sut/effective-root-schema template-index)]
+        (should-be-nil (get-in root [:schema :defaults :schema :crew :schema :id]))
+        (should-be-nil (get-in root [:schema :defaults :schema :frequencies :schema :with-crew]))))
+
+    (it "copies a non-table kind's own schema"
+      (let [root (sut/effective-root-schema template-index)]
+        (should= {:type :keyword} (get-in root [:schema :defaults :schema :frequencies :schema :reach]))))
+
+    (it "applies declared overrides on top of the template"
+      (let [crew (get-in (sut/effective-root-schema template-index)
+                         [:schema :defaults :schema :frequencies :schema :crew])]
+        (should= :id (:type crew))
+        (should (true? (:required? crew))))))
 
   (describe "composed root"
 

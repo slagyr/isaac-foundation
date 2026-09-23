@@ -83,9 +83,9 @@
       (str (System/getProperty "user.dir") "/" dir))))
 
 (def ^:private minimal-config
-  {:defaults  {:crew "main"
-               :model "llama"
-               :compaction {:strategy :rubberband :threshold 0.8 :head 0.3}}
+  {:defaults  {:frequencies {:crew "main"}
+               :crew        {:model "llama"}
+               :provider    {:compaction {:strategy :rubberband :threshold 0.8 :head 0.3}}}
    :crew      {"main" {}}
    :models    {"llama" {:model          "llama3.3:1b"
                          :provider       "ollama"

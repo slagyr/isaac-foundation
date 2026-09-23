@@ -140,9 +140,58 @@
    (:descriptors (merge-contributions module-index)))
   ([] (or @last-descriptors* (descriptors (discovery/builtin-index)))))
 
+(def ^:private template-key :entity-template)
+
+(defn- template-field-spec
+  "A default is a template: every entity of that kind behaves as if it had set
+   the field. Templates therefore never require a field and never assert its
+   presence — the entity itself carries those obligations."
+  [spec]
+  (let [validations (vec (remove #(or (= :present? %)
+                                      (and (vector? %) (= :present? (first %))))
+                                 (:validations spec)))]
+    (cond-> (dissoc spec :required?)
+            true (dissoc :validations)
+            (seq validations) (assoc :validations validations))))
+
+(defn- template-source
+  "The schema a template copies: an entity table's :value-spec when the kind is
+   a table, else the kind's own map schema (e.g. :frequencies)."
+  [root-schema kind]
+  (let [field (get-in root-schema [:schema kind])]
+    (or (:value-spec field) field)))
+
+(defn entity-template-schema
+  "Field map for a :defaults section declared as {:entity-template {:kind …}}."
+  [root-schema {:keys [kind except override]}]
+  (let [fields (apply dissoc (schema-base/schema-fields (template-source root-schema kind))
+                      (or except []))]
+    (merge (reduce-kv (fn [acc field-key spec] (assoc acc field-key (template-field-spec spec)))
+                      {} fields)
+           (or override {}))))
+
+(defn resolve-entity-templates
+  "Expand every :entity-template marker in the :defaults schema against the
+   entity schemas already composed into `root-schema`. Runs last, so a kind's
+   dynamic-schema contributions are part of the template too."
+  [root-schema]
+  (if-not (map? (schema-base/schema-fields (get-in root-schema [:schema :defaults])))
+    root-schema
+    (update-in root-schema [:schema :defaults :schema]
+               (fn [fields]
+                 (reduce-kv (fn [acc field-key spec]
+                              (assoc acc field-key
+                                         (if-let [template (get spec template-key)]
+                                           (-> (dissoc spec template-key)
+                                               (assoc :schema (entity-template-schema root-schema template)))
+                                           spec)))
+                            {} fields)))))
+
 (defn effective-root-schema
   [module-index]
-  (berths/effective-root-schema (compose-root-schema module-index) module-index))
+  (-> (compose-root-schema module-index)
+      (berths/effective-root-schema module-index)
+      resolve-entity-templates))
 
 (defn cache-composed!
   [module-index]

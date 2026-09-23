@@ -21,22 +21,19 @@
   ([root-schema kind]
    (schema-compose/schema-for-kind root-schema kind)))
 
-(def ^:private default-compaction-policy
-  {:async? false :strategy :rubberband :head 0.3 :threshold 0.8})
-
-(defn- ensure-default-compaction [defaults]
-  (update defaults :compaction
-          #(merge default-compaction-policy %)))
-
 (defn normalize-defaults
+  "Canonicalize :defaults. An invalid :defaults is kept as written — the
+   validation layer reports it by name; blanking it here would lose the
+   default crew and model silently. Code defaults (compaction and friends) are
+   not written in here: a :defaults section is what the operator configured,
+   and the resolution chain owns the fallbacks."
   ([defaults] (normalize-defaults (cached-root-schema) defaults))
   ([root-schema defaults]
    (let [spec (schema-for root-schema :defaults)]
      (if-not spec
-       (ensure-default-compaction (or defaults {}))
+       (or defaults {})
        (let [result (lexicon/conform (runtime-schema spec) defaults)]
-         (if (cs/error? result) {}
-             (ensure-default-compaction result)))))))
+         (if (cs/error? result) (or defaults {}) result))))))
 
 (defn- normalize-crew
   ([crew] (normalize-crew (cached-root-schema) crew))
