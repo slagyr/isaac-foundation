@@ -23,7 +23,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: a module-declared key may live in its own file
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "signals.edn" containing:
       """
@@ -40,7 +40,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: a base foundation key splits the same way
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "defaults.edn" containing:
       """
@@ -71,7 +71,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: a key as both a file and a directory is refused
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "signals.edn" containing:
       """
@@ -90,7 +90,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: `_` inside a directory holds that map's own values
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "signals/_.edn" containing:
       """
@@ -113,7 +113,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: an entity may be a directory whose files are its fields
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "signals/parlour/_.edn" containing:
       """
@@ -134,7 +134,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: a markdown file named for the entity declares which key its body fills
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "berths/captain.md" containing:
       """
@@ -155,7 +155,7 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Scenario: editing a key's own file is picked up on reload
     Given config file "isaac.edn" containing:
       """
-      {:tz "UTC"}
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
     And config file "signals.edn" containing:
       """

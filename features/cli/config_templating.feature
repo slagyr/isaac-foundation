@@ -20,7 +20,7 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   Scenario: an entry inherits the fields of its template
     Given config file "isaac.edn" containing:
       """
-      {:tz      "UTC"
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
        :signals {:_parlour-base {:kind "parlor" :loft "upper" :color "blue"}
                  :parlour       {:_base "_parlour-base" :mood "happy"}}}
       """
@@ -36,7 +36,7 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   Scenario: the entry's own keys win over the template's
     Given config file "isaac.edn" containing:
       """
-      {:tz      "UTC"
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
        :signals {:_parlour-base {:kind "parlor" :loft "upper" :color "blue"}
                  :parlour       {:_base "_parlour-base" :color "green"}}}
       """
@@ -51,7 +51,7 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   Scenario: a template is never validated or instantiated as a real entry
     Given config file "isaac.edn" containing:
       """
-      {:tz      "UTC"
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
        :signals {:_parlour-base {:color "blue"}
                  :parlour       {:_base "_parlour-base" :kind "parlor" :loft "upper"}}}
       """
@@ -65,24 +65,24 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   Scenario: a :_base naming no template is a load error
     Given config file "isaac.edn" containing:
       """
-      {:tz      "UTC"
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
        :signals {:parlour {:_base "_missing" :kind "parlor" :loft "upper"}}}
       """
     When the config is loaded
     Then the config has validation errors matching:
-      | key             | value                  |
-      | signals.parlour | #"(?s).*_missing.*" |
+      | key               | value               |
+      | signals[:parlour] | #"(?s).*_missing.*" |
 
   @wip
   Scenario: a template cycle is a load error naming the cycle
     Given config file "isaac.edn" containing:
       """
-      {:tz      "UTC"
+      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
        :signals {:_alpha  {:_base "_beta"}
                  :_beta   {:_base "_alpha"}
                  :parlour {:_base "_alpha" :kind "parlor" :loft "upper"}}}
       """
     When the config is loaded
     Then the config has validation errors matching:
-      | key             | value              |
-      | signals.parlour | #"(?s).*_alpha.*" |
+      | key               | value             |
+      | signals[:parlour] | #"(?s).*_alpha.*" |
