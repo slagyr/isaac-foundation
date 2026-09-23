@@ -136,37 +136,37 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       """
       {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
       """
-    And config file "berths/captain.md" containing:
+    And config file "signals/parlour.md" containing:
       """
       ---
-      gauge: helm-mark-iii
-      ledger: _
+      kind: parlour
+      loft: _
       ---
-      You are the Captain.
+      upper
       """
     When the config is loaded
     Then the config has no validation errors
     And the loaded config has:
-      | key                    | value                |
-      | berths.captain.gauge   | helm-mark-iii        |
-      | berths.captain.ledger  | You are the Captain. |
+      | key                  | value   |
+      | signals.parlour.kind | parlour |
+      | signals.parlour.loft | upper   |
 
   @wip
   Scenario: editing a key's own file is picked up on reload
     Given config file "isaac.edn" containing:
       """
-      {:modules {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}}
+      {:tz "UTC"}
       """
-    And config file "signals.edn" containing:
+    And config file "defaults.edn" containing:
       """
-      {:parlour {:kind "parlor" :loft "upper"}}
+      {:crew "atticus"}
       """
     When the config is loaded
-    And config file "signals.edn" containing:
+    And config file "defaults.edn" containing:
       """
-      {:parlour {:kind "parlor" :loft "attic"}}
+      {:crew "marvin"}
       """
     And the config is reloaded
     Then the loaded config has:
-      | key                  | value |
-      | signals.parlour.loft | attic |
+      | key           | value  |
+      | defaults.crew | marvin |
