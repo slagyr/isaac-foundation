@@ -21,6 +21,7 @@
     [isaac.config.paths :as paths]
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema-compose :as schema-compose]
+    [isaac.config.templating :as templating]
     [isaac.config.validation :as validation]
     [isaac.config.warnings :as warnings]
     [isaac.logger :as log]
@@ -267,6 +268,11 @@
                                         config           (if data-path-overlay
                                                            (assoc-in config (:path data-path-overlay) (:value data-path-overlay))
                                                            config)
+                                        ;; :_base inheritance resolves before anything validates or
+                                        ;; instantiates a slot, so a `_<name>` template is never seen
+                                        ;; as a real entry (isaac-h2ck).
+                                        templating       (templating/resolve-config config)
+                                        config           (:config templating)
                                         slices           (conform-berth-slices (:index discovery) effective-schema config)
                                         config           (assoc (:config slices)
                                                            :module-index (:index discovery)
@@ -285,6 +291,7 @@
                                                                   {:errors [(collision-error-row "config-check" :check-id e)] :warnings []}
                                                                   (throw e))))
                                         errors           (->> (concat (validation/semantic-errors config config-root effective-schema)
+                                                                      (:errors templating)
                                                                       (:errors discovery)
                                                                       (:errors contributed)
                                                                       (:errors slices)

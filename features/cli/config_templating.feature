@@ -16,7 +16,6 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
   Background:
     Given the chartroom fixture modules are available
 
-  @wip
   Scenario: an entry inherits the fields of its template
     Given config file "isaac.edn" containing:
       """
@@ -32,7 +31,6 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
       | signals.parlour.color | blue  |
       | signals.parlour.mood  | happy |
 
-  @wip
   Scenario: the entry's own keys win over the template's
     Given config file "isaac.edn" containing:
       """
@@ -47,7 +45,6 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
       | signals.parlour.color | green |
       | signals.parlour.loft  | upper |
 
-  @wip
   Scenario: a template is never validated or instantiated as a real entry
     Given config file "isaac.edn" containing:
       """
@@ -61,7 +58,6 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
       | key                   | value |
       | signals.parlour.color | blue  |
 
-  @wip
   Scenario: a :_base naming no template is a load error
     Given config file "isaac.edn" containing:
       """
@@ -73,7 +69,6 @@ Feature: Any config entry may inherit from a template via :_base (isaac-h2ck)
       | key               | value               |
       | signals[:parlour] | #"(?s).*_missing.*" |
 
-  @wip
   Scenario: a template cycle is a load error naming the cycle
     Given config file "isaac.edn" containing:
       """

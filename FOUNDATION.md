@@ -144,6 +144,49 @@ Two different “roots”:
 Path construction helpers live in `isaac.config.paths`. Hosts load config via
 `isaac.config.loader/load-config!` at entry points and thread the value onward.
 
+### Templating — `:_base` (`isaac.config.templating`)
+
+Any config map entity may inherit from a **template** by naming it explicitly:
+
+```clojure
+;; config/crew/_worker.edn   — a template, not a crew
+{:model "grover" :tools {:allow [:fs/read :exec/run]} :tags #{:role/worker}}
+
+;; config/crew/marvin.edn
+{:_base "_worker" :soul "You are Marvin."}
+```
+
+- Inheritance is **explicit**. Nothing is inherited by proximity or by
+  filename alone — an entry names its own template.
+- The template must be a **sibling in the same map**: `crew/_worker` is a
+  template for crews, not for models.
+- **Single base, not a list.** A template may itself declare `:_base`, so
+  chains work; a cycle is a load error naming the cycle, and a `:_base`
+  naming no template is a load error.
+- The merge is **one level**: map-valued keys merge key-wise, scalars and
+  vectors replace. The entry's own keys win.
+- A `_`-prefixed entry is **never addressable as a real entity**. It is
+  dropped before validation and before any factory runs, so it is not a crew,
+  not a signal, not a hailable band, not a selectable model. A template is
+  therefore never rejected for fields a real entry would have to supply.
+- `:_base` is reserved rather than `:base` precisely so it cannot collide with
+  a module's legitimate `base` field.
+
+Templating is structural, not kind-specific: it applies to every top-level
+table, including keys no module declares.
+
+#### The `_` distinction
+
+`_` carries two meanings, told apart by **exact match**:
+
+| Form | Meaning | Settled in |
+|------|---------|-----------|
+| `_` exactly | this map's own values (e.g. `config/crew/marvin/_.edn`) | isaac-49zp |
+| `_<name>` | a template, inherited from and never addressable | isaac-h2ck |
+
+Same prefix, different meaning. This is workable but not self-evident, which
+is why it is written down here rather than left to be inferred.
+
 ## Reconfigurable
 
 Config-driven components implement `isaac.reconfigurable/Reconfigurable`:

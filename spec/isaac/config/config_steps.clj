@@ -13,7 +13,8 @@
     [isaac.module.classpath :as classpath]
     [isaac.module.discovery :as discovery]
     [isaac.module.lifecycle :as lifecycle]
-    [isaac.nexus :as nexus]))
+    [isaac.nexus :as nexus]
+    [isaac.step-tables :as step-tables]))
 
 (helper! isaac.config.config-steps)
 
@@ -163,9 +164,19 @@
           (zipmap (:headers table) row))
          (:rows table)))
 
+(defn- value-matches?
+  "A `#\"…\"` cell is the canonical matcher dialect (features/TABLES.md): a
+   full-string, DOTALL-enabled regex. Any other cell keeps this step's
+   historical shape — a bare pattern searched for anywhere in the message."
+  [pattern actual]
+  (let [actual (str actual)]
+    (if (str/starts-with? pattern "#\"")
+      (boolean (:match (step-tables/match-value pattern actual)))
+      (boolean (re-find (re-pattern pattern) actual)))))
+
 (defn- row-matches? [entry expected]
   (and (= (:key entry) (get expected "key"))
-       (re-find (re-pattern (get expected "value")) (:value entry))))
+       (value-matches? (get expected "value") (:value entry))))
 
 (defn- config-file-path [path]
   (str (config-root) "/" path))

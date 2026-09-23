@@ -28,6 +28,7 @@
      isaac.config.normalize isaac.config.warnings
      isaac.config.api isaac.config.berths isaac.config.schema-base
      isaac.config.check-compose isaac.config.schema-compose isaac.config.validation
+     isaac.config.templating
      isaac.config.validation-lexicon
      isaac.cli.api isaac.cli.args isaac.cli.color isaac.cli.host isaac.cli.table})
 
