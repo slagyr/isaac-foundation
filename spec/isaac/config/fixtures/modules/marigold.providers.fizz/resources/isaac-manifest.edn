@@ -1,6 +1,6 @@
 {:id      :marigold.providers.fizz
  :version "0.1.0"
- :factory 'isaac.module.protocol/module
+ :factory isaac.module.protocol/module
 
  :marigold.chartroom/foundry-template
  {:fizz {:template {:api      "chat-completions"

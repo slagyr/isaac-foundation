@@ -26,6 +26,9 @@
 (defn- file-exists? [relative]
   (fs/exists? (nexus/get :fs) (str config-root "/" relative)))
 
+(defn- write-slice! [relative data]
+  (fs/spit (nexus/get :fs) (str config-root "/" relative) (pr-str data)))
+
 (def ^:private parlor-module-root
   (str (config-marigold/fixture-modules-root) "/marigold.comm.parlor"))
 
@@ -371,6 +374,42 @@
       (let [result (sut/set-config marigold/root (str "berths.newcomer.gauge") :helm-mark-iii)]
         (should= :ok (:status result))
         (should= :helm-mark-iii (get-in (read-edn "isaac.edn") [:berths :newcomer :gauge]))))
+
+  (describe "a key in its own file (isaac-49zp)"
+
+    (it "writes to config/<key>.edn when the key already lives there"
+      (config-marigold/write-config! config-marigold/baseline-config)
+      (write-slice! "station.edn" {:primary marigold/captain})
+      (let [result (sut/set-config marigold/root "station.backup" marigold/first-mate)]
+        (should= :ok (:status result))
+        (should= "station.edn" (:file result))
+        (should= {:primary marigold/captain :backup marigold/first-mate} (read-edn "station.edn"))
+        (should-not-contain :station (read-edn "isaac.edn"))))
+
+    (it "writes a key with no home to its own file when :prefer-entity-files is true"
+      (config-marigold/write-config! (assoc config-marigold/baseline-config :prefer-entity-files true))
+      (let [result (sut/set-config marigold/root "station.primary" marigold/captain)]
+        (should= :ok (:status result))
+        (should= "station.edn" (:file result))
+        (should= {:primary marigold/captain} (read-edn "station.edn"))
+        (should-not-contain :station (read-edn "isaac.edn"))))
+
+    (it "writes to isaac.edn when the key already lives inline"
+      (config-marigold/write-config! (assoc config-marigold/baseline-config
+                                            :prefer-entity-files true
+                                            :station {:primary marigold/captain}))
+      (let [result (sut/set-config marigold/root "station.backup" marigold/first-mate)]
+        (should= :ok (:status result))
+        (should= "isaac.edn" (:file result))
+        (should-not (file-exists? "station.edn"))))
+
+    (it "unsets from the file that holds the key"
+      (config-marigold/write-config! config-marigold/baseline-config)
+      (write-slice! "station.edn" {:primary marigold/captain :backup marigold/first-mate})
+      (let [result (sut/unset-config marigold/root "station.backup")]
+        (should= :ok (:status result))
+        (should= "station.edn" (:file result))
+        (should= {:primary marigold/captain} (read-edn "station.edn")))))
 
   (describe "unset-config"
 

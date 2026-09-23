@@ -21,6 +21,9 @@
 (defn children* [path]
   (fs/children (runtime-fs) path))
 
+(defn dir?* [path]
+  (fs/dir? (runtime-fs) path))
+
 (defn source-path [relative]
   (str "config/" relative))
 

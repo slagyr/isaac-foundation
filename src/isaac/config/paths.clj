@@ -9,10 +9,19 @@
   (:require
     [clojure.string :as str]))
 
-(def ^:private entity-file-pattern #"[^/]+/[^/]+\.edn")
-(def ^:private markdown-file-pattern #"(berths|crew|cron|hooks)/[^/]+\.md")
+(def ^:private config-file-pattern
+  "Any `.edn` or `.md` file anywhere under `config/`. Every top-level key may
+   live inline, as `<key>.edn`, or as `<key>/…` at any depth, so the watcher
+   cannot name the kinds it tracks — it tracks the whole tree (isaac-49zp)."
+  #"[^/]+(?:/[^/]+)*\.(?:edn|md)")
 
 (def root-filename "isaac.edn")
+
+(def default-entry-name
+  "The name a map's own values take inside a directory: `crew/_.edn` holds the
+   `:crew` table's own entries, `crew/marvin/_.edn` holds marvin's own fields
+   (isaac-49zp)."
+  "_")
 
 (defn config-root [root]
   (str root "/config"))
@@ -22,6 +31,11 @@
 
 (defn root-config-file [root]
   (config-path root root-filename))
+
+(defn slice-relative
+  "`config/<key>.edn` — the whole value of one top-level key in its own file."
+  [key]
+  (str (name key) ".edn"))
 
 (defn entity-relative [kind id]
   (str (name kind) "/" id ".edn"))
@@ -45,9 +59,7 @@
 
 (defn config-file? [relative-path]
   (and (string? relative-path)
-       (or (= root-filename relative-path)
-           (boolean (re-matches entity-file-pattern relative-path))
-           (boolean (re-matches markdown-file-pattern relative-path)))))
+       (boolean (re-matches config-file-pattern relative-path))))
 
 ;; region ----- Path segments -----
 

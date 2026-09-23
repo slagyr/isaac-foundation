@@ -286,6 +286,63 @@
         (should= [] (:errors result))
         (should= [{:key "foundries.helm-systems.apiKey" :value "unknown key"}] (:warnings result))))
 
+    (describe "any key inline, as <key>.edn, or as <key>/ (isaac-49zp)"
+
+      (it "loads a key from its own file"
+        (config-marigold/write-config! (dissoc config-marigold/baseline-config :watch))
+        (marigold/write-raw! "watch.edn" (pr-str {:berth marigold/captain :gauge marigold/helm-mark-iii}))
+        (let [result (marigold/load-config)]
+          (should= [] (:errors result))
+          (should= marigold/captain (get-in result [:config :watch :berth]))
+          (should-contain "config/watch.edn" (:sources result))))
+
+      (it "refuses a key present both inline and in its own file"
+        (config-marigold/write-baseline!)
+        (marigold/write-raw! "watch.edn" (pr-str {:berth marigold/captain}))
+        (should= [{:key   "watch"
+                   :value "defined in both config/isaac.edn and config/watch.edn"}]
+                 (:errors (marigold/load-config))))
+
+      (it "refuses a key that is both a file and a directory"
+        (config-marigold/write-baseline!)
+        (marigold/write-raw! "berths.edn" (pr-str {marigold/first-mate {:ledger "One."}}))
+        (marigold/write-raw! (str "berths/" marigold/cook ".edn") (pr-str {:ledger "Two."}))
+        (let [errors (:errors (marigold/load-config))]
+          (should= [{:key   "berths"
+                     :value "defined as both config/berths/ and config/berths.edn"}]
+                   errors)))
+
+      (it "takes `_` inside a directory as that map's own values"
+        (config-marigold/write-baseline!)
+        (marigold/write-raw! "berths/_.edn" (pr-str {marigold/first-mate {:ledger "You keep the log."}}))
+        (marigold/write-raw! (str "berths/" marigold/cook ".edn") (pr-str {:ledger "You keep the galley."}))
+        (let [result (marigold/load-config)]
+          (should= [] (:errors result))
+          (should= "You keep the log." (get-in result [:config :berths marigold/first-mate :ledger]))
+          (should= "You keep the galley." (get-in result [:config :berths marigold/cook :ledger]))))
+
+      (it "reads an entity stored as a directory of its fields"
+        (config-marigold/write-baseline!)
+        (marigold/write-raw! (str "berths/" marigold/first-mate "/_.edn") (pr-str {:gauge marigold/helm-mark-iii}))
+        (marigold/write-raw! (str "berths/" marigold/first-mate "/ledger.md") "You keep the log.")
+        (let [result (marigold/load-config)]
+          (should= [] (:errors result))
+          (should= marigold/helm-mark-iii (get-in result [:config :berths marigold/first-mate :gauge]))
+          (should= "You keep the log." (get-in result [:config :berths marigold/first-mate :ledger]))))
+
+      (it "lets markdown declare which key its body fills"
+        (config-marigold/write-baseline!)
+        (marigold/write-raw! (str "berths/" marigold/first-mate ".md")
+                             (str "---\n"
+                                  "gauge: " marigold/helm-mark-iii "\n"
+                                  "ledger: _\n"
+                                  "---\n"
+                                  "You keep the log.\n"))
+        (let [result (marigold/load-config)]
+          (should= [] (:errors result))
+          (should= marigold/helm-mark-iii (get-in result [:config :berths marigold/first-mate :gauge]))
+          (should= "You keep the log.\n" (get-in result [:config :berths marigold/first-mate :ledger])))))
+
     (describe "unresolvable ${VAR} references (isaac-rxun)"
 
       (it "drops an optional field whose variable is unset and still loads"

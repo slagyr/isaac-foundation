@@ -241,16 +241,26 @@
 (defn- ensure-config-berths-installed! []
   (when-not (g/get :config-berths-installed?)
     (when-let [loaded (g/get :loaded-config-result)]
-      (let [module-index (loaded-module-index)]
-        (lifecycle/reconcile-modules! module-index)
-        (berths/install! {:config       (:config loaded)
-                          :module-index module-index}))
+      ;; Same seam the load takes: a fixture module declared by :local/root is
+      ;; not a resolvable coordinate, so activation must not shell out to
+      ;; tools.deps to put it on the classpath.
+      (with-redefs [classpath/invoke-add-deps! (fn [_])]
+        (let [module-index (loaded-module-index)]
+          (lifecycle/reconcile-modules! module-index)
+          (berths/install! {:config       (:config loaded)
+                            :module-index module-index})))
       (g/assoc! :config-berths-installed? true))))
 
 (defn config-is-reloaded []
   ;; Install the pre-reload nodes (boot), then reconcile against the freshly
   ;; loaded config so Reconfigurable nodes receive on-config-change! and
   ;; removed slots deregister — the real reload path, not a fresh install.
+  ;; Node registrations must land in the AMBIENT nexus, so this is not wrapped
+  ;; in a nested one. A scenario that only wrote config files (no "empty Isaac
+  ;; root/state directory" step) has no ambient filesystem at all — give it
+  ;; this scenario's own, which is what those config files were written to.
+  (when-not (nexus/get :fs)
+    (nexus/register! [:fs] (mem-fs)))
   (ensure-config-berths-installed!)
   (let [prev   (:config (g/get :loaded-config-result))
         result (reload-result)]
@@ -272,7 +282,12 @@
          (contains? #{\{ \[ \: \"} c))))
 
 (defn loaded-config-has [table]
-  (let [config (or (loader/snapshot "feature: loaded-config-has prefers the committed snapshot (hot-reload-aware)")
+  ;; This scenario's own load wins. The process-wide snapshot is ambient and
+  ;; survives between scenarios, so a scenario that never resets the nexus
+  ;; (no "empty Isaac root/state directory" step) would otherwise assert
+  ;; against another feature's committed config.
+  (let [config (or (:config (g/get :loaded-config-result))
+                   (loader/snapshot "feature: loaded-config-has falls back to the committed snapshot (hot-reload-aware)")
                    (:config (load-result)))]
     (doseq [row (:rows table)]
       (let [m        (zipmap (:headers table) row)

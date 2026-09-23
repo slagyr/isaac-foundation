@@ -19,7 +19,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
   Background:
     Given the chartroom fixture modules are available
 
-  @wip
   Scenario: a module-declared key may live in its own file
     Given config file "isaac.edn" containing:
       """
@@ -36,7 +35,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | signals.parlour.loft  | upper  |
       | signals.parlour.color | blue   |
 
-  @wip
   Scenario: a base foundation key splits the same way
     Given config file "isaac.edn" containing:
       """
@@ -52,7 +50,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | key           | value   |
       | defaults.crew | atticus |
 
-  @wip
   Scenario: a key inline and in its own file is refused
     Given config file "isaac.edn" containing:
       """
@@ -67,7 +64,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | key      | value                   |
       | defaults | #"(?s).*defaults\.edn.*" |
 
-  @wip
   Scenario: a key as both a file and a directory is refused
     Given config file "isaac.edn" containing:
       """
@@ -86,7 +82,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | key     | value                  |
       | signals | #"(?s).*signals\.edn.*" |
 
-  @wip
   Scenario: `_` inside a directory holds that map's own values
     Given config file "isaac.edn" containing:
       """
@@ -109,7 +104,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | signals.cellar.loft  | lower |
       | signals.attic.loft   | attic |
 
-  @wip
   Scenario: an entity may be a directory whose files are its fields
     Given config file "isaac.edn" containing:
       """
@@ -130,7 +124,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | signals.parlour.loft  | upper |
       | signals.parlour.color | blue  |
 
-  @wip
   Scenario: a markdown file named for the entity declares which key its body fills
     Given config file "isaac.edn" containing:
       """
@@ -151,7 +144,6 @@ Feature: Any config key may live inline, as <key>.edn, or as <key>/ (isaac-49zp)
       | signals.parlour.kind | parlour |
       | signals.parlour.loft | upper   |
 
-  @wip
   Scenario: editing a key's own file is picked up on reload
     Given config file "isaac.edn" containing:
       """

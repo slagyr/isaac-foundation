@@ -18,22 +18,31 @@
      [isaac.config.nav :as nav]
      [isaac.config.paths :as paths]
      [isaac.config.schema-compose :as schema-compose]
+     [isaac.config.tree :as tree]
      [isaac.config.schema.resolve :as schema-resolve]
      [isaac.schema.lexicon :as lexicon]
      [isaac.fs :as fs]
      [isaac.nexus :as nexus]
      [isaac.util.edn :as edn-pretty]))
 
-(defn- entity-sections []
-  (set (map keyword (schema-compose/entity-dir-names))))
+(defn- entity-sections
+  "Top-level keys whose entries live one-per-file in `config/<key>/`. A key is a
+   directory because a directory exists, not because a module declared
+   `:entity-dir` — foundation names no kind (isaac-49zp)."
+  [root]
+  (into (set (map keyword (schema-compose/entity-dir-names)))
+        (keys (:dirs (tree/scan (paths/config-root root))))))
+
 (def ^:private companion-inline-limit 64)
 
-(def ^:private companion-md-specs
-  {:crew   {:field :soul   :relative paths/soul-relative}
-   :berths {:field :ledger :relative paths/ledger-relative}})
-
-(defn- companion-spec [root-key]
-  (companion-md-specs root-key))
+(defn- companion-spec
+  "The one entity field a `.md` companion carries for `root-key`, from the
+   owning module's descriptor — foundation does not know that crews have souls."
+  [root-key]
+  (when-let [{:keys [companion entity-dir]} (schema-compose/descriptor-for root-key)]
+    (when (and (:field companion) entity-dir)
+      {:field    (:field companion)
+       :relative (fn [id] (str entity-dir "/" id ".md"))})))
 
 (defn- companion-field? [root-key field-path]
   (when-let [{:keys [field]} (companion-spec root-key)]
@@ -107,7 +116,7 @@
 
 ;; region ----- Parse & state -----
 
-(defn- parse-config-path [path-str]
+(defn- parse-config-path [root path-str]
   (let [segments (try (paths/parse-path-segments path-str)
                       (catch Exception _ ::invalid))]
     (cond
@@ -123,7 +132,7 @@
       :else
       (let [segments   (mapv second segments)
             root-key   (first segments)
-            entity?    (contains? (entity-sections) root-key)
+            entity?    (contains? (entity-sections root) root-key)
             field-path (if entity? (subvec segments 2) (subvec segments 1))]
         (cond
           (and entity? (< (count segments) 2))
@@ -148,7 +157,10 @@
         entity-data            (or (some-> entity-path read-edn-path) {})
         companion-field        (when (:companion? parsed) (:field (companion-spec (:root-key parsed))))
         companion-relative     (when (:companion? parsed) (companion-md-relative (:root-key parsed) (:entity-id parsed)))
-        companion-path         (when companion-relative (paths/config-path root companion-relative))]
+        companion-path         (when companion-relative (paths/config-path root companion-relative))
+        slice-relative         (paths/slice-relative (:root-key parsed))
+        slice-path             (paths/config-path root slice-relative)
+        slice-data             (or (read-edn-path slice-path) {})]
     {:companion-field       companion-field
      :companion-path        companion-path
      :companion-relative    companion-relative
@@ -164,8 +176,17 @@
      :md-exists?            (boolean (and companion-path (fs/exists? (runtime-fs) companion-path)))
      :prefer-entity-files?  (true? (value-at-path root-data [:prefer-entity-files]))
      :root-data             root-data
+     ;; the top-level key itself, not the full path: a key that already lives
+     ;; inline keeps its home even when the field being written is new
+     :root-key-inline?      (path-present? root-data [(:root-key parsed)])
      :root-path-exists?     (path-present? root-data (:segments parsed))
-     :root-path             root-path}))
+     :root-path             root-path
+     ;; config/<key>.edn — the whole value of one top-level key in its own file
+     :slice-data            slice-data
+     :slice-exists?         (boolean (fs/exists? (runtime-fs) slice-path))
+     :slice-path            slice-path
+     :slice-path-exists?    (path-present? slice-data (rest (:segments parsed)))
+     :slice-relative        slice-relative}))
 
 ;; endregion ^^^^^ Parse & state ^^^^^
 
@@ -185,14 +206,23 @@
       (update :deletes disj relative)
       (assoc-in [:writes relative] content)))
 
-(defn- choose-set-location [parsed state]
+(defn- choose-set-location
+  "Where a written value lands. Whichever form already holds the key wins, then
+   `:prefer-entity-files`, then `isaac.edn` — the same rule the entity files
+   have always followed, extended to the `config/<key>.edn` slice (isaac-49zp).
+   The slice is checked before the entity forms: a key stored as one file
+   cannot also be a directory, so routing a write into `<key>/<id>.edn` would
+   manufacture the very conflict the loader refuses."
+  [parsed state]
   (cond
     (and (:companion? parsed) (:md-exists? state)) :md
     (and (:companion? parsed) (:inline-root-companion? state)) :root
     (and (:companion? parsed) (:inline-entity-companion? state)) :entity
+    (:slice-exists? state) :slice
     (and (:entity? parsed) (:entity-root-exists? state)) :root
     (and (:entity? parsed) (:entity-exists? state)) :entity
     (and (:entity? parsed) (:prefer-entity-files? state)) :entity
+    (and (:prefer-entity-files? state) (not (:root-key-inline? state))) :slice
     :else :root))
 
 (defn- choose-unset-location [parsed state]
@@ -202,6 +232,7 @@
     (and (:entity? parsed)
          (or (and (:whole-entity? parsed) (:entity-exists? state))
              (path-present? (:entity-data state) (:field-path parsed)))) :entity
+    (and (:slice-exists? state) (:slice-path-exists? state)) :slice
     :else nil))
 
 (defn- use-companion-markdown? [parsed state location value]
@@ -230,6 +261,11 @@
         (-> {:deletes #{} :file (:entity-relative state) :writes {}}
             (update-edn-file (:entity-relative state) entity-data')))
 
+      (= :slice location)
+      (let [slice-data' (assoc-path (:slice-data state) (rest (:segments parsed)) value)]
+        (-> {:deletes #{} :file (:slice-relative state) :writes {}}
+            (update-edn-file (:slice-relative state) slice-data')))
+
       :else
       (let [root-data' (assoc-path (:root-data state) (:segments parsed) value)]
         (-> {:deletes #{} :file paths/root-filename :writes {}}
@@ -247,6 +283,13 @@
                            (dissoc-path (:entity-data state) (:field-path parsed)))]
         (-> {:deletes #{} :file (:entity-relative state) :writes {}}
             (update-edn-file (:entity-relative state) entity-data')))
+
+      :slice
+      (let [field-path  (vec (rest (:segments parsed)))
+            slice-data' (when (seq field-path)
+                          (dissoc-path (:slice-data state) field-path))]
+        (-> {:deletes #{} :file (:slice-relative state) :writes {}}
+            (update-edn-file (:slice-relative state) slice-data')))
 
       :root
       (let [root-data' (dissoc-path (:root-data state) (:segments parsed))]
@@ -398,7 +441,7 @@
                       :or   {skip-ref-validation? false
                              skip-module-validation? false
                              force? false}}]
-  (let [parsed (parse-config-path path)]
+  (let [parsed (parse-config-path root path)]
     (cond
       (:status parsed)
       {:status   (:status parsed)
@@ -442,7 +485,7 @@
    Pre-existing config errors do not block the unset; they're surfaced
    as warnings."
   [root path & {:keys [skip-module-validation? force?] :or {skip-module-validation? false force? false}}]
-  (let [parsed (parse-config-path path)]
+  (let [parsed (parse-config-path root path)]
     (cond
       (:status parsed)
       {:status (:status parsed) :file nil :errors [] :warnings []}

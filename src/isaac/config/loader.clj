@@ -22,6 +22,7 @@
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.config.templating :as templating]
+    [isaac.config.tree :as tree]
     [isaac.config.validation :as validation]
     [isaac.config.warnings :as warnings]
     [isaac.logger :as log]
@@ -212,7 +213,25 @@
                                    :missing-config? true
                                    :warnings        []
                                    :sources         []}
-                                  (let [root-read       (read-root-config config-root opts)
+                                  (let [inline-read     (read-root-config config-root opts)
+                                        layout          (tree/scan config-root)
+                                        slices          (tree/read-slices config-root (:slices layout)
+                                                                          (:data inline-read) substitute-env?)
+                                        dir-own         (tree/read-dir-own config-root (:dirs layout) substitute-env?)
+                                        layout-errors   (vec (concat (:errors layout)
+                                                                     (:errors slices)
+                                                                     (mapcat (fn [[_ dir-name]]
+                                                                               (tree/dir-errors (str config-root "/" dir-name)
+                                                                                                (str dir-name "/")))
+                                                                             (:dirs layout))))
+                                        root-read       (-> inline-read
+                                                            (assoc :data (merge-with (fn [own inline]
+                                                                                       (if (and (map? own) (map? inline))
+                                                                                         (merge own inline)
+                                                                                         inline))
+                                                                                     dir-own (:data slices)))
+                                                            (update :errors into layout-errors)
+                                                            (update :sources into (:sources slices)))
                                         root-data       (:data root-read)
                                         discovery-input (cond-> {}
                                                           (contains? root-data :modules) (assoc :modules (:modules root-data)))
@@ -221,15 +240,14 @@
                                         [effective-schema compose-error] (compose-or-fallback (:index discovery))
                                         {root-errors :errors root-warnings :warnings root-sources :sources}
                                         (-validate-root-config effective-schema root-read)
-                                        entity-kinds     (->> (schema-compose/descriptors)
-                                                              (keep (fn [[kind {:keys [entity-dir]}]]
-                                                                      (when entity-dir [kind entity-dir])))
-                                                              vec)
+                                        ;; Every directory under config/ is a key; foundation knows no
+                                        ;; kind by name and reads no :entity-dir declaration (isaac-49zp).
+                                        entity-kinds     (vec (:dirs layout))
                                         entity-files-by-kind
                                         (into {} (map (fn [[kind dir]]
                                                         [kind (entities/entity-files config-root dir opts)])
                                                       entity-kinds))
-                                        md-warnings      (entities/dangling-md-warnings config-root root-data opts)
+                                        md-warnings      (entities/dangling-md-warnings config-root (:dirs layout) root-data opts)
                                         base-config      (normalize/normalize-config effective-schema (or root-data {}))
                                         result           {:config          base-config
                                                           :errors          root-errors

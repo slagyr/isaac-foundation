@@ -51,5 +51,9 @@
     (should-not (sut/config-file? "crew/.DS_Store"))
     (should-not (sut/config-file? (str "crew/" marigold/first-mate ".tmp")))
     (should-not (sut/config-file? (str "crew/" marigold/first-mate ".md.bak")))
-    (should-not (sut/config-file? "notes/readme.txt"))
-    (should-not (sut/config-file? (str "crew/nested/" marigold/first-mate ".edn")))))
+    (should-not (sut/config-file? "notes/readme.txt")))
+
+  (it "config-file? tracks nested keys — a key may be a directory at any depth"
+    (should (sut/config-file? (str "crew/" marigold/first-mate "/soul.md")))
+    (should (sut/config-file? (str "crew/" marigold/first-mate "/_.edn")))
+    (should (sut/config-file? "modules.edn"))))

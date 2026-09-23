@@ -10,6 +10,7 @@
     [isaac.config.paths :as paths]
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema-compose :as schema-compose]
+    [isaac.config.tree :as tree]
     [isaac.config.validation :as validation]
     [isaac.config.warnings :as warnings]
     [isaac.schema.lexicon :as lexicon]))
@@ -38,8 +39,25 @@
                   :path     (str dir "/" name)
                   :relative (str dir-name "/" name)})))))
 
-(defn- read-entity-files [root dir-name] (read-dir-files root dir-name ".edn"))
-(defn- read-md-files [root dir-name] (read-dir-files root dir-name ".md"))
+(defn- read-entity-files [root dir-name]
+  (remove #(= paths/default-entry-name (:id %)) (read-dir-files root dir-name ".edn")))
+
+(defn- read-md-files [root dir-name]
+  (remove #(= paths/default-entry-name (:id %)) (read-dir-files root dir-name ".md")))
+
+(defn- read-entity-dirs
+  "Entities stored as a directory of their own fields: `crew/marvin/` holds
+   marvin's `_.edn`, `soul.md`, and so on (isaac-49zp)."
+  [root dir-name]
+  (let [dir (str root "/" dir-name)]
+    (->> (or (parse/children* dir) [])
+         (filter #(parse/dir?* (str dir "/" %)))
+         (remove #(= paths/default-entry-name %))
+         sort
+         (mapv (fn [name]
+                 {:id       name
+                  :path     (str dir "/" name)
+                  :relative (str dir-name "/" name "/")})))))
 
 (defn overlay-relative [{:keys [overlay-path]}]
   (when (present? overlay-path)
@@ -70,13 +88,21 @@
 (defn- frontmatter-md-entry? [entry]
   (boolean (parse/split-frontmatter (parse/entry-content entry))))
 
-(defn config-files-present? [root opts]
-  (or (overlay-relative opts)
-      (parse/exists?* (str root "/" paths/root-filename))
-      (some (fn [dir-name]
-              (or (seq (read-entity-files root dir-name))
-                  (seq (read-md-files root dir-name))))
-            (schema-compose/entity-dir-names))))
+(defn config-files-present?
+  "True when `config/` holds anything the loader would read: `isaac.edn`, a
+   `config/<key>.edn` slice, or a directory with files in it. No kind is named
+   — every directory under `config/` is a key (isaac-49zp)."
+  [root opts]
+  (let [{:keys [slices dirs]} (tree/scan root)]
+    (boolean
+      (or (overlay-relative opts)
+          (parse/exists?* (str root "/" paths/root-filename))
+          (seq slices)
+          (some (fn [[_ dir-name]]
+                  (or (seq (read-entity-files root dir-name))
+                      (seq (read-md-files root dir-name))
+                      (seq (read-entity-dirs root dir-name))))
+                dirs)))))
 
 (defn- merge-root-entity-with-schema [entity-schema result kind]
   (reduce (fn [acc [id entity]]
@@ -102,34 +128,57 @@
   ([root-schema result kind]
    (merge-root-entity-with-schema (schema-for root-schema kind) result kind)))
 
-(defn entity-files [root dir-name opts]
+(defn entity-files
+  "The entity entries stored under `config/<dir-name>/`: one per `<id>.edn`,
+   per `<id>.md` carrying frontmatter, and per `<id>/` directory of fields.
+   `_` is the table's own values, not an entity, and is read by the loader.
+   No kind is named and no `:frontmatter?` declaration is consulted — a `.md`
+   with frontmatter is an entity wherever it sits (isaac-49zp)."
+  [root dir-name opts]
   (let [edn-files (-> (read-entity-files root dir-name)
                       (with-overlay (overlay-entry dir-name ".edn" opts)))
         md-files  (-> (read-md-files root dir-name)
-                      (with-overlay (overlay-entry dir-name ".md" opts)))]
-    (if (contains? (schema-compose/frontmatter-entity-dirs) dir-name)
-      (let [md-files  (->> md-files
-                           (filter frontmatter-md-entry?)
-                           (mapv #(assoc % :format :md-frontmatter)))
-            edn-files (mapv #(assoc % :format :edn) edn-files)
-            md-by-id  (set (map :id md-files))]
-        {:files    (vec (sort-by :relative (concat md-files (remove #(contains? md-by-id (:id %)) edn-files))))
-         :warnings (mapv (fn [{:keys [id relative]}]
-                           (parse/warning relative (str "single-file config overrides legacy " dir-name "/" id ".edn")))
-                         (filter #(contains? (set (map :id edn-files)) (:id %)) md-files))})
-      {:files    (vec (sort-by :relative (map #(assoc % :format :edn) edn-files)))
-       :warnings []})))
+                      (with-overlay (overlay-entry dir-name ".md" opts))
+                      (->> (filter frontmatter-md-entry?)
+                           (mapv #(assoc % :format :md-frontmatter))))
+        dir-files (mapv #(assoc % :format :dir) (read-entity-dirs root dir-name))
+        taken     (set (concat (map :id md-files) (map :id dir-files)))
+        edn-files (mapv #(assoc % :format :edn) edn-files)]
+    {:files    (vec (sort-by :relative (concat dir-files md-files
+                                               (remove #(contains? taken (:id %)) edn-files))))
+     :warnings (mapv (fn [{:keys [id relative]}]
+                       (parse/warning relative (str "single-file config overrides legacy " dir-name "/" id ".edn")))
+                     (filter #(contains? (set (map :id edn-files)) (:id %)) md-files))}))
+
+(defn- body-field
+  "The frontmatter field whose value is the `_` sentinel — \"this field's value
+   is the markdown body\". Exactly `_`; `_<name>` is a template, not this."
+  [data]
+  (when (map? data)
+    (some (fn [[k v]] (when (= paths/default-entry-name v) k)) data)))
+
+(defn- apply-body-sentinel
+  "Markdown declares its own key: the one frontmatter field set to `_` takes the
+   body as its value. When it fires, the body is spoken for, so the descriptor's
+   companion field must not also claim it (isaac-49zp)."
+  [{:keys [body data] :as read}]
+  (if-let [field (body-field data)]
+    (assoc read :data (assoc data field body) :body-claimed? true)
+    read))
 
 (defn- read-entity-entry
   "Read one entity file. `kind` and the entry's id prefix the reference path so a
    dropped `${VAR}` inside crew/main.edn reports as `crew.main.<field>` rather
    than a bare field name (isaac-rxun)."
   [kind entry substitute-env? raw-parse-errors?]
-  (let [{:keys [content format overlay? path id]} entry]
+  (let [{:keys [content format overlay? path id relative]} entry]
     (binding [parse/*reference-path* [kind id]]
       (case format
         :md-frontmatter
-        (parse/read-frontmatter-file entry substitute-env? raw-parse-errors?)
+        (apply-body-sentinel (parse/read-frontmatter-file entry substitute-env? raw-parse-errors?))
+
+        :dir
+        {:data (tree/read-map-dir path relative substitute-env?) :body-claimed? true}
 
         (if overlay?
           (try
@@ -138,8 +187,8 @@
               {:error (if raw-parse-errors? (.getMessage e) "EDN syntax error")}))
           (parse/read-edn-file path substitute-env? raw-parse-errors?))))))
 
-(defn- resolve-entity-data [root kind id format raw-data body]
-  (if-not (map? raw-data)
+(defn- resolve-entity-data [root kind id format raw-data body body-claimed?]
+  (if (or body-claimed? (not (map? raw-data)))
     {:data raw-data :error nil :extra-errors []}
     (let [{:keys [companion entity-dir]} (schema-compose/descriptor-for kind)
           load-md? (= format :md-frontmatter)
@@ -216,11 +265,12 @@
 (defn load-entity-file
   ([result root kind entry substitute-env? raw-parse-errors?]
    (let [{:keys [format id relative]} entry
-         {raw-data :data error :error body :body} (read-entity-entry kind entry substitute-env? raw-parse-errors?)
+         {raw-data :data error :error body :body claimed? :body-claimed?}
+         (read-entity-entry kind entry substitute-env? raw-parse-errors?)
          {data :data error :error extra-errors :extra-errors}
          (if error
            {:data raw-data :error error :extra-errors []}
-           (resolve-entity-data root kind id format raw-data body))]
+           (resolve-entity-data root kind id format raw-data body claimed?))]
      (cond
        error
        (if (map? error)
@@ -233,11 +283,12 @@
        :else
        (finalize-entity-load result kind id relative data extra-errors))))
   ([root-schema result root kind {:keys [format id relative] :as entry} substitute-env? raw-parse-errors?]
-   (let [{raw-data :data error :error body :body} (read-entity-entry kind entry substitute-env? raw-parse-errors?)
+   (let [{raw-data :data error :error body :body claimed? :body-claimed?}
+         (read-entity-entry kind entry substitute-env? raw-parse-errors?)
          {data :data error :error extra-errors :extra-errors}
          (if error
            {:data raw-data :error error :extra-errors []}
-           (resolve-entity-data root kind id format raw-data body))]
+           (resolve-entity-data root kind id format raw-data body claimed?))]
      (cond
        error
        (if (map? error)
@@ -257,7 +308,11 @@
     :providers "provider"
     (name kind)))
 
-(defn dangling-md-warnings [root root-data opts]
+(defn dangling-md-warnings
+  "A `.md` under `config/<key>/` that is neither an entity of its own (it has no
+   frontmatter) nor the companion of one. Every directory is a key, so the set
+   comes from the filesystem, not from `:entity-dir` declarations (isaac-49zp)."
+  [root dirs root-data opts]
   (let [root-data (or root-data {})
         inline-ids (fn [kind]
                      (let [ids (->> (keys (get root-data kind {})) (map ->id) set)]
@@ -272,7 +327,4 @@
                           (remove #(contains? (into (inline-ids kind) (file-ids dir-name)) (:id %)))
                           (mapv #(parse/warning (:relative %)
                                           (str "dangling: no matching " (dangling-entry-kind kind) " entry")))))]
-    (vec (mapcat (fn [[kind {:keys [entity-dir]}]]
-                   (when entity-dir
-                     (warn-for kind entity-dir)))
-                 (schema-compose/descriptors)))))
+    (vec (mapcat (fn [[kind dir-name]] (warn-for kind dir-name)) dirs))))

@@ -25,7 +25,7 @@
      isaac.schema.registered-in
      isaac.config.paths isaac.config.nav isaac.config.companion isaac.config.loader
      isaac.config.env isaac.config.parse isaac.config.companions isaac.config.entities
-     isaac.config.normalize isaac.config.warnings
+     isaac.config.normalize isaac.config.warnings isaac.config.tree
      isaac.config.api isaac.config.berths isaac.config.schema-base
      isaac.config.check-compose isaac.config.schema-compose isaac.config.validation
      isaac.config.templating

@@ -1,6 +1,6 @@
 {:id      :marigold.comm.parlor
  :version "0.1.0"
- :factory 'isaac.module.protocol/module
+ :factory isaac.module.protocol/module
 
  :marigold.chartroom/signal
  {:parlor {:namespace    'marigold.comm.parlor.stub
