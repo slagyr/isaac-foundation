@@ -213,6 +213,9 @@
     (it "keeps an explicit nil — absent by reference is the only thing it drops"
       (should= {:gauge nil} (parse/substitute-env-recursive {:gauge nil})))
 
+    (it "keeps an explicit nil inside a sequence, where position is meaning"
+      (should= {:args ["a" nil "b"]} (parse/substitute-env-recursive {:args ["a" nil "b"]})))
+
     (it "leaves non-string scalars alone"
       (should= {:port 8080 :on? true} (parse/substitute-env-recursive {:port 8080 :on? true})))
 

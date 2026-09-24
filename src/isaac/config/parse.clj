@@ -78,6 +78,11 @@
   (when (empty? (unresolved-references s))
     (str/replace s reference-pattern (fn [[_ var-name]] (env/env var-name)))))
 
+(def ^:private dropped-entry
+  "Marks a sequence entry whose reference could not be resolved, so removing it
+   does not also remove an entry that is nil on purpose."
+  (Object.))
+
 (defn- record-unresolved!
   "Record the dropped field. Always returns nil — it is the `or` fallback in
    substitute-env-recursive, so a truthy return would resurrect the literal."
@@ -108,11 +113,16 @@
                 value)
 
      (sequential? value)
+     ;; A dropped entry has to be told apart from an entry that is nil on
+     ;; purpose, so it is marked and removed: `keep` would discard both, and in
+     ;; a sequence position carries meaning (isaac-rxun).
      (into []
-           (keep-indexed (fn [idx v]
-                           (let [substituted (substitute-env-recursive (conj (vec path) idx) v)]
-                             (when-not (and (some? v) (nil? substituted))
-                               substituted))))
+           (comp (map-indexed (fn [idx v]
+                                (let [substituted (substitute-env-recursive (conj (vec path) idx) v)]
+                                  (if (and (some? v) (nil? substituted))
+                                    dropped-entry
+                                    substituted))))
+                 (remove #(identical? dropped-entry %)))
            value)
 
      :else value)))

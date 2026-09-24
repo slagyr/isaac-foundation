@@ -111,7 +111,7 @@
           result
           keys))
 
-(def ^:private extra-present-config-keys [:dev :module-index :root])
+(def ^:private extra-present-config-keys [:dev :module-index :root :unresolved-refs])
 
 (defn- present-config-keys [root-schema]
   (concat extra-present-config-keys

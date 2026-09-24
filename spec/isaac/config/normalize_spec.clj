@@ -166,6 +166,15 @@
           (should= true (:prefer-entity-files result))
           (should= (:modules cfg) (:modules result)))))
 
+    ;; isaac-rxun: the loader records which ${VAR} emptied a field under
+    ;; :unresolved-refs. Code that normalizes before cutting a provider slice
+    ;; must still see it, or the point of use cannot name the variable.
+    (it "keeps the loader's :unresolved-refs"
+      (let [refs   {"providers.zane.api-key" "RXUN_MISSING"}
+            result (normalize/normalize-config {:name :isaac :type :map :schema {}}
+                                               {:providers {} :unresolved-refs refs})]
+        (should= refs (:unresolved-refs result))))
+
     (it "leaves the operator's :defaults sections as configured"
       (with-redefs [lexicon/conform (fn [_ value] value)
                     cs/error?  (constantly false)]
