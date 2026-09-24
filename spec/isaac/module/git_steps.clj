@@ -11,3 +11,8 @@
 
 (defgiven "the git repository {name:string} gains a commit {msg:string}"
   isaac.foundation.git-helpers/repository-gains-commit!)
+
+(defgiven "the git repository {name:string} gains a {path:string} commit {msg:string}:"
+  isaac.foundation.git-helpers/repository-gains-commit-with-file!
+  "Commits the doc-string as <path> in the fixture repository, so a fixture
+   sibling can declare its own sibling pins.")

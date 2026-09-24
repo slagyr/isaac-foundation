@@ -1,20 +1,39 @@
 Feature: Sibling pins against the registry
-  Every module repo pins its sibling modules by git sha in deps.edn. A pin
-  that falls behind the registry means the repo's tests run against an old
-  sibling and a fresh box that installs only that module silently gets the
-  old sibling too (2026-09-11: isaac-http pinned agent 0.1.46 while the
-  registry said 0.1.66). `isaac modules pins`, run from a module repo, reads
-  the sibling pins, looks each up in the registry, and classifies by git
-  ancestry using the gitlib clones tools.deps already has: older fails,
-  equal passes, ahead passes with a note. A pin ahead of the registry is
-  normal for the hours of a train and must not go red (isaac-yrxx).
+  Every module repo pins its sibling modules by git sha in deps.edn. Those
+  pins move as a set: isaac-agent b6eb475 is built against isaac-foundation
+  9ab2527, and a repo that pins the one without the other exercises a build
+  no host runs. `isaac modules pins`, run from a module repo, reads the
+  sibling pins — from :deps and from every alias — and checks them two ways,
+  using the gitlib clones tools.deps already has.
+
+  Coherence first: each pinned sibling's own deps.edn says which siblings it
+  requires, and a repo that pins a sibling at a different sha than its
+  siblings require is broken. That fails (isaac-v2x1: bumping foundation
+  alone in isaac-imessage left `config validate` failing on `defaults.crew`,
+  because the :defaults schema lives in isaac-agent's manifest).
+
+  Then the fleet: the registry gives the sha the fleet installs for each
+  module, and those modules' own deps.edn give the sha for foundation, which
+  the registry does not list. A coherent set that is behind the fleet is
+  noted — with the set to move to — but never fails, because every repo is
+  behind for the hours of a train and a check the team learns to ignore is
+  worse than no check (isaac-57rl). A pin ahead of the registry is likewise
+  normal (isaac-yrxx).
 
   Background:
     Given an Isaac root at "target/test-state"
+    And a git repository "fixture-foundation" with commits:
+      | message         |
+      | foundation: one |
+      | foundation: two |
     And a git repository "fixture-agent" with commits:
       | message    |
       | agent: one |
-      | agent: two |
+    And the git repository "fixture-agent" gains a "deps.edn" commit "agent: two":
+      """
+      {:deps {io.github.slagyr/isaac-foundation {:git/url "fixture-foundation"
+                                                 :git/sha "{sha of "foundation: two"}"}}}
+      """
     And config file "isaac.edn" containing:
       """
       {:module-registry "registry.edn"}
@@ -24,16 +43,17 @@ Feature: Sibling pins against the registry
       | isaac.agent.coord.git/url | fixture-agent         |
       | isaac.agent.coord.git/sha | {sha of "agent: two"} |
 
-  Scenario: a sibling pinned at an ancestor of the registry sha fails the check
+  Scenario: a sibling pinned at an ancestor of the registry sha is a note, not a failure
     Given a file "deps.edn" exists with content:
       """
       {:deps {io.github.slagyr/isaac-agent {:git/url "fixture-agent" :git/sha "{sha of "agent: one"}"}}}
       """
     When isaac is run with "modules pins"
-    Then the stderr matches:
-      | pattern                                                        |
+    Then the stdout matches:
+      | pattern                                                       |
       | isaac\.agent.*pinned [0-9a-f]{7}.*registry [0-9a-f]{7}.*older |
-    And the exit code is 1
+      | behind the fleet.*fixture-agent                               |
+    And the exit code is 0
 
   Scenario: a sibling pinned at the registry sha passes
     Given a file "deps.edn" exists with content:
@@ -57,3 +77,53 @@ Feature: Sibling pins against the registry
       | pattern                     |
       | isaac\.agent.*ahead         |
     And the exit code is 0
+
+  Scenario: a coherent but stale set is named, with the set to move to, and does not fail
+    Given the git repository "fixture-agent" gains a "deps.edn" commit "agent: three":
+      """
+      {:deps {io.github.slagyr/isaac-foundation {:git/url "fixture-foundation"
+                                                 :git/sha "{sha of "foundation: two"}"}}}
+      """
+    And the isaac EDN file "registry.edn" exists with:
+      | path                      | value                   |
+      | isaac.agent.coord.git/sha | {sha of "agent: three"} |
+    And a file "deps.edn" exists with content:
+      """
+      {:deps {io.github.slagyr/isaac-agent      {:git/url "fixture-agent" :git/sha "{sha of "agent: two"}"}
+              io.github.slagyr/isaac-foundation {:git/url "fixture-foundation" :git/sha "{sha of "foundation: two"}"}}}
+      """
+    When isaac is run with "modules pins"
+    Then the stdout matches:
+      | pattern                                      |
+      | behind the fleet.*fixture-agent              |
+      | move to:.*fixture-agent [0-9a-f]{7}          |
+      | move to:.*fixture-foundation [0-9a-f]{7}     |
+      | coherent                                     |
+    And the exit code is 0
+
+  Scenario: an incoherent set fails and names the sibling that disagrees
+    Given a file "deps.edn" exists with content:
+      """
+      {:deps {io.github.slagyr/isaac-agent      {:git/url "fixture-agent" :git/sha "{sha of "agent: two"}"}
+              io.github.slagyr/isaac-foundation {:git/url "fixture-foundation" :git/sha "{sha of "foundation: one"}"}}}
+      """
+    When isaac is run with "modules pins"
+    Then the stderr matches:
+      | pattern                                                                             |
+      | incoherent pins                                                                     |
+      | fixture-agent [0-9a-f]{7} requires fixture-foundation [0-9a-f]{7}.*this repo pins    |
+      | move to:.*fixture-agent [0-9a-f]{7}.*fixture-foundation [0-9a-f]{7}                  |
+    And the exit code is 1
+
+  Scenario: the same sibling pinned at two shas in one deps.edn fails
+    Given a file "deps.edn" exists with content:
+      """
+      {:deps    {io.github.slagyr/isaac-foundation {:git/url "fixture-foundation" :git/sha "{sha of "foundation: two"}"}}
+       :aliases {:spec {:extra-deps {io.github.slagyr/isaac-foundation-test-support
+                                     {:git/url "fixture-foundation" :git/sha "{sha of "foundation: one"}" :deps/root "spec-support"}}}}}
+      """
+    When isaac is run with "modules pins"
+    Then the stderr matches:
+      | pattern                                                                  |
+      | fixture-foundation pinned [0-9a-f]{7} \(deps\) and [0-9a-f]{7} \(alias :spec\) |
+    And the exit code is 1

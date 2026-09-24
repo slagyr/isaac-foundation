@@ -41,7 +41,12 @@ from the registry **by SHA**, so releasing one is:
    registry — so if you don't refresh them, a fix released in a dependency
    (e.g. a new `isaac.agent`) will **not** reach users via `isaac modules
    upgrade`. Bump the module's `isaac-*` pins (agent/server/…) to the coords in
-   `modules.edn` before releasing.
+   `modules.edn` before releasing — the whole set, `:deps` *and* aliases.
+   `isaac modules pins` (run by `bb ci`) **fails** when the set is incoherent:
+   a pin that disagrees with what a pinned sibling's own `deps.edn` requires,
+   or one repo pinned at two shas in one `deps.edn`. A coherent set that is
+   merely behind the fleet is a note, never a failure — it prints which repos
+   are behind and the set to move to.
 3. Bump that module's `:git/sha` (→ the new commit) in the registry
    `modules.edn`.
 4. A git tag (`vX.Y.Z`) is optional — nothing resolves it (the registry is

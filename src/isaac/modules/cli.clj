@@ -45,7 +45,7 @@
                           "  deps [--edn|--classpath]  Emit JVM launch deps/classpath from config\n"
                           "  install <name> ...  Add module coordinates to config :modules\n"
                           "  list                List configured modules (id, coordinate, status)\n"
-                          "  pins                Check sibling git pins against the module registry\n"
+                          "  pins                Check sibling git pins: coherent as a set, and against the fleet\n"
                           "  show <name>         Full detail for one module (coordinate, source, required-by)\n"
                           "  remove <name>       Remove a module from config :modules\n"
                           "  upgrade [name] ...  Refresh registry-sourced modules to latest coords\n"
@@ -89,7 +89,11 @@
 (defn- pins-help []
   (common/render-help
     {:command     "isaac modules pins"
-     :description "Check this module repository's sibling git pins against the registry."
+     :description (str "Check this module repository's sibling git pins, from :deps and\n"
+                       "from every alias. Pins that disagree with each other — with a\n"
+                       "sibling's own deps.edn, or with themselves — fail. A coherent\n"
+                       "set that is behind the fleet is noted with the set to move to,\n"
+                       "but never fails.")
      :option-spec option-spec}))
 
 (defn- show-help []
@@ -481,31 +485,83 @@
   (subs sha 0 (min 7 (count sha))))
 
 (defn- print-pin! [{:keys [id pinned-sha registry-sha status]}]
-  (let [line (case status
-               :current (str (module-id-str id) " current")
-               :ahead   (str (module-id-str id) " pinned " (short-sha pinned-sha)
-                             " registry " (short-sha registry-sha) " ahead")
-               :older   (str (module-id-str id) " pinned " (short-sha pinned-sha)
-                             " registry " (short-sha registry-sha) " older")
-               (str (module-id-str id) " could not compare pin with registry"))]
-    (binding [*out* (if (= :older status) *err* *out*)]
-      (println line))))
+  (println
+    (case status
+      :current (str (module-id-str id) " current")
+      :ahead   (str (module-id-str id) " pinned " (short-sha pinned-sha)
+                    " registry " (short-sha registry-sha) " ahead")
+      :older   (str (module-id-str id) " pinned " (short-sha pinned-sha)
+                    " registry " (short-sha registry-sha) " older")
+      (str (module-id-str id) " could not compare pin with registry"))))
+
+(defn- pin-set-str [pins]
+  (str/join ", " (map #(str (:repo %) " " (short-sha (:sha %))) pins)))
+
+(defn- split-str [{:keys [repo pins]}]
+  (str repo " pinned "
+       (str/join " and "
+                 (->> pins
+                      (reduce (fn [acc pin]
+                                (if (some #(= (:sha %) (:sha pin)) acc) acc (conj acc pin)))
+                              [])
+                      (map #(str (short-sha (:sha %)) " (" (:at %) ")"))))))
+
+(defn- print-incoherent-pins! [{:keys [splits conflicts target]}]
+  (binding [*out* *err*]
+    (println (str color/red "✗  incoherent pins" color/reset
+                  " — this repo's sibling pins do not agree with each other"))
+    (doseq [split splits]
+      (println (str "   " (split-str split))))
+    (doseq [{:keys [repo ours theirs source source-sha]} conflicts]
+      (println (str "   " source " " (short-sha source-sha)
+                    " requires " repo " " (short-sha theirs)
+                    ", this repo pins " (short-sha ours))))
+    (println (str "   move to: " (pin-set-str target)))))
+
+(defn- print-fleet-note! [{:keys [behind target]}]
+  (println (str "ℹ  behind the fleet — " (str/join ", " (map :repo behind))))
+  (println (str "   move to: " (pin-set-str target)))
+  (println "   the set is coherent, so this is a note, not a failure"))
+
+(defn- disagreement-str [subject fleet-requires]
+  (str subject " — "
+       (str/join ", " (for [{:keys [repo sha requires]} fleet-requires
+                            :let [wanted (get requires subject)]
+                            :when wanted]
+                        (str repo " " (short-sha sha) " requires " (short-sha wanted))))))
+
+(defn- print-fleet-disagreement! [disagreements fleet-requires]
+  (doseq [repo (sort disagreements)]
+    (println (str "ℹ  the fleet's own modules disagree about "
+                  (disagreement-str repo fleet-requires)
+                  " — a train is mid-flight, so there is no fleet sha to move to"))))
+
+(defn- print-set-report! [{:keys [behind disagreements fleet-requires] :as report}]
+  (cond
+    (pins/incoherent? report) (print-incoherent-pins! report)
+    (seq behind)              (print-fleet-note! report))
+  (when (seq disagreements)
+    (print-fleet-disagreement! disagreements fleet-requires)))
 
 (defn- run-pins [opts _arguments _options]
-  (let [root   (:root opts)
-        cwd    (host/cwd)
-        local  (pins/read-sibling-pins cwd)
-        pins   (if (or (seq local) (= cwd root)) local (pins/read-sibling-pins root))]
-    (if (empty? pins)
+  (let [root    (:root opts)
+        cwd     (host/cwd)
+        local   (pins/read-pin-set cwd)
+        dir     (if (or (seq local) (= cwd root)) cwd root)
+        pin-set (if (= dir cwd) local (pins/read-pin-set root))]
+    (if (empty? pin-set)
       0
       (let [config (or (read-root-config root) {})
             result (registry/fetch-registry config root)]
         (if-let [error (:error result)]
           (common/print-cli-error! error)
-          (let [checks (pins/classify-pins pins (:registry result))]
+          (let [registry (:registry result)
+                checks   (pins/classify-pins (pins/read-sibling-pins dir) registry)
+                report   (pins/check-set dir registry)]
             (doseq [check checks]
               (print-pin! check))
-            (if (some #(= :older (:status %)) checks) 1 0)))))))
+            (print-set-report! report)
+            (if (pins/incoherent? report) 1 0)))))))
 
 (defn- run-show [opts arguments options]
   (let [{:keys [edn json]} options

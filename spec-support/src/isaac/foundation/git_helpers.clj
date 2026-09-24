@@ -36,7 +36,7 @@
         commit-no  (inc (count (get-in (g/get :git-fixtures) [name :commits])))
         marker     (str path "/commit.txt")]
     (spit marker (str commit-no " " message "\n") :append true)
-    (git! path "add" "commit.txt")
+    (git! path "add" "-A")
     (git! path "commit" "-m" message)
     (let [sha (git! path "rev-parse" "HEAD")]
       (g/assoc-in! [:git-fixtures name :commits message] sha)
@@ -63,3 +63,12 @@
                  (or (some (fn [[_ {:keys [commits]}]] (get commits message))
                            (g/get :git-fixtures))
                      placeholder))))
+
+(defn repository-gains-commit-with-file!
+  "Commit `path` (content interpolated for {sha of \"...\"}) into the fixture
+   repository. Lets a fixture sibling declare its own pins in a deps.edn."
+  [name path message doc-string]
+  (spit (str (repository-path name) "/" path)
+        (-> doc-string str/trim interpolate-shas (str "\n")))
+  (add-commit! name message))
+
