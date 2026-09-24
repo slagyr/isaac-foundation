@@ -32,9 +32,9 @@
    as already decided and is left alone."
   [root {:keys [log-file-path env-log-file log-level]}]
   (cond
-    (= :memory (log/output))
-    true
-
+    ;; --log-file / ISAAC_LOG_FILE wins even over a harness :memory sink — a
+    ;; scenario that asks for a CLI-owned log file must get one (the S3b
+    ;; lifecycle scenario in isaac-http); this was the pre-isaac-89q1 order.
     (or log-file-path env-log-file)
     (let [path (or log-file-path env-log-file)
           abs  (lfile/configure-cli-sink! root path)]
@@ -43,6 +43,9 @@
         (log/set-output! :file)
         (log/debug :cli/log-file :path abs))
       true)
+
+    (= :memory (log/output))
+    true
 
     log-level
     (do (log/set-output! :stderr) true)
