@@ -32,12 +32,17 @@
                  :requires ([bb.test-tasks :as tests])
                  :task     (do (run 'config-bypass-lint)
                                (run 'lint-cli-host)
+                               (run 'lint-pins)
                                (run 'pins)
                                (tests/run-ci!))}
 
   lint-cli-host {:doc "Fail on process-global operations outside the CLI host boundary"
                  :requires ([isaac.foundation.cli-host-lint :as lint])
                  :task (lint/lint! *command-line-args*)}
+
+  lint-pins {:doc "Fail on isaac-* :git/sha pins GitHub cannot fetch (dangling bean-branch shas)"
+             :requires ([isaac.foundation.pin-lint :as lint])
+             :task (lint/lint! *command-line-args*)}
 
   config-bypass-lint {:doc "Fail on raw config slurp/read outside isaac.config.*"
                       :requires ([isaac.foundation.config-bypass-lint :as lint])
