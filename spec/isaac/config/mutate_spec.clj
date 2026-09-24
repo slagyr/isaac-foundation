@@ -2,6 +2,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.config.env :as env]
     [isaac.config.loader :as loader]
     [isaac.config.marigold :as config-marigold]
     [isaac.config.mutate :as sut]
@@ -29,8 +30,14 @@
 (defn- write-slice! [relative data]
   (fs/spit (nexus/get :fs) (str config-root "/" relative) (pr-str data)))
 
+(defn- write-env! [content]
+  (fs/spit (nexus/get :fs) (str marigold/root "/.env") content))
+
 (def ^:private parlor-module-root
   (str (config-marigold/fixture-modules-root) "/marigold.comm.parlor"))
+
+(def ^:private discord-module-root
+  (str (config-marigold/fixture-modules-root) "/marigold.comm.discord"))
 
 (describe "isaac.config.mutate"
 
@@ -311,6 +318,62 @@
         (config-marigold/write-baseline!)
         (let [result (sut/set-config marigold/root (str "relay." marigold/first-mate ".gain") "not-an-int")]
           (should= :invalid (:status result)))))
+
+    (describe "validate-plan reuses the live dotenv snapshot (isaac-p4oj)"
+
+      ;; The discord fixture models the real production shape: a comms-like
+      ;; (:p4oj-comms, to avoid colliding with any real :comms/:isaac.server
+      ;; classpath fixture) entity keyed by kind, with a NAMESPACED
+      ;; extra-schema field (:discord/token) that's required only when :type
+      ;; is :discord — the same shape as the isaac-p4oj bug report's
+      ;; comms[:discord][:discord/token]. This is not interchangeable with
+      ;; the plain-keyed marigold.comm.parlor fixture used elsewhere in this
+      ;; file: the parlor case's unresolved-ref warning key already matches
+      ;; its required-field error key, so the pre-existing isaac-rxun filter
+      ;; in set-config quietly saves it regardless of this bug. The discord
+      ;; case's warning key (p4oj-comms.discord.token — the namespace segment
+      ;; is dropped) does NOT match its error key
+      ;; (p4oj-comms.discord.discord/token), so it only stays unblocked when
+      ;; validate-plan never manufactures the error in the first place, i.e.
+      ;; when it resolves ${VAR} from .env.
+      (it "does not refuse a set when a required-when field is satisfied by ${VAR} from <root>/.env"
+        (config-marigold/install-fixture-module! "marigold.comm.discord")
+        (write-env! "P4OJ_TOKEN=abc123")
+        (config-marigold/write-config! (merge config-marigold/baseline-config
+                                              {:modules    {:marigold.comm.discord {:local/root discord-module-root}}
+                                               :p4oj-comms {:discord {:type :discord :discord/token "${P4OJ_TOKEN}"}}}))
+        (let [result (sut/set-config marigold/root "tz" "UTC")]
+          (should= :ok (:status result))
+          (should= [] (:errors result))
+          (should-not (some #(str/includes? (str (:value %)) "is required when type is discord")
+                            (:warnings result)))
+          (should= "UTC" (get-in (read-edn "isaac.edn") [:tz]))))
+
+      (it "still warns (not refuses) an unresolved ${VAR} when the root has no .env at all (isaac-rxun)"
+        (config-marigold/install-fixture-module! "marigold.comm.discord")
+        (config-marigold/write-config! (merge config-marigold/baseline-config
+                                              {:modules    {:marigold.comm.discord {:local/root discord-module-root}}
+                                               :p4oj-comms {:discord {:type :discord :discord/token "${P4OJ_MISSING}"}}}))
+        (let [result (sut/set-config marigold/root "tz" "UTC")]
+          (should= :ok (:status result))
+          (should= [] (:errors result))
+          (should-contain {:key            "p4oj-comms.discord.token"
+                           :value          "P4OJ_MISSING is not set"
+                           :unresolved-ref "P4OJ_MISSING"}
+                          (:warnings result))))
+
+      (it "passes the live dotenv snapshot through to the staged load"
+        (config-marigold/write-baseline!)
+        (env/lock-dotenv! marigold/root {"P4OJ_TOKEN" "abc123"})
+        (let [calls (atom [])]
+          (with-redefs [loader/load-config-result
+                        (fn [opts]
+                          (swap! calls conj opts)
+                          {:config {} :errors [] :warnings []})]
+            (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :helm-mark-iii))
+          (let [staged-call (some #(when (:fs %) %) @calls)]
+            (should-not-be-nil staged-call)
+            (should= {"P4OJ_TOKEN" "abc123"} (:dotenv staged-call))))))
 
     (it "writes a namespaced-keyword segment as one key, not two nested maps (isaac-cgxa, forced — isaac-a5dx: parlor/mood isn't the declared bare :mood key)"
       (config-marigold/install-fixture-module! "marigold.comm.parlor")

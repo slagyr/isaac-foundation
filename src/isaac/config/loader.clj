@@ -194,7 +194,7 @@
 (defn load-config-result
   "Load and validate configuration from the current filesystem.
    `:skip-cache?` remains accepted as a compatibility no-op."
-  [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay]
+  [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay dotenv]
        :or   {substitute-env? true}
        :as   opts}]]
   (let [fs*         (parse/runtime-fs opts)
@@ -205,7 +205,16 @@
         unresolved* (atom [])]
    (binding [parse/*unresolved-refs* unresolved*]
     (nexus/-with-nested-nexus {:fs fs*}
-                              (env/lock-dotenv! root)
+                              ;; A caller building a staged/in-memory load (e.g.
+                              ;; isaac.config.mutate/validate-plan) passes the
+                              ;; process's already-locked <root>/.env snapshot as
+                              ;; `:dotenv` so this load resolves ${VAR} refs the
+                              ;; same way the live load did, rather than re-locking
+                              ;; against a staging fs that never received a copy
+                              ;; of .env (isaac-p4oj).
+                              (if-let [dotenv dotenv]
+                                (env/lock-dotenv! root dotenv)
+                                (env/lock-dotenv! root))
                               (let [config-root (paths/config-root root)]
                                 (if-not (entities/config-files-present? config-root opts)
                                   {:config          {:root root}

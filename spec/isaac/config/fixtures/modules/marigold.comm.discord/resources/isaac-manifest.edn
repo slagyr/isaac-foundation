@@ -1,0 +1,32 @@
+{:id      :marigold.comm.discord
+ :version "0.1.0"
+ :factory isaac.module.protocol/module
+
+ :berths
+ {:marigold.comm.discord/kind
+  {:description "Comm channel impls (isaac-p4oj fixture) — models the real :discord comm's shape: a :p4oj-comms entity table (named to avoid colliding with any real :comms/:isaac.server/comm classpath fixture) with a conditionally-required, NAMESPACED extra-schema field (:discord/token), so specs can reproduce the production comms[:discord][:discord/token] error path."
+   :schema
+   {:type       :map
+    :key-spec   {:type :keyword}
+    :value-spec {:type   :map
+                 :schema {:namespace    {:type :symbol :validations [:present?]}
+                          :extra-schema {:type :schema-map}}}}}}
+
+ :marigold.comm.discord/kind
+ {:discord
+  {:namespace    marigold.comm.discord.stub
+   :extra-schema {:discord/token {:type        :string
+                                  :validations [[:present-when? :type :discord]]}}}}
+
+ :isaac.config/schema
+ {:p4oj-comms
+  {:schema
+   {:name           "p4oj-comms table"
+    :type           :map
+    :key-spec       {:type :id}
+    :value-spec     {:name           :comm
+                     :type           :map
+                     :dynamic-schema {:berth :marigold.comm.discord/kind :path [:extra-schema]}
+                     :schema         {:type {:type        :id
+                                             :validations [:present?
+                                                           [:registered-in? :marigold.comm.discord/kind]]}}}}}}}

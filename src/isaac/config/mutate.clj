@@ -14,6 +14,7 @@
      [clojure.edn :as edn]
      [clojure.string :as str]
      [isaac.cli.host :as host]
+     [isaac.config.env :as env]
      [isaac.config.loader :as loader]
      [isaac.config.nav :as nav]
      [isaac.config.paths :as paths]
@@ -328,15 +329,21 @@
       (fs/copy-tree! source-fs stage-fs local-root))))
 
 (defn- validate-plan [root plan]
-  (let [source-fs (or (:fs (nexus/necho))
-                      (fs/mem-fs))
-        stage-fs  (fs/mem-fs)
-        config-root (paths/config-root root)]
+  (let [source-fs   (or (:fs (nexus/necho))
+                        (fs/mem-fs))
+        stage-fs    (fs/mem-fs)
+        config-root (paths/config-root root)
+        ;; Reuse the process's already-locked <root>/.env snapshot rather than
+        ;; have the staged load re-lock against stage-fs, which never receives
+        ;; a copy of .env below — every ${VAR} reference would otherwise read
+        ;; as unset and trip conditional-required fields that are genuinely
+        ;; satisfied on the live root (isaac-p4oj).
+        dotenv      (env/dotenv-snapshot)]
     (fs/copy-tree! source-fs stage-fs config-root)
     (nexus/-with-nested-nexus {:fs stage-fs}
       (apply-plan! root plan)
       (copy-declared-local-modules! source-fs stage-fs root)
-      (loader/load-config-result {:root root :fs stage-fs}))))
+      (loader/load-config-result {:root root :fs stage-fs :dotenv dotenv}))))
 
 ;; endregion ^^^^^ Plan & apply ^^^^^
 

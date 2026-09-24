@@ -26,9 +26,23 @@
 
 (defn lock-dotenv!
   "Snapshots <root>/.env into dotenv*. Called once per load so ${VAR}
-   substitution reads a locked map rather than re-reading the file."
-  [root]
-  (reset! dotenv* (read-dotenv root)))
+   substitution reads a locked map rather than re-reading the file.
+
+   With a `snapshot` map, installs it directly instead of reading the
+   filesystem — for a staged/in-memory load (isaac.config.mutate/validate-plan)
+   that wants to reuse the process's already-locked <root>/.env rather than
+   read a staging fs that never received a copy of it (isaac-p4oj)."
+  ([root] (reset! dotenv* (read-dotenv root)))
+  ([_root snapshot] (reset! dotenv* snapshot)))
+
+(defn dotenv-snapshot
+  "The <root>/.env map as of the last lock-dotenv! call — the process's
+   currently-locked dotenv snapshot. Callers that build a staged/in-memory
+   load can pass this through as `:dotenv` to loader/load-config-result so
+   the staged load resolves ${VAR} refs the same way the live load did,
+   instead of re-locking against a staging fs that lacks the file."
+  []
+  @dotenv*)
 
 (defn clear-env-overrides! []
   (reset! env-overrides* {})
