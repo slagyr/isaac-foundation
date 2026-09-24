@@ -349,7 +349,12 @@
 
 ;; region ----- Ambient Config Snapshot -----
 
-(defn- config-atom []
+(defn- install-config-atom!
+  "The atom holding the process-wide config, registering one when the slot is
+   free. Write path only: reading must never plant a slot the owning entry
+   point expects to claim (isaac-600d). An already registered atom is reused so
+   everything already holding it keeps seeing updates."
+  []
   (or (nexus/get :config)
       (let [cfg* (atom nil)]
         (nexus/register! [:config] cfg*)
@@ -361,9 +366,12 @@
    start, request/turn entry, a worker waking from sleep) — in-flight code must
    receive config as a value, not pull a fresh snapshot. `reason` is a short
    string documenting why this site reads ambient config; it keeps such reads
-   greppable and reviewable. See set-snapshot!."
+   greppable and reviewable. See set-snapshot!.
+
+   Read-only: a snapshot of an uninitialized config is nil and registers
+   nothing. Only set-snapshot! installs the slot."
   [reason]
-  @(config-atom))
+  (some-> (nexus/get :config) deref))
 
 (defn unresolved-ref
   "The `${VAR}` name a config field referenced but could not resolve, or nil.
@@ -378,10 +386,13 @@
 (defn set-snapshot!
   "Low-level primitive: reset the process-wide config snapshot to `cfg`. Internal
    to config — callers use load-config! (load + commit) or, for an already-built
-   value, dangerously-install-config!. `reason` documents the call site."
+   value, dangerously-install-config!. `reason` documents the call site.
+
+   This is the only path that registers the config slot; reads leave a fresh
+   nexus untouched."
   [cfg reason]
   (log/debug :config/set-snapshot :reason reason)
-  (reset! (config-atom) cfg)
+  (reset! (install-config-atom!) cfg)
   cfg)
 
 (defn load-config!

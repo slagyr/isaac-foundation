@@ -288,6 +288,35 @@
           (sut/set-snapshot! {:berths {"main" {:ledger "Hi"}}} "spec")
           (should= {:berths {"main" {:ledger "Hi"}}} @cfg*)))))
 
+  (describe "snapshot on a fresh nexus"
+    ;; isaac-600d: reading ambient config used to register a nil config atom,
+    ;; so the first reader stole the slot from the entry point that owns it.
+    ;; A later install then found the slot taken, read nil config, and built an
+    ;; empty module index — manifest-supplied comm kinds vanished (isaac-rxun).
+
+    (it "returns nil and registers nothing"
+      (nexus/-with-nexus {}
+        (should-be-nil (sut/snapshot "spec"))
+        (should-not (nexus/registered? [:config]))))
+
+    (it "leaves the slot free for a later set-snapshot! (the ordering rxun tripped on)"
+      (nexus/-with-nexus {}
+        (sut/snapshot "spec")
+        (sut/set-snapshot! {:berths {"main" {}}} "spec")
+        (should= {:berths {"main" {}}} (sut/snapshot "spec"))))
+
+    (it "reads an unresolved ref without registering anything"
+      (nexus/-with-nexus {}
+        (should-be-nil (sut/unresolved-ref "providers.zane.api-key"))
+        (should-not (nexus/registered? [:config]))))
+
+    (it "reuses an already registered atom instead of replacing it"
+      (let [cfg* (atom nil)]
+        (nexus/-with-nexus {:config cfg*}
+          (sut/set-snapshot! {:second true} "spec")
+          (should-be-same cfg* (nexus/get :config))
+          (should= {:second true} @cfg*)))))
+
   (describe "load-config!"
 
     (around [it]

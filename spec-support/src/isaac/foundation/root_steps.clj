@@ -130,6 +130,10 @@
         (g/dissoc! :mem-fs)))
     (nexus/register! [:fs] (or mem (fs/real-fs)))
     (nexus/register! [:root] abs-dir)
+    ;; The scenario owns the config slot, as nexus/init! does in production:
+    ;; snapshot reads never register it (isaac-600d), and a config installed
+    ;; inside a nested nexus must land in this shared atom, not a nested one.
+    (nexus/register! [:config] (atom nil))
     (g/assoc! :root abs-dir)
     (doseq [hook @root-setup-hooks*] (hook abs-dir))))
 
