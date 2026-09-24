@@ -394,6 +394,9 @@
         stderr   (await-text current-stderr #(str/includes? % expected))]
     (g/should (str/includes? stderr expected))))
 
+(defn stderr-is-empty []
+  (g/should= "" (or (current-stderr) "")))
+
 (defn stderr-does-not-contain [expected]
   (let [stderr   (current-stderr)
         expected (unescape-expected expected)]
@@ -587,6 +590,8 @@
 (defthen "the stdout eventually contains {expected:string}" isaac.foundation.cli-steps/stdout-eventually-contains)
 
 (defthen "the stderr contains {expected:string}" isaac.foundation.cli-steps/stderr-contains)
+
+(defthen "the stderr is empty" isaac.foundation.cli-steps/stderr-is-empty)
 
 (defthen "the stderr does not contain {expected:string}" isaac.foundation.cli-steps/stderr-does-not-contain)
 

@@ -359,6 +359,21 @@
           (doseq [entry (read-log-file-entries fs* file-path)]
             (g/should-not (= "server" (namespace (:event entry))))))))))
 
+(defn- parse-event [event]
+  (edn/read-string (if (str/starts-with? event ":") event (str ":" event))))
+
+(defn cli-log-file-contains-event [event]
+  ;; isaac-89q1: the CLI's structured logs live only in logs/cli.log by
+  ;; default (never the terminal); this asserts an event actually landed
+  ;; there rather than being lost.
+  (with-server-fs
+    (fn []
+      (let [file-path (isaac-file-path "logs/cli.log")
+            fs*       (server-fs)
+            expected  (parse-event event)
+            entries   (read-log-file-entries fs* file-path)]
+        (g/should (some #(= expected (:event %)) entries))))))
+
 (defn file-exists-with [path content]
   (with-feature-fs
     (fn []
@@ -448,6 +463,13 @@
 
 (defthen "the isaac log file {path:string} has no server-origin entries"
   isaac.foundation.fs-steps/isaac-log-file-no-server-origin)
+
+(defthen "the CLI log file contains an event {event:string}"
+  isaac.foundation.fs-steps/cli-log-file-contains-event
+  "Reads logs/cli.log (root-relative) and asserts some entry's :event equals
+   the given keyword (colon optional, e.g. 'config/unknown-key' or
+   ':config/unknown-key'). isaac-89q1: pairs with 'the stderr is empty' —
+   a warning must land here, never the terminal, by default.")
 
 (defgiven #"the file \"([^\"]+)\" exists with:$" isaac.foundation.fs-steps/file-exists-with)
 

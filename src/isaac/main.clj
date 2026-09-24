@@ -135,6 +135,14 @@
             (println "run with --local to bypass"))
           69))
       (nexus/-with-nested-nexus {:fs fs*}
+      ;; isaac-89q1: install the CLI's log sink before the first config load
+      ;; below (config-api/load-resolved), which can itself log a warning
+      ;; (an unknown key, an unresolved ${VAR}) — that must never reach the
+      ;; terminal by default, only logs/cli.log.
+      (log-output/provisional-cli-sink! resolved-root
+                                        :log-file-path log-file
+                                        :env-log-file  (env-log-file)
+                                        :log-level     log-level)
       (binding [classpath/*resolve-classpath?* (not= "modules" cmd)]
         ;; Startup cache (isaac-clic): when nothing the CLI plans from has
         ;; changed, the fast-path commands (--version, --help) skip module

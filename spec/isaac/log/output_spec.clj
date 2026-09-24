@@ -100,4 +100,40 @@
 
     (it "lets the explicit CLI log level override config"
       (sut/apply-cli! "/cli-root" {:logging {:level :info}} :log-level :error)
-      (should= :error (log/level))))
+      (should= :error (log/level)))
+
+    (it "routes to the terminal when --log-level is given without --log-file (isaac-89q1)"
+      (sut/apply-cli! "/cli-root" {} :log-level :warn)
+      (should= :stderr (log/output))
+      (should-be-nil (log/log-file)))
+
+    (it "still prefers an explicit --log-file over a bare --log-level"
+      (sut/apply-cli! "/cli-root" {} :log-level :warn :log-file-path "cmd.log")
+      (should= :file (log/output))
+      (should= "/cli-root/cmd.log" (log/log-file)))
+
+  (describe "provisional-cli-sink!"
+
+    (it "defaults to the file sink at logs/cli.log before config is known"
+      (sut/provisional-cli-sink! "/cli-root")
+      (should= :file (log/output))
+      (should= "/cli-root/logs/cli.log" (log/log-file)))
+
+    (it "routes to the terminal for a bare --log-level, before config is loaded"
+      (sut/provisional-cli-sink! "/cli-root" :log-level :warn)
+      (should= :stderr (log/output)))
+
+    (it "honors an explicit --log-file before config is loaded"
+      (sut/provisional-cli-sink! "/cli-root" :log-file-path "cmd.log")
+      (should= :file (log/output))
+      (should= "/cli-root/cmd.log" (log/log-file)))
+
+    (it "leaves a harness-set :memory output alone"
+      (log/set-output! :memory)
+      (sut/provisional-cli-sink! "/cli-root")
+      (should= :memory (log/output))
+      (should-be-nil (log/log-file)))
+
+    (it "does nothing without a root"
+      (sut/provisional-cli-sink! nil)
+      (should= :stderr (log/output)))))
