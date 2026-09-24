@@ -6,6 +6,7 @@
     [isaac.config.api :as config-api]
     [isaac.config.root :as root]
     [isaac.fs :as fs]
+    [isaac.log.output :as log-output]
     [isaac.main :as main]
     [isaac.config.paths :as paths]
     [isaac.nexus :as nexus]
@@ -31,9 +32,19 @@
    delegate remaining args to isaac.main/-main. Threads the already-resolved
    config into main via *extra-opts* so the CLI process loads once (isaac-v1la)."
   [& args]
-  (let [{after-root :args :keys [root]} (cli-args/extract-root-flag (vec args))
+  (let [{after-root :args :keys [root log-file log-level]} (cli-args/extract-root-flag (vec args))
         fs*           (fs/real-fs)
         resolved-root (root/resolve-root root nil fs*)
+        ;; The launcher's own config load below is the FIRST load of the
+        ;; process and can log (an unknown key, an unresolved ${VAR}). Install
+        ;; the CLI's quiet-by-default sink before it, exactly as isaac.main
+        ;; does for its own loads, so no structured log line reaches the
+        ;; terminal unless --log-file/--log-level asked for it (isaac-89q1).
+        _             (nexus/-with-nexus {:fs fs*}
+                        (log-output/provisional-cli-sink! resolved-root
+                                                          :log-file-path log-file
+                                                          :env-log-file  (System/getenv "ISAAC_LOG_FILE")
+                                                          :log-level     log-level))
         load-result   (read-user-config resolved-root fs*)
         config        (or (:config load-result) {})]
     (compose-classpath! resolved-root fs* config)
