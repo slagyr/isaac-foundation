@@ -5,6 +5,7 @@
      [clojure.edn :as edn]
      [clojure.string :as str]
      [isaac.config.cli.common :as common]
+     [isaac.config.loader :as loader]
      [isaac.config.cli.command :as sut]
      [isaac.config.cli.spec-support :as support]
      [isaac.config.marigold :as config-marigold]
@@ -149,4 +150,48 @@
 
     (it "rejects unknown flags cleanly"
       (should= 1 (sut/run {:root test-root} ["get" "models" "--nope"]))
-      (should-contain "Unknown option" (str *err*)))))
+      (should-contain "Unknown option" (str *err*))))
+
+  (describe "agrees with validate on the same tree (isaac-63ei)"
+
+    ;; The CLI resolves config once and threads the load result into every
+    ;; subcommand (isaac-v1la). Only `get` then re-reads the contributing source
+    ;; files to redact ${VAR} secrets — and since isaac-49zp a source may be a
+    ;; directory (`config/berths/<id>/`), which is not slurpable. `validate`
+    ;; never re-reads, so it certified a tree `get` could not read. Every example
+    ;; here threads opts exactly as isaac.main does; without that the divergent
+    ;; branch is never taken, which is why the suite could not see the bug.
+
+    (defn- threaded-opts []
+      (let [result (loader/load-config-result {:root test-root :fs (nexus/get :fs)})]
+        {:root test-root :config (:config result) :load-result result}))
+
+    (defn- write-tree! []
+      (write-config! (str test-root "/config/isaac.edn")
+                     {:watch     {:berth test-berth :gauge :llama}
+                      :gauges    {:llama {:reading "llama3.3:1b" :foundry test-foundry}}
+                      :foundries {test-foundry {}}})
+      (write-config! (str test-root "/config/berths/" marigold/first-mate "/_.edn")
+                     {:ledger "You keep the log."}))
+
+    (it "reads an entity stored as a directory, which validate already accepts"
+      (write-tree!)
+      (let [opts (threaded-opts)]
+        (should= 0 (sut/run opts ["validate"]))
+        (should= 0 (sut/run opts ["get"]))
+        (should-contain "You keep the log." (str *out*))))
+
+    (it "reads a subtree path off such a tree"
+      (write-tree!)
+      (should= 0 (sut/run (threaded-opts) ["get" (str "berths." marigold/first-mate ".ledger")]))
+      (should-contain "You keep the log." (str *out*)))
+
+    (it "still redacts a secret held in a file inside an entity directory"
+      (write-config! (str test-root "/config/isaac.edn") {})
+      (fs/spit (nexus/get :fs)
+               (str test-root "/config/foundries/" marigold/helm-systems "/_.edn")
+               (pr-str {:api-key "${CONFIG_TEST_API_KEY}"}))
+      (c3env/override! "CONFIG_TEST_API_KEY" "sk-test-123")
+      (should= 0 (sut/run (threaded-opts) ["get"]))
+      (should-contain "<CONFIG_TEST_API_KEY:redacted>" (str *out*))
+      (should-not-contain "sk-test-123" (str *out*)))))

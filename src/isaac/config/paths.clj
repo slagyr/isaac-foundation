@@ -12,8 +12,9 @@
 (def ^:private config-file-pattern
   "Any `.edn` or `.md` file anywhere under `config/`. Every top-level key may
    live inline, as `<key>.edn`, or as `<key>/…` at any depth, so the watcher
-   cannot name the kinds it tracks — it tracks the whole tree (isaac-49zp)."
-  #"[^/]+(?:/[^/]+)*\.(?:edn|md)")
+   cannot name the kinds it tracks — it tracks the whole tree (isaac-49zp).
+   No segment may begin with `.`: a dot-entry is not config (isaac-63ei)."
+  #"[^./][^/]*(?:/[^./][^/]*)*\.(?:edn|md)")
 
 (def root-filename "isaac.edn")
 
@@ -56,6 +57,15 @@
   (let [root-prefix (str (config-root root) "/")]
     (when (str/starts-with? path root-prefix)
       (subs path (count root-prefix)))))
+
+(defn hidden-name?
+  "True for the name of a config child that starts with `.`. A dot-entry is not
+   config: git, build tools and editors all skip hidden names by default, and
+   stashing a backup as `.removed-<date>/` beside the thing it replaced is an
+   ordinary habit — isaac-49zp made every directory a key and so promoted such a
+   stash to configuration (isaac-63ei)."
+  [name]
+  (boolean (and (string? name) (str/starts-with? name "."))))
 
 (defn config-file? [relative-path]
   (and (string? relative-path)

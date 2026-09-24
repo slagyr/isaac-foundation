@@ -56,4 +56,19 @@
   (it "config-file? tracks nested keys — a key may be a directory at any depth"
     (should (sut/config-file? (str "crew/" marigold/first-mate "/soul.md")))
     (should (sut/config-file? (str "crew/" marigold/first-mate "/_.edn")))
-    (should (sut/config-file? "modules.edn"))))
+    (should (sut/config-file? "modules.edn")))
+
+  (it "config-file? rejects a dot-entry at any depth — a dot-file is not config (isaac-63ei)"
+    (should-not (sut/config-file? ".removed-20260915.edn"))
+    (should-not (sut/config-file? ".removed-20260915/crew.edn"))
+    (should-not (sut/config-file? "crew/.removed-20260915/atticus.edn"))
+    (should-not (sut/config-file? (str "crew/." marigold/first-mate ".edn")))
+    (should-not (sut/config-file? (str "crew/" marigold/first-mate "/.soul.md"))))
+
+  (it "hidden-name? is true only for a name starting with a dot"
+    (should (sut/hidden-name? ".removed-20260915"))
+    (should (sut/hidden-name? ".soul.md"))
+    (should-not (sut/hidden-name? marigold/first-mate))
+    (should-not (sut/hidden-name? "isaac.edn"))
+    (should-not (sut/hidden-name? "_"))
+    (should-not (sut/hidden-name? nil))))

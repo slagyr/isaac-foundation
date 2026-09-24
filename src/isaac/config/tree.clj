@@ -33,12 +33,14 @@
 
 (defn- classify-child
   "The `[name form]` a child of a config directory stands for, or nil when it is
-   neither an `.edn` file, a `.md` file, nor a directory."
+   neither an `.edn` file, a `.md` file, nor a directory — or when its name
+   starts with `.`, which is not config in any of the three forms (isaac-63ei)."
   [dir child]
-  (cond
-    (parse/has-ext? child ".edn")     [(strip-ext child ".edn") :edn]
-    (parse/has-ext? child ".md")      [(strip-ext child ".md") :md]
-    (parse/dir?* (str dir "/" child)) [child :dir]))
+  (when-not (paths/hidden-name? child)
+    (cond
+      (parse/has-ext? child ".edn")     [(strip-ext child ".edn") :edn]
+      (parse/has-ext? child ".md")      [(strip-ext child ".md") :md]
+      (parse/dir?* (str dir "/" child)) [child :dir])))
 
 (defn relative-for
   "The config-relative path a name in storage `form` occupies, below `prefix`

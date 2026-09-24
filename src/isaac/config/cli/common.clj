@@ -276,12 +276,28 @@
                               :substitute-env? false}))
 
 (defn- source-path [root source]
-  (if (str/starts-with? source "/") source (str root "/" source)))
+  (let [path (if (str/starts-with? source "/") source (str root "/" source))]
+    (if (and (str/ends-with? path "/") (> (count path) 1))
+      (subs path 0 (dec (count path)))
+      path)))
+
+(defn- source-files
+  "The files one source contributes. Since isaac-49zp an entity may be stored as
+   `config/<key>/<id>/`, so a source can be a **directory** — which stands for
+   the files inside it. Reading it as a file is what made `config get` throw on a
+   tree `config validate` had just passed (isaac-63ei), and skipping it instead
+   would silently un-redact every secret those files hold."
+  [fs* path]
+  (cond
+    (fs/dir? fs* path)  (mapcat #(source-files fs* (str path "/" %))
+                                (or (fs/children fs* path) []))
+    (fs/file? fs* path) [path]
+    :else               []))
 
 (defn- source-env-tokens [fs* root source]
-  (let [path (source-path root source)]
-    (when (fs/exists? fs* path)
-      (map second (re-seq #"\$\{([^}]+)\}" (fs/slurp fs* path))))))
+  (->> (source-files fs* (source-path root source))
+       (mapcat #(re-seq #"\$\{([^}]+)\}" (or (fs/slurp fs* %) "")))
+       (map second)))
 
 (defn- threaded-env-redactions [opts result]
   (let [fs*  (or (:fs opts) (nexus/get :fs) (fs/real-fs))

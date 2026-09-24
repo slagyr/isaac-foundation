@@ -187,6 +187,19 @@ table, including keys no module declares.
 Same prefix, different meaning. This is workable but not self-evident, which
 is why it is written down here rather than left to be inferred.
 
+#### Dot-entries are not config
+
+A child of `config/` whose name starts with `.` is ignored in all three forms —
+`.<key>.edn`, `.<name>.md` and `.<name>/` — at the config root and at every
+depth below it. No key, no entity, no warning, no error, and no hot-reload
+trigger.
+
+Since isaac-49zp a directory *is* a key, which silently promoted an ordinary
+backup (`config/crew/.removed-20260915/`) to configuration. Git, build tools and
+editors all skip hidden names by default; the config tree now does too
+(isaac-63ei). A name that must start with a dot has no way to be config — that
+is the point.
+
 ## Reconfigurable
 
 Config-driven components implement `isaac.reconfigurable/Reconfigurable`:

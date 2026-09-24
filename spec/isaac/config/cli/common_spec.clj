@@ -1,5 +1,6 @@
 (ns isaac.config.cli.common-spec
   (:require
+    [clojure.string :as str]
     [isaac.cli.color :as color]
     [isaac.config.cli.common :as sut]
     [isaac.config.env :as env]
@@ -90,6 +91,59 @@
                                                   :root        root}
                                                  false)
                            [:config :providers :anthropic :api-key])))))
+
+    (describe "a source that is a directory (isaac-63ei)"
+
+      ;; Since isaac-49zp an entity may be stored as `config/<key>/<id>/`, so the
+      ;; load result records a *directory* as one of its sources. `get` is the
+      ;; only command that re-reads its sources — to find the ${VAR} tokens it
+      ;; must redact — and a directory is not slurpable. On disk that threw
+      ;; FileNotFoundException while `config validate`, which never re-reads,
+      ;; passed the same tree.
+
+      (defn- like-real-fs
+        "mem-fs answers a directory path with exists? false and slurp nil; the real
+         filesystem answers exists? true and throws. isaac-63ei hid behind exactly
+         that difference, so make mem-fs answer like disk."
+        [f]
+        (let [mem-exists?  fs/exists?
+              mem-dir?     fs/dir?
+              mem-children fs/children
+              mem-slurp    fs/slurp
+              trim         (fn [p] (if (and (str/ends-with? p "/") (> (count p) 1))
+                                     (subs p 0 (dec (count p)))
+                                     p))]
+          (with-redefs [fs/exists?  (fn [fs* p] (or (mem-exists? fs* (trim p)) (mem-dir? fs* (trim p))))
+                        fs/dir?     (fn [fs* p] (mem-dir? fs* (trim p)))
+                        fs/children (fn [fs* p] (mem-children fs* (trim p)))
+                        fs/slurp    (fn [fs* p & opts]
+                                      (when (mem-dir? fs* (trim p))
+                                        (throw (java.io.FileNotFoundException.
+                                                 (str (trim p) " (Is a directory)"))))
+                                      (apply mem-slurp fs* p opts))]
+            (f))))
+
+      (defn- printable-with-dir-source []
+        (let [mem      (fs/mem-fs)
+              root     "/x"
+              source   (str "config/berths/" marigold/first-mate "/")
+              threaded {:berths {marigold/first-mate {:ledger "sk-test-123"}}}
+              result   {:config threaded :errors [] :warnings [] :sources [source]}]
+          (fs/spit mem (str root "/" source "_.edn")
+                   "{:ledger \"${CONFIG_TEST_API_KEY}\"}")
+          (like-real-fs
+            #(with-redefs [env/env (fn [token] (when (= "CONFIG_TEST_API_KEY" token) "sk-test-123"))
+                           loader/load-config-result (fn [_] (throw (ex-info "unexpected reload" {})))]
+               (sut/printable-config {:config threaded :fs mem :load-result result :root root}
+                                     false)))))
+
+      (it "reads the files inside it rather than slurping the directory"
+        (should= "<CONFIG_TEST_API_KEY:redacted>"
+                 (get-in (printable-with-dir-source)
+                         [:config :berths marigold/first-mate :ledger])))
+
+      (it "does not throw where config validate passes"
+        (should-not-throw (printable-with-dir-source))))
 
     (it "printable-config loads when :config is empty so a missing-config launch still reads disk"
       (let [calls (atom 0)

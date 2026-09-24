@@ -343,6 +343,62 @@
           (should= marigold/helm-mark-iii (get-in result [:config :berths marigold/first-mate :gauge]))
           (should= "You keep the log.\n" (get-in result [:config :berths marigold/first-mate :ledger])))))
 
+    (describe "dot-entries under config/ are not config (isaac-63ei)"
+
+      ;; A backup stashed as `.removed-<date>/` beside the thing it replaced is an
+      ;; ordinary habit, and git, editors and build tools all skip dot-entries.
+      ;; isaac-49zp made every directory a key, which promoted such a stash to
+      ;; configuration. Each example asserts the whole load result is unchanged:
+      ;; no key, no entity, no warning, no error, no source.
+
+      (defn- baseline-plus
+        "Load a baseline tree, plus the extra `relative content` pairs, on a
+         filesystem of its own so two trees can be compared in one example."
+        [& writes]
+        (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
+          (config-marigold/write-baseline!)
+          (marigold/write-raw! (str "berths/" marigold/first-mate ".edn")
+                               (pr-str {:ledger "You keep the log."}))
+          (doseq [[relative content] (partition 2 writes)]
+            (marigold/write-raw! relative content))
+          (marigold/load-config)))
+
+      (it "ignores a dot-file at the config root"
+        (should= (baseline-plus)
+                 (baseline-plus ".watch.edn" (pr-str {:berth "ghost"}))))
+
+      (it "ignores a dot-directory at the config root"
+        (should= (baseline-plus)
+                 (baseline-plus ".removed-20260915/berths.edn"
+                                (pr-str {marigold/cook {:ledger "Gone."}}))))
+
+      (it "ignores a dot-file inside an entity directory"
+        (should= (baseline-plus)
+                 (baseline-plus (str "berths/." marigold/cook ".edn") (pr-str {:ledger "Gone."})
+                                (str "berths/." marigold/cook ".md")  "Gone.")))
+
+      (it "ignores a dot-directory inside an entity directory — the yopp case"
+        (should= (baseline-plus)
+                 (baseline-plus (str "berths/.removed-20260915/" marigold/cook ".edn")
+                                (pr-str {:ledger "Gone."}))))
+
+      (it "ignores a dot-directory inside an entity's own directory"
+        (let [clean (baseline-plus (str "berths/" marigold/cook "/_.edn")
+                                   (pr-str {:ledger "You keep the galley."}))]
+          (should= clean
+                   (baseline-plus (str "berths/" marigold/cook "/_.edn")
+                                  (pr-str {:ledger "You keep the galley."})
+                                  (str "berths/" marigold/cook "/.ledger.md") "Gone."
+                                  (str "berths/" marigold/cook "/.removed-20260915/ledger.md") "Gone."))))
+
+      (it "loads a tree full of dot-entries identically to one without them"
+        (should= (baseline-plus)
+                 (baseline-plus ".watch.edn"                                           (pr-str {:berth "ghost"})
+                                ".removed-20260915/berths.edn"                         (pr-str {marigold/cook {:ledger "Gone."}})
+                                (str "berths/." marigold/cook ".edn")                  (pr-str {:ledger "Gone."})
+                                (str "berths/." marigold/cook ".md")                   "Gone."
+                                (str "berths/.removed-20260915/" marigold/cook ".edn") (pr-str {:ledger "Gone."})))))
+
     (describe "unresolvable ${VAR} references (isaac-rxun)"
 
       (it "drops an optional field whose variable is unset and still loads"

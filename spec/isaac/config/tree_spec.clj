@@ -66,6 +66,21 @@
     (it "does not refuse an .edn and .md pair — that is an entity and its companion"
       (write! (str "berths/" marigold/first-mate ".edn") "{}")
       (write! (str "berths/" marigold/first-mate ".md") "You keep the log.")
+      (should= [] (:errors (sut/scan config-root))))
+
+    (it "ignores a dot-file at the config root — a dot-entry is not config (isaac-63ei)"
+      (write! ".modules.edn" "{}")
+      (write! ".notes.md" "scratch")
+      (should= {:slices {} :dirs {} :errors []} (sut/scan config-root)))
+
+    (it "ignores a dot-directory at the config root"
+      (write! ".removed-20260915/crew.edn" "{}")
+      (should= {:slices {} :dirs {} :errors []} (sut/scan config-root)))
+
+    (it "does not let a dot-entry collide with the key it shadows"
+      (write! "berths.edn" "{}")
+      (mkdir! ".berths")
+      (should= {:berths "berths.edn"} (:slices (sut/scan config-root)))
       (should= [] (:errors (sut/scan config-root)))))
 
   (describe "dir-errors"
@@ -76,7 +91,12 @@
       (let [errors (sut/dir-errors (str config-root "/berths") "berths/")]
         (should= 1 (count errors))
         (should= (str "berths/" marigold/first-mate) (:key (first errors)))
-        (should-contain (str "config/berths/" marigold/first-mate ".edn") (:value (first errors))))))
+        (should-contain (str "config/berths/" marigold/first-mate ".edn") (:value (first errors)))))
+
+    (it "reports nothing for a dot-entry inside a key's directory (isaac-63ei)"
+      (write! (str "berths/." marigold/first-mate ".edn") "{}")
+      (write! (str "berths/." marigold/first-mate "/_.edn") "{}")
+      (should= [] (sut/dir-errors (str config-root "/berths") "berths/"))))
 
   (describe "read-slices"
 
@@ -151,7 +171,15 @@
     (it "keeps a dotted filename whole inside a directory too"
       (write! "modules/isaac.agent.edn" "{:git/sha \"abc\"}")
       (should= {:isaac.agent {:git/sha "abc"}}
-               (sut/read-map-dir (str config-root "/modules") "modules/" false))))
+               (sut/read-map-dir (str config-root "/modules") "modules/" false)))
+
+    (it "skips a dot-file and a dot-directory inside the map (isaac-63ei)"
+      (write! (str "berths/" marigold/first-mate "/gauge.edn") "\"helm-mark-iii\"")
+      (write! (str "berths/" marigold/first-mate "/.gauge.edn") "\"starcore-one\"")
+      (write! (str "berths/" marigold/first-mate "/.removed-20260915/gauge.edn") "\"starcore-one\"")
+      (should= {:gauge "helm-mark-iii"}
+               (sut/read-map-dir (str config-root "/berths/" marigold/first-mate)
+                                 (str "berths/" marigold/first-mate "/") false))))
 
   (describe "read-dir-own"
 

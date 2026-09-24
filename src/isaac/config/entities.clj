@@ -32,6 +32,7 @@
 (defn- read-dir-files [root dir-name ext]
   (let [dir (str root "/" dir-name)]
     (->> (or (parse/children* dir) [])
+         (remove paths/hidden-name?)
          (filter #(parse/has-ext? % ext))
          sort
          (mapv (fn [name]
@@ -47,10 +48,12 @@
 
 (defn- read-entity-dirs
   "Entities stored as a directory of their own fields: `crew/marvin/` holds
-   marvin's `_.edn`, `soul.md`, and so on (isaac-49zp)."
+   marvin's `_.edn`, `soul.md`, and so on (isaac-49zp). A dot-directory is a
+   stash, not an entity (isaac-63ei)."
   [root dir-name]
   (let [dir (str root "/" dir-name)]
     (->> (or (parse/children* dir) [])
+         (remove paths/hidden-name?)
          (filter #(parse/dir?* (str dir "/" %)))
          (remove #(= paths/default-entry-name %))
          sort

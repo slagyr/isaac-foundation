@@ -22,6 +22,7 @@
             (let [child-relative (if (seq relative) (str relative "/" name) name)
                   child          (str base "/" child-relative)]
               (cond
+                (paths/hidden-name? name) []
                 (fs/dir? fs* child)  (edn-files fs* base child-relative)
                 (and (fs/file? fs* child)
                      (str/ends-with? name ".edn")
