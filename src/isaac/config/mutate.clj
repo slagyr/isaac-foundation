@@ -11,6 +11,7 @@
       :errors   [{:key :value} ...]   ; structured validation errors
       :warnings [{:key :value} ...]}  ; structured warnings"
   (:require
+     [clj-yaml.core :as yaml]
      [clojure.edn :as edn]
      [clojure.string :as str]
      [isaac.cli.host :as host]
@@ -18,6 +19,7 @@
      [isaac.config.loader :as loader]
      [isaac.config.nav :as nav]
      [isaac.config.paths :as paths]
+     [isaac.config.parse :as parse]
      [isaac.config.schema-compose :as schema-compose]
      [isaac.config.tree :as tree]
      [isaac.config.schema.resolve :as schema-resolve]
@@ -156,13 +158,21 @@
         entity-relative        (when (:entity? parsed) (paths/entity-relative (:root-key parsed) (:entity-id parsed)))
         entity-path            (when entity-relative (paths/config-path root entity-relative))
         entity-data            (or (some-> entity-path read-edn-path) {})
+        md-relative            (when entity-relative (str/replace entity-relative #"\.edn$" ".md"))
+        md-path                (when md-relative (paths/config-path root md-relative))
+        md-content             (when (and md-path (fs/exists? (runtime-fs) md-path))
+                                 (fs/slurp (runtime-fs) md-path))
+        md-frontmatter         (when md-content (parse/split-frontmatter md-content))
         companion-field        (when (:companion? parsed) (:field (companion-spec (:root-key parsed))))
         companion-relative     (when (:companion? parsed) (companion-md-relative (:root-key parsed) (:entity-id parsed)))
         companion-path         (when companion-relative (paths/config-path root companion-relative))
         slice-relative         (paths/slice-relative (:root-key parsed))
         slice-path             (paths/config-path root slice-relative)
         slice-data             (or (read-edn-path slice-path) {})]
-    {:companion-field       companion-field
+    {:frontmatter-relative  (when md-frontmatter md-relative)
+     :frontmatter-content   md-content
+     :frontmatter-data      (when md-frontmatter (yaml/parse-string (:frontmatter md-frontmatter) :keywords true))
+     :companion-field       companion-field
      :companion-path        companion-path
      :companion-relative    companion-relative
      :entity-data           entity-data
@@ -220,6 +230,7 @@
     (and (:companion? parsed) (:inline-root-companion? state)) :root
     (and (:companion? parsed) (:inline-entity-companion? state)) :entity
     (:slice-exists? state) :slice
+    (and (:entity? parsed) (:frontmatter-relative state)) :frontmatter
     (and (:entity? parsed) (:entity-root-exists? state)) :root
     (and (:entity? parsed) (:entity-exists? state)) :entity
     (and (:entity? parsed) (:prefer-entity-files? state)) :entity
@@ -229,6 +240,9 @@
 (defn- choose-unset-location [parsed state]
   (cond
     (and (:companion? parsed) (:md-exists? state)) :md
+    (and (:entity? parsed) (:frontmatter-relative state)
+         (or (:whole-entity? parsed)
+             (path-present? (:frontmatter-data state) (:field-path parsed)))) :frontmatter
     (:root-path-exists? state) :root
     (and (:entity? parsed)
          (or (and (:whole-entity? parsed) (:entity-exists? state))
@@ -244,6 +258,18 @@
        (string? value)
        (> (count value) companion-inline-limit)))
 
+(defn- update-frontmatter [plan state data]
+  ;; Keep the delimiters and *all* bytes following the closing delimiter.
+  ;; SnakeYAML returns an ordered map, so replacing a field does not reorder
+  ;; unrelated YAML keys. A blank line is valid empty frontmatter.
+  (let [[_ open _ close body] (re-matches #"(?s)\A(---\r?\n)(.*?)(\r?\n---\r?\n?)(.*)\z"
+                                           (:frontmatter-content state))
+        yaml-text (if (seq data)
+                    (str/trimr (yaml/generate-string data {:dumper-options {:flow-style :block}}))
+                    "")
+        content (str open yaml-text close body)]
+    (update-text-file plan (:frontmatter-relative state) content)))
+
 (defn- set-plan [parsed state value]
   (let [location (choose-set-location parsed state)]
     (cond
@@ -254,6 +280,12 @@
         (cond-> {:deletes #{} :file (:companion-relative state) :writes {}}
           true (update-text-file (:companion-relative state) value)
           (:entity-exists? state) (update-edn-file (:entity-relative state) entity-data')))
+
+      (= :frontmatter location)
+      (let [data (if (:whole-entity? parsed)
+                   value
+                   (assoc-path (:frontmatter-data state) (:field-path parsed) value))]
+        (update-frontmatter {:deletes #{} :file (:frontmatter-relative state) :writes {}} state data))
 
       (= :entity location)
       (let [entity-data' (if (:whole-entity? parsed)
@@ -277,6 +309,12 @@
     (case location
       :md
       {:deletes #{(:companion-relative state)} :file (:companion-relative state) :writes {}}
+
+      :frontmatter
+      (let [data (if (:whole-entity? parsed)
+                   nil
+                   (dissoc-path (:frontmatter-data state) (:field-path parsed)))]
+        (update-frontmatter {:deletes #{} :file (:frontmatter-relative state) :writes {}} state data))
 
       :entity
       (let [entity-data' (if (:whole-entity? parsed)

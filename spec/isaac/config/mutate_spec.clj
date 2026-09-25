@@ -61,6 +61,29 @@
         (should-not-contain test-berth-id (:berths (read-edn "isaac.edn")))
         (should= :helm-mark-iii (:gauge (read-edn (str "berths/" test-berth-path ".edn"))))))
 
+    (it "updates a markdown entity's frontmatter without changing its body or other keys"
+      (config-marigold/write-baseline!)
+      (let [relative (str "berths/" test-berth-path ".md")
+            original (str "---\nfoundry: helm-systems\ngauge: helm-mark-iii\n---\n\nOrders\n\nNext line.\n")]
+        (fs/spit (nexus/get :fs) (str config-root "/" relative) original)
+        (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :sparky
+                                     :skip-ref-validation? true)]
+          (should= :ok (:status result))
+          (should= relative (:file result))
+          (should-not (file-exists? (str "berths/" test-berth-path ".edn")))
+          (should= "---\nfoundry: helm-systems\ngauge: sparky\n---\n\nOrders\n\nNext line.\n"
+                   (slurp-file relative)))))
+
+    (it "replaces an entire markdown entity's frontmatter from a map"
+      (config-marigold/write-baseline!)
+      (let [relative (str "berths/" test-berth-path ".md")]
+        (fs/spit (nexus/get :fs) (str config-root "/" relative) "---\ngauge: helm-mark-iii\n---\n\nOrders\n")
+        (let [result (sut/set-config marigold/root (str "berths." test-berth-path)
+                                     {:foundry :helm-systems})]
+          (should= :ok (:status result))
+          (should= relative (:file result))
+          (should= "---\nfoundry: helm-systems\n---\n\nOrders\n" (slurp-file relative)))))
+
     (it "writes to isaac.edn when the entity is already defined inline"
       (config-marigold/write-config! (assoc-in config-marigold/baseline-config [:berths test-berth-id] {:gauge :helm-mark-iii}))
       (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :helm-mark-iii)]
@@ -473,6 +496,27 @@
         (should= :ok (:status result))
         (should= "station.edn" (:file result))
         (should= {:primary marigold/captain} (read-edn "station.edn")))))
+
+  (describe "markdown frontmatter unset"
+    (config-marigold/aboard)
+
+    (it "removes one field without disturbing the body or the order of other keys"
+      (config-marigold/write-baseline!)
+      (let [relative (str "berths/" test-berth-path ".md")]
+        (fs/spit (nexus/get :fs) (str config-root "/" relative) "---\nfoundry: helm-systems\ngauge: helm-mark-iii\nextra: stay\n---\n\nOrders\n")
+        (let [result (sut/unset-config marigold/root (str "berths." test-berth-path ".gauge"))]
+          (should= :ok (:status result))
+          (should= relative (:file result))
+          (should= "---\nfoundry: helm-systems\nextra: stay\n---\n\nOrders\n" (slurp-file relative))
+          (should-not (file-exists? (str "berths/" test-berth-path ".edn"))))))
+
+    (it "leaves valid empty frontmatter when the last key is removed"
+      (config-marigold/write-baseline!)
+      (let [relative (str "berths/" test-berth-path ".md")]
+        (fs/spit (nexus/get :fs) (str config-root "/" relative) "---\ngauge: helm-mark-iii\n---\n\nOrders\n")
+        (should= :ok (:status (sut/unset-config marigold/root (str "berths." test-berth-path ".gauge") :force? true)))
+        (should= "---\n\n---\n\nOrders\n" (slurp-file relative))))
+    )
 
   (describe "unset-config"
 
