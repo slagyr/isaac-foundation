@@ -38,6 +38,9 @@
                (sut/parse-set-value {:type :ignore :set-type? true :member-type :keyword}
                                     "gpt,role/worker")))
 
+    (it "removes one leading colon from a set member"
+      (should= :hail/send (#'sut/member-keyword ":hail/send")))
+
     (it "conforms numeric text to the field's numeric type"
       (should= {:value 42} (sut/parse-set-value {:type :int} "42")))
 

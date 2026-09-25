@@ -159,6 +159,9 @@
         options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :set path-str result member options)))
 
+(defn- member-keyword [raw-member]
+  (keyword (str/replace-first raw-member #"^:" "")))
+
 (defn- unset-member! [root path-str member options]
   (let [pp          (parent-path path-str)
         current-set (or (current-config-value root pp) #{})
@@ -210,7 +213,7 @@
            path-result (nav/path->spec root-schema path-str)]
        (cond
          (and raw-member (:set-type? (:spec path-result)))
-         (unset-member! root (str path-str "." raw-member) (keyword raw-member) options)
+         (unset-member! root (str path-str "." raw-member) (member-keyword raw-member) options)
 
          raw-member
          (common/print-cli-error! (str path-str " takes no value"))
