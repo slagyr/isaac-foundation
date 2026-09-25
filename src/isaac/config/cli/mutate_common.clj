@@ -102,11 +102,28 @@
 (defn- parent-path [path-str]
   (str/join "." (butlast (str/split path-str #"\."))))
 
+(defn- warning-scope [path-str]
+  (let [[kind id] (str/split path-str #"\." 3)]
+    (str kind "." id ".")))
+
+(defn- scoped-warnings [path-str warnings]
+  (group-by #(str/starts-with? (:key %) (warning-scope path-str)) warnings))
+
+(defn- print-other-warning-count! [warnings]
+  (when (seq warnings)
+    (println (str (count warnings) " other validation warning"
+                  (when-not (= 1 (count warnings)) "s")
+                  " — run: isaac config validate"))))
+
+(defn print-mutation-warnings! [path-str warnings]
+  (let [{local true other false} (scoped-warnings path-str warnings)]
+    (common/print-mutation-warnings! local)
+    (print-other-warning-count! other)))
+
 (defn handle-mutate-result!
   ([operation path-str result value]
    (handle-mutate-result! operation path-str result value nil))
   ([operation path-str result value options]
-   (common/print-warnings! (:warnings result))
    (case (:status result)
      :ok
      (do
@@ -115,10 +132,8 @@
            :set   (log-mutation! :info :config/set   file path-str :value value)
            :unset (log-mutation! :info :config/unset file path-str))
          (print-confirmation! operation path-str file value options)
-         (when (seq (:warnings result))
-           (println (str "wrote " path-str " to " file " with "
-                         (count (:warnings result))
-                         " validation error(s) outstanding — run: isaac config validate"))))
+         (when-not (inspect/structured-requested? options)
+           (print-mutation-warnings! path-str (:warnings result))))
        (when (inspect/structured-requested? options)
          (let [{:keys [edn json]} options]
            (inspect/print-structured! edn json (inspect/mutation-result-record path-str result))))
@@ -127,6 +142,8 @@
      :invalid
      (do
        (common/print-errors! (:errors result) "error")
+       (binding [*out* *err*]
+         (print-mutation-warnings! path-str (:warnings result)))
        (when (= :set operation)
          (log-mutation! :error :config/set-failed "config" path-str :error (format-errors (:errors result)))
          (when-not (:force options)
@@ -138,6 +155,8 @@
      :invalid-config
      (do
        (common/print-errors! (:errors result) "error")
+       (binding [*out* *err*]
+         (print-mutation-warnings! path-str (:warnings result)))
        1)
 
      (do
@@ -177,8 +196,9 @@
 (defn set-config! [opts path-str raw-value options]
   (if-let [format-error (inspect/structured-format-conflict? options)]
     format-error
-    (let [root        (common/resolve-root opts)
-          root-schema (root-schema opts)
+    (let [root           (common/resolve-root opts)
+          schema-context (common/schema-context opts)
+          root-schema    (:root schema-context)
           ;; A path the composed schema doesn't recognize (a typo'd or
           ;; undeclared segment under a schema'd map) is not refused here —
           ;; mutate/set-config makes that call itself (isaac-a5dx), in the
@@ -195,7 +215,8 @@
             (if (:error value-result)
               (do
                 (binding [*out* *err*]
-                  (println (str path-str " - " (:error value-result))))
+                  (println (str "error: " path-str " - " (:error value-result)))
+                  (print-mutation-warnings! path-str (get-in schema-context [:result :warnings])))
                 (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
                 1)
               (let [value  (:value value-result)

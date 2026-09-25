@@ -88,6 +88,47 @@
                      (should= 0 (sut/handle-mutate-result! :set path-str {:status :ok :file "crew/joe.edn"} :echo {:edn true}))))]
          (should-not (str/includes? out "set "))))
 
+     (it "prints a confirmation before same-entity warnings and collapses the others"
+       (let [out (with-out-str
+                   (with-redefs [sut/log-mutation! (fn [& _] nil)]
+                     (should= 0 (sut/handle-mutate-result!
+                                  :set "models.echo.model"
+                                  {:status :ok :file "config"
+                                   :warnings [{:key "models.echo.provider" :value "is required"}
+                                              {:key "crew.marvin.tools.directories" :value "too broad"}]}
+                                  "echo-v1"))))]
+         (should= ["set models.echo.model = \"echo-v1\" (config)"
+                   "Validation warnings (1):"
+                   "models.echo.provider - is required"
+                   "1 other validation warning — run: isaac config validate"]
+                  (str/split-lines out))))
+
+     (it "prints an invalid result before its collapsed warnings on stderr"
+       (let [err (java.io.StringWriter.)]
+         (binding [*err* err]
+           (with-redefs [sut/log-mutation! (fn [& _] nil)]
+             (should= 1 (sut/handle-mutate-result!
+                          :set "crew.joe.effort"
+                          {:status :invalid
+                           :errors [{:key "crew.joe.effort" :value "can't coerce \"nope\" to int"}]
+                           :warnings [{:key "crew.marvin.tools.directories" :value "too broad"}]}
+                          "nope"))))
+         (should= ["error: crew.joe.effort - can't coerce \"nope\" to int"
+                   "1 other validation warning — run: isaac config validate"
+                   "(use --force to write anyway, or set the whole map: echo '{…}' | isaac config set crew.joe -)"]
+                  (str/split-lines (str err))))
+
+     (it "prints parse errors before scoped warnings"
+       (let [err (java.io.StringWriter.)]
+         (binding [*err* err]
+           (with-redefs [common/schema-context (constantly {:root nil
+                                                            :result {:warnings [{:key "crew.marvin.tools.directories" :value "too broad"}]}})
+                         sut/log-mutation! (fn [& _] nil)]
+             (should= 1 (sut/set-config! {} "crew.joe.effort" "nope" {}))))
+         (should= ["error: crew.joe.effort - can't coerce \"nope\" to int"
+                   "1 other validation warning — run: isaac config validate"]
+                  (str/split-lines (str err)))))
+
      (it "prints validation errors and logs set failures"
         (let [printed (atom nil)
               logged  (atom nil)]
@@ -127,4 +168,4 @@
         (let [err (java.io.StringWriter.)]
           (binding [*err* (java.io.PrintWriter. err)]
             (#'sut/print-status-error! :kaboom path-str))
-          (should (str/includes? (str err) "config error: kaboom"))))))
+          (should (str/includes? (str err) "config error: kaboom")))))))

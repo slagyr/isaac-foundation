@@ -157,17 +157,26 @@
    the write (isaac-rxun)."
   " (not set in this shell; the server's environment may differ)")
 
+(defn- warning-line [{:keys [bad-value file key unresolved-ref valid-values value]}]
+  (str key " - " value
+       (when unresolved-ref shell-caveat)
+       (when file
+         (str " [file: " file "]"))
+       (when bad-value
+         (str " [bad value: " bad-value "]"))
+       (when (seq valid-values)
+         (str " [valid: " (str/join ", " valid-values) "]"))))
+
 (defn print-warnings! [entries]
   (binding [*out* *err*]
-    (doseq [{:keys [bad-value file key unresolved-ref valid-values value]} entries]
-      (println (str "warning: :" key " - " value
-                    (when unresolved-ref shell-caveat)
-                    (when file
-                      (str " [file: " file "]"))
-                    (when bad-value
-                      (str " [bad value: " bad-value "]"))
-                    (when (seq valid-values)
-                      (str " [valid: " (str/join ", " valid-values) "]")))))))
+    (doseq [entry entries]
+      (println (str "warning: :" (warning-line entry))))))
+
+(defn print-mutation-warnings! [entries]
+  (when (seq entries)
+    (println (str "Validation warnings (" (count entries) "):"))
+    (doseq [entry entries]
+      (println (warning-line entry)))))
 
 (defn print-cli-errors! [errors]
   (binding [*out* *err*]

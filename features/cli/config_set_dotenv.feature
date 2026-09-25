@@ -74,4 +74,4 @@ Feature: config set resolves ${VAR} refs from <root>/.env when validating a stag
     When isaac is run with "config set tz UTC"
     Then the exit code is 0
     And the stdout contains "set tz = "
-    And the stdout contains "validation error(s) outstanding"
+    And the stdout does not contain "validation error(s) outstanding"
