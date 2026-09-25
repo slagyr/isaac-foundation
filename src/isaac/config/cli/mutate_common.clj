@@ -1,6 +1,7 @@
 (ns isaac.config.cli.mutate-common
   "Shared helpers for 'config set' and 'config unset'."
   (:require
+    [c3kit.apron.schema :as schema]
     [c3kit.apron.schema.path :as path]
     [clojure.edn :as edn]
     [clojure.string :as str]
@@ -11,7 +12,8 @@
     [isaac.config.mutate :as mutate]
     [isaac.config.nav :as nav]
     [isaac.config.schema.resolve :as schema-resolve]
-    [isaac.logger :as log]))
+    [isaac.logger :as log]
+    [isaac.schema.lexicon :as lexicon]))
 
 (defn- root-schema [opts]
   (:root (common/schema-context opts)))
@@ -19,22 +21,44 @@
 (defn target-spec-for [opts path-str]
   (schema-resolve/schema-for-data-path (root-schema opts) path-str))
 
-(defn parse-set-value [spec raw-value]
+(defn- guessed-value [raw-value]
   (cond
-    (re-matches #"-?\d+" raw-value)
-    (parse-long raw-value)
+    (re-matches #"-?\d+" raw-value) (parse-long raw-value)
+    (#{"false" "nil" "true"} raw-value) (edn/read-string raw-value)
+    (str/starts-with? raw-value ":") (edn/read-string raw-value)
+    :else raw-value))
 
-    (#{"false" "nil" "true"} raw-value)
-    (edn/read-string raw-value)
-
-    (str/starts-with? raw-value ":")
-    (edn/read-string raw-value)
-
-    (and spec (= :id (:type spec)) (re-matches #"[A-Za-z_][A-Za-z0-9_-]*" raw-value))
-    (keyword raw-value)
-
-    :else
+(defn- cli-value [spec raw-value]
+  (case (:type spec)
+    :keyword (keyword (str/replace-first raw-value #"^:" ""))
+    :id      (keyword (str/replace-first raw-value #"^:" ""))
     raw-value))
+
+(defn- conform-cli-value [spec raw-value]
+  (let [value (cli-value spec raw-value)]
+    (if (= :id (:type spec))
+      {:value value}
+      (let [result (lexicon/conform spec value)]
+        (if (schema/error? result)
+          {:error (schema/error-message result)}
+          {:value result})))))
+
+(defn- set-member-spec [spec]
+  (or (:member-spec spec)
+      {:type (or (:member-type spec) :keyword)}))
+
+(defn parse-set-value [spec raw-value]
+  (try
+    (cond
+      (nil? spec) {:value (guessed-value raw-value)}
+      (:set-type? spec) (let [values (map #(conform-cli-value (set-member-spec spec) %)
+                                         (str/split raw-value #","))]
+                          (if-let [error (:error (first (filter :error values)))]
+                            {:error error}
+                            {:value (set (map :value values))}))
+      :else (conform-cli-value spec raw-value))
+    (catch Exception e
+      {:error (or (.getMessage e) "invalid value")})))
 
 (defn read-stdin-value []
   (try
@@ -135,6 +159,9 @@
         options     (assoc (or options {}) :member member :parent pp)]
     (handle-mutate-result! :set path-str result member options)))
 
+(defn- member-keyword [raw-member]
+  (keyword (str/replace-first raw-member #"^:" "")))
+
 (defn- unset-member! [root path-str member options]
   (let [pp          (parent-path path-str)
         current-set (or (current-config-value root pp) #{})
@@ -164,23 +191,35 @@
           (common/print-cli-error! "missing value")
           (let [value-result (if (= "-" raw-value)
                                (read-stdin-value)
-                               {:value (parse-set-value (target-spec-for opts path-str) raw-value)})]
+                               (parse-set-value (target-spec-for opts path-str) raw-value))]
             (if (:error value-result)
               (do
                 (binding [*out* *err*]
-                  (println (:error value-result)))
+                  (println (str path-str " - " (:error value-result))))
                 (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
                 1)
               (let [value  (:value value-result)
                     result (mutate/set-config root path-str value :skip-ref-validation? true :force? (boolean (:force options)))]
                 (handle-mutate-result! :set path-str result value options)))))))))
 
-(defn unset-config! [opts path-str options]
-  (if-let [format-error (inspect/structured-format-conflict? options)]
-    format-error
-    (let [root        (common/resolve-root opts)
-          root-schema (root-schema opts)
-          path-result (nav/path->spec root-schema path-str)]
-      (if-let [member (:member path-result)]
-        (unset-member! root path-str member options)
-        (handle-mutate-result! :unset path-str (mutate/unset-config root path-str :force? (boolean (:force options))) nil options)))))
+(defn unset-config!
+  ([opts path-str options]
+   (unset-config! opts path-str options nil))
+  ([opts path-str options raw-member]
+   (if-let [format-error (inspect/structured-format-conflict? options)]
+     format-error
+     (let [root        (common/resolve-root opts)
+           root-schema (root-schema opts)
+           path-result (nav/path->spec root-schema path-str)]
+       (cond
+         (and raw-member (:set-type? (:spec path-result)))
+         (unset-member! root (str path-str "." raw-member) (member-keyword raw-member) options)
+
+         raw-member
+         (common/print-cli-error! (str path-str " takes no value"))
+
+         (:member path-result)
+         (unset-member! root path-str (:member path-result) options)
+
+         :else
+         (handle-mutate-result! :unset path-str (mutate/unset-config root path-str :force? (boolean (:force options))) nil options))))))
