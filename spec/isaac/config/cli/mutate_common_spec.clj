@@ -26,11 +26,24 @@
 
    (describe "parse-set-value"
 
-    (it "keywordizes a bare word when the target field is an id"
-      (should= :gpt (sut/parse-set-value {:type :id} "gpt")))
+    (it "conforms bare and colon-prefixed keyword values"
+      (should= {:value :gpt} (sut/parse-set-value {:type :keyword} "gpt"))
+      (should= {:value :gpt} (sut/parse-set-value {:type :keyword} ":gpt")))
 
-    (it "leaves a bare word as a string when the target field is a plain string"
-      (should= "gpt" (sut/parse-set-value {:type :string} "gpt"))))
+    (it "keeps digits as text for a string field"
+      (should= {:value "42"} (sut/parse-set-value {:type :string} "42")))
+
+    (it "conforms a comma-separated keyword set"
+      (should= {:value #{:gpt :role/worker}}
+               (sut/parse-set-value {:type :ignore :set-type? true :member-type :keyword}
+                                    "gpt,role/worker")))
+
+    (it "conforms numeric text to the field's numeric type"
+      (should= {:value 42} (sut/parse-set-value {:type :int} "42")))
+
+    (it "returns a validation error for an invalid numeric value"
+      (should= {:error "can't coerce \"not-a-number\" to int"}
+               (sut/parse-set-value {:type :int} "not-a-number"))))
 
   (describe "handle-mutate-result!"
 

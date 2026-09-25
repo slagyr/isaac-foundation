@@ -2,6 +2,7 @@
   (:require
     [isaac.config.cli.command :as sut]
     [isaac.config.cli.spec-support :as support]
+    [isaac.config.cli.mutate-common :as mutate-common]
     [isaac.marigold :as marigold]
     [isaac.config.mutate :as mutate]
     [speclj.core :refer :all])
@@ -32,4 +33,12 @@
                                           (reset! captured path)
                                           {:status :ok :warnings [] :file "isaac.edn"})]
         (should= 0 (sut/run {:root test-root} ["unset" (str "berths." marigold/first-mate ".ledger") "--help"])))
-      (should= (str "berths." marigold/first-mate ".ledger") @captured))))
+      (should= (str "berths." marigold/first-mate ".ledger") @captured)))
+
+  (it "passes a set member separately from the field path"
+    (let [captured (atom nil)]
+      (with-redefs [mutate-common/unset-config! (fn [& args]
+                                                   (reset! captured args)
+                                                   0)]
+        (should= 0 (sut/run {:root test-root} ["unset" "relay.r1.flags" "wip"])))
+      (should= [{:root test-root} "relay.r1.flags" {} "wip"] @captured))))

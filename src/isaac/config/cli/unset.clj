@@ -1,6 +1,7 @@
 (ns isaac.config.cli.unset
   "isaac config unset — remove a value at a config path."
   (:require
+    [clojure.string :as str]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
     [isaac.config.cli.mutate-common :as mutate-common]))
@@ -17,7 +18,9 @@
 
 (defn run [opts arguments options]
   (if-let [{:keys [path-str]} (mutate-common/target-root+path! opts (first arguments))]
-    (mutate-common/unset-config! opts path-str options)
+    (mutate-common/unset-config! opts path-str options
+                                 (let [member (second arguments)]
+                                   (when-not (str/starts-with? (or member "") "-") member)))
     1))
 
 (def subcommand
