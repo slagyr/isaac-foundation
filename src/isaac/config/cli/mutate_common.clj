@@ -192,7 +192,7 @@
             (if (:error value-result)
               (do
                 (binding [*out* *err*]
-                  (println (:error value-result)))
+                  (println (str path-str " - " (:error value-result))))
                 (log-mutation! :error :config/set-failed "config" path-str :error (:error value-result))
                 1)
               (let [value  (:value value-result)
