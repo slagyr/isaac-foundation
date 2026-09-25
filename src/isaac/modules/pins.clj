@@ -12,10 +12,15 @@
      and those modules' own deps.edn name the sha for isaac-foundation, which
      the registry does not list. Behind the fleet is a note, never a failure."
   (:require
+    [babashka.process :as process]
     [clojure.edn :as edn]
+    [clojure.java.io :as io]
     [clojure.string :as str]
     [clojure.tools.gitlibs :as gitlibs]
+    [clojure.tools.gitlibs.impl :as git-impl]
+    [isaac.cli.host :as host]
     [isaac.fs :as fs]
+    [isaac.logger :as log]
     [isaac.module.coords :as coords]))
 
 (defn- sibling-id [lib]
@@ -36,10 +41,44 @@
          (sort-by :id)
          vec)))
 
+(defn local-git-url [url]
+  (if (or (str/starts-with? url "/") (str/includes? url ":")
+          (str/starts-with? url "~"))
+    url
+    (.getCanonicalPath (io/file (host/cwd) url))))
+
+(defn stale-cache? [url error]
+  (let [cache  (git-impl/git-dir url)
+        remote (process/shell {:out :string :err :string :continue true}
+                              "git" "--git-dir" (.getPath cache) "remote" "get-url" "origin")
+        path   (str/trim (or (:out remote) ""))]
+    (and (= 128 (:exit (ex-data error)))
+         (zero? (:exit remote))
+         (or (str/starts-with? path "/") (str/starts-with? path "file://"))
+         (not (.exists (io/file (str/replace path #"^file://" "")))))))
+
+(defn discard-stale-cache! [url]
+  (let [cache (git-impl/git-dir url)]
+    (doseq [file (reverse (file-seq cache))]
+      (when-not (.delete file)
+        (throw (ex-info "Cannot discard stale gitlibs cache" {:path (.getPath file)}))))))
+
+(defn- with-recloned-cache [url operation]
+  (try
+    (operation)
+    (catch Exception error
+      (if (stale-cache? url error)
+        (do
+          (discard-stale-cache! url)
+          (log/info :modules.pins/cache-recloned :url url)
+          (operation))
+        (throw error)))))
+
 (defn- ancestry [url pinned-sha registry-sha]
   (if (= pinned-sha registry-sha)
     :current
-    (let [descendant (gitlibs/descendant url [pinned-sha registry-sha])]
+    (let [url        (local-git-url url)
+          descendant (with-recloned-cache url #(gitlibs/descendant url [pinned-sha registry-sha]))]
       (cond
         (= registry-sha descendant) :older
         (= pinned-sha descendant)   :ahead
@@ -141,7 +180,8 @@
                :sha  sha
                :requires
                (or (try
-                     (let [dir (gitlibs/procure url (or lib (symbol "io.github.slagyr" repo)) sha)]
+                     (let [url (local-git-url url)
+                           dir (with-recloned-cache url #(gitlibs/procure url (or lib (symbol "io.github.slagyr" repo)) sha))]
                        (->> (git-pins (:deps (read-deps-map dir)) "deps")
                             sibling-pins
                             (map (juxt :repo :sha))

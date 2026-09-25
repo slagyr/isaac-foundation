@@ -5,6 +5,7 @@
     [c3kit.apron.schema :as cs]
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [clojure.tools.gitlibs :as gitlibs]
     [isaac.fs :as fs]))
 
 (def foundation-module-id :isaac.foundation)
@@ -87,8 +88,8 @@
   (or (str/starts-with? path "/")
       (re-matches #"[A-Za-z]:.*" path)))
 
-(def gitlibs-root
-  (str (System/getProperty "user.home") "/.gitlibs/libs"))
+(defn gitlibs-root []
+  (str (gitlibs/cache-dir) "/libs"))
 
 (defn apply-deps-root [dir coord]
   (if-let [root (:deps/root coord)]
@@ -97,7 +98,7 @@
 
 (defn find-gitlib-directory [sha]
   (when (and (string? sha) (seq sha))
-    (let [libs (java.io.File. gitlibs-root)]
+    (let [libs (java.io.File. (gitlibs-root))]
       (when (.isDirectory libs)
         (some (fn [^java.io.File ns-dir]
                 (when (.isDirectory ns-dir)

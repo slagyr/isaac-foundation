@@ -18,7 +18,8 @@
          org.clojure/tools.reader            {:mvn/version "1.4.2"}}
 
  :tasks
- {isaac         {:doc  "Isaac CLI"
+ {:init (System/setProperty "clojure.gitlibs.dir" (.getCanonicalPath (java.io.File. "target/gitlibs")))
+  isaac         {:doc  "Isaac CLI"
                  :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
 
   pins          {:doc  "Check sibling git pins against the configured module registry"

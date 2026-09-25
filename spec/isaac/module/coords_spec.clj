@@ -1,9 +1,14 @@
 (ns isaac.module.coords-spec
   (:require
+    [clojure.tools.gitlibs :as gitlibs]
     [isaac.module.coords :as coords]
     [speclj.core :refer :all]))
 
 (describe "isaac.module.coords"
+
+  (it "looks for cached gitlibs under the configured cache directory"
+    (with-redefs [gitlibs/cache-dir (constantly "/tmp/fixture-gitlibs")]
+      (should= "/tmp/fixture-gitlibs/libs" (coords/gitlibs-root))))
 
   (it "coerces raw ids to keywords"
     (should= :mod.a (coords/->module-id :mod.a))

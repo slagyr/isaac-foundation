@@ -1,5 +1,7 @@
 (ns isaac.modules.pins-spec
   (:require
+    [clojure.tools.gitlibs :as gitlibs]
+    [isaac.logger :as log]
     [isaac.modules.pins :as pins]
     [speclj.core :refer :all]))
 
@@ -15,6 +17,38 @@
    :lib (symbol "io.github.slagyr" repo)})
 
 (describe "isaac.modules.pins"
+
+  (context "gitlibs fixtures"
+    (it "retries once after a cached local remote disappears"
+      (let [attempts (atom 0)
+            cleared  (atom nil)]
+        (with-redefs [gitlibs/procure (fn [_ _ _]
+                                       (if (= 1 (swap! attempts inc))
+                                         (throw (ex-info "Unable to fetch" {:exit 128}))
+                                         nil))
+                      pins/stale-cache? (fn [_ _] true)
+                      pins/discard-stale-cache! (fn [url] (reset! cleared url))]
+          (log/capture-logs
+            (pins/declarations [(assoc (pin "fixture-agent" "aaaaaaa" "deps") :url "fixture-agent")]))
+          (should= 2 @attempts)
+          (should= (str (System/getProperty "user.dir") "/fixture-agent") @cleared)
+          (should= :modules.pins/cache-recloned (:event (first @log/captured-logs))))))
+
+    (it "does not retry a fetch error when the cached remote is still present"
+      (let [attempts (atom 0)]
+        (with-redefs [gitlibs/procure (fn [_ _ _]
+                                       (swap! attempts inc)
+                                       (throw (ex-info "Unable to fetch" {:exit 128})))
+                      pins/stale-cache? (fn [_ _] false)]
+          (pins/declarations [(assoc (pin "fixture-agent" "aaaaaaa" "deps") :url "fixture-agent")])
+          (should= 1 @attempts))))
+
+    (it "resolves a relative fixture URL against the deps directory before procuring"
+      (let [seen (atom nil)]
+        (with-redefs [gitlibs/procure (fn [url _ _] (reset! seen url) nil)]
+          (pins/declarations [(assoc (pin "fixture-agent" "aaaaaaa" "deps")
+                                    :url "fixture-agent")])
+          (should= (str (System/getProperty "user.dir") "/fixture-agent") @seen)))))
 
   (context "repo-key"
     (it "names the repository, not the lib"
