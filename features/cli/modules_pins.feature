@@ -127,3 +127,31 @@ Feature: Sibling pins against the registry
       | pattern                                                                  |
       | fixture-foundation pinned [0-9a-f]{7} \(deps\) and [0-9a-f]{7} \(alias :spec\) |
     And the exit code is 1
+
+  # The pins fixture must never share a gitlibs cache slot with another
+  # checkout (isaac-zr75). On zanebot every worker checkout used the one
+  # ~/.gitlibs, keyed by the relative url "fixture-agent"; when the checkout
+  # that first populated it was deleted, git fetch failed for everyone.
+
+  @wip
+  Scenario: the fixture is cached under this checkout, never in the shared gitlibs (isaac-zr75)
+    Given a file "deps.edn" exists with content:
+      """
+      {:deps {io.github.slagyr/isaac-agent {:git/url "fixture-agent" :git/sha "{sha of "agent: two"}"}}}
+      """
+    When isaac is run with "modules pins"
+    Then the exit code is 0
+    And the gitlibs cache for "fixture-agent" lives under this checkout's "target" directory
+
+  @wip
+  Scenario: a cached fixture whose remote path no longer exists is recloned, not a failure (isaac-zr75)
+    Given the gitlibs cache holds "fixture-agent" with a remote that points at a deleted path
+    And a file "deps.edn" exists with content:
+      """
+      {:deps {io.github.slagyr/isaac-agent {:git/url "fixture-agent" :git/sha "{sha of "agent: one"}"}}}
+      """
+    When isaac is run with "modules pins"
+    Then the stdout matches:
+      | pattern                          |
+      | behind the fleet.*fixture-agent  |
+    And the exit code is 0
