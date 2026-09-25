@@ -35,18 +35,24 @@
     raw-value))
 
 (defn- conform-cli-value [spec raw-value]
-  (let [value  (cli-value spec raw-value)
-        result (lexicon/conform spec value)]
-    (if (schema/error? result)
-      {:error (schema/error-message result)}
-      {:value result})))
+  (let [value (cli-value spec raw-value)]
+    (if (= :id (:type spec))
+      {:value value}
+      (let [result (lexicon/conform spec value)]
+        (if (schema/error? result)
+          {:error (schema/error-message result)}
+          {:value result})))))
+
+(defn- set-member-spec [spec]
+  (or (:member-spec spec)
+      {:type (or (:member-type spec) :keyword)}))
 
 (defn parse-set-value [spec raw-value]
   (try
     (cond
       (nil? spec) {:value (guessed-value raw-value)}
-      (:set-type? spec) (let [member-spec (assoc spec :type (or (:member-type spec) :keyword) :set-type? false)
-                              values      (map #(conform-cli-value member-spec %) (str/split raw-value #","))]
+      (:set-type? spec) (let [values (map #(conform-cli-value (set-member-spec spec) %)
+                                         (str/split raw-value #","))]
                           (if-let [error (:error (first (filter :error values)))]
                             {:error error}
                             {:value (set (map :value values))}))
