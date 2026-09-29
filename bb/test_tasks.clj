@@ -11,6 +11,7 @@
     [babashka.process :as process]
     [bb.test-timeout :as tt]
     [gherclj.main :as gherclj]
+    [gherclj.parser :as parser]
     [speclj.main :as speclj]))
 
 (def ^:dynamic *spec-dir* "spec")
@@ -58,16 +59,25 @@
 (defn run-features! [& args]
   (tt/with-timeout! "features" #(apply run-features* args)))
 
+(defn- slow-scenario-locations []
+  (for [{:keys [source scenarios]} (parser/parse-features-dir *features-dir*)
+        {:keys [line tags]} scenarios
+        :when (and (some #{"slow"} tags)
+                   (not (some #{"wip"} tags)))]
+    (str *features-dir* "/" source ":" line)))
+
 (defn- run-features-slow* [& args]
-  (clean!)
-  (apply gherclj/-main
-    (concat ["-f" *features-dir*]
-            (step-args)
-            ["-t" "slow" "-t" "~wip"]
-            args)))
+  ;; tools.deps/add-deps changes the current process classpath permanently.
+  ;; A fresh subprocess per scenario keeps its builtin manifests out of the
+  ;; subsequent scenario's schema and module index. Clean target before each
+  ;; run and force a fresh bb classpath: cached :local/root gitlib paths are
+  ;; otherwise invalidated when the previous scenario's target is deleted.
+  (doseq [location (if (seq args) args (slow-scenario-locations))]
+    (clean!)
+    (tt/shell! "features-slow" "bb" "-Sforce" "gherclj" "-t" "slow" "-t" "~wip" location)))
 
 (defn run-features-slow! [& args]
-  (tt/with-timeout! "features-slow" #(apply run-features-slow* args)))
+  (apply run-features-slow* args))
 
 (defn- check-exit! [{:keys [exit]}]
   (when (pos? exit)
