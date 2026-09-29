@@ -5,6 +5,12 @@ Feature: isaac modules upgrade — refresh installed modules to registry coords
   "Upgraded" means the new pin is materialized — the next CLI process must not
   race a cold gitlib checkout.
 
+  # `modules upgrade` calls warm-module-checkouts! to materialize the new
+  # coord's gitlib checkout and add it to the live JVM classpath — real
+  # network I/O that permanently taints the shared-JVM default suite (same
+  # isaac.http :builtin? true leak as modules_registry_install.feature).
+  # @slow isolates it in its own process, per CI's "Slow features" job.
+  @slow
   Scenario: A stale registry-sourced module is rewritten to the latest coord
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:

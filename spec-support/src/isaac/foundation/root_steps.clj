@@ -12,6 +12,7 @@
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven helper!]]
     [isaac.config.api :as config]
+    [isaac.config.schema-compose :as schema-compose]
     [isaac.fs :as fs]
     [isaac.log.file :as lfile]
     [isaac.logger :as log]
@@ -115,7 +116,14 @@
     (reset! c3env/-overrides {})
     (config/clear-env-overrides!)
     (nexus/reset!)
+    ;; lifecycle/clear-activations! already drops discovery's foundation/
+    ;; builtin-index caches; the composed root-schema cache is a separate
+    ;; process-global atom (isaac.config.schema-compose) that nothing else
+    ;; resets between scenarios — without this, a schema composed from an
+    ;; earlier scenario's module-index can leak into a later scenario for
+    ;; the rest of the shared JVM process.
     (lifecycle/clear-activations!)
+    (schema-compose/clear-cache!)
     (classpath/clear-loaded-coords!)
     (lfile/clear-sink-config!)
     (log/set-output! :memory)

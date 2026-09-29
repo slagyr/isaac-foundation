@@ -2,6 +2,16 @@ Feature: Registry module install composes classpath
   Installing a registry module with sha-only coordinates must not fail classpath
   resolution when transitive deps pin foundation by sha (no tag/sha mismatch).
 
+  # Real git-coord resolution adds isaac.http's :builtin? true manifest to
+  # the live JVM classpath for the rest of the process — irreversible once
+  # installed. The default (non-slow) suite runs every scenario in one
+  # shared JVM, so this permanently leaked isaac.http into later scenarios'
+  # builtin/module index (e.g. cli/config_schema.feature's "no modules"
+  # scenario). @slow isolates this real-network, classpath-mutating
+  # scenario in its own process — the same pattern already used by
+  # git_coord_tree.feature — and CI runs it separately via the "Slow
+  # features" job (bb features-slow).
+  @slow
   Scenario: Install isaac.http then run isaac --version
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:

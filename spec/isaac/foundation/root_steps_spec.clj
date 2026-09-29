@@ -2,6 +2,7 @@
   (:require
     [gherclj.core :as g]
     [isaac.config.loader :as loader]
+    [isaac.config.schema-compose :as schema-compose]
     [isaac.foundation.root-steps :as sut]
     [isaac.nexus :as nexus]
     [speclj.core :refer :all]))
@@ -30,4 +31,16 @@
       (sut/initialize-root! "/target/root-steps" true)
       (nexus/-with-nested-nexus {:fs (nexus/get :fs)}
         (loader/set-snapshot! {:crew {"main" {}}} "spec"))
-      (should= {:crew {"main" {}}} (loader/snapshot "spec")))))
+      (should= {:crew {"main" {}}} (loader/snapshot "spec")))
+
+    ;; isaac.config.schema-compose caches the composed root schema in its own
+    ;; process-global atom, independent of discovery's foundation/builtin
+    ;; index caches (which lifecycle/clear-activations! already drops). Left
+    ;; unreset, a schema composed from one scenario's module-index leaks into
+    ;; a later scenario for the rest of the shared JVM process.
+    (it "drops the composed root-schema cache"
+      (reset! @#'schema-compose/last-composed* {:schema :leaked})
+      (reset! @#'schema-compose/last-descriptors* {:descriptor :leaked})
+      (sut/initialize-root! "/target/root-steps" true)
+      (should-be-nil @@#'schema-compose/last-composed*)
+      (should-be-nil @@#'schema-compose/last-descriptors*))))
