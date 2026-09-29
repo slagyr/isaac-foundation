@@ -3,6 +3,7 @@
             [isaac.config.marigold :as config-marigold]
             [isaac.config.schema-compose :as schema-compose]
             [isaac.config.schema.term :as sut]
+            [isaac.schema.registered-in :as registered-in]
             [speclj.core :refer [context describe it should should-contain should-not-contain should=]]))
 
 (def ^:private plain {:color? false :width 80})
@@ -12,6 +13,7 @@
 (defn- watch [] (get-in (root-schema) [:schema :watch]))
 (defn- berths-collection [] (get-in (root-schema) [:schema :berths]))
 (defn- foundry-entity [] (schema-compose/schema-for-kind (root-schema) :foundries))
+(defn- index-with [berth-id contributions] {:m1 {:manifest {berth-id contributions}}})
 
 (describe "schema.term"
 
@@ -217,31 +219,43 @@
                   plain)]
         (should-contain "schema\n──" out))))
 
-  (context "options-from"
+  (context "options from a [:registered-in?] validation"
 
-    (it "renders an options: line when :options-from resolves to values"
-      (let [out (sut/spec->term {:type :string :options-from :things}
-                                (assoc plain :options-resolvers {:things (fn [] ["foo" "bar"])}))]
-        (should-contain "options: bar, foo" out)))
+    (it "renders an options: line from the field's own [:registered-in?] validation"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:foo {} :bar {}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: bar, foo" out))))
 
     (it "sorts options alphabetically"
-      (let [out (sut/spec->term {:type :string :options-from :things}
-                                (assoc plain :options-resolvers {:things (fn [] ["zebra" "ant" "mango"])}))]
-        (should-contain "options: ant, mango, zebra" out)))
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:zebra {} :ant {} :mango {}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: ant, mango, zebra" out))))
 
-    (it "omits the options: line when no resolver is registered for the key"
-      (let [out (sut/spec->term {:type :string :options-from :things} plain)]
+    (it "omits the options: line when the field has no [:registered-in?] validation"
+      (let [out (sut/spec->term {:type :string} plain)]
         (should-not-contain "options:" out)))
 
-    (it "omits the options: line when the resolver returns nil"
-      (let [out (sut/spec->term {:type :string :options-from :things}
-                                (assoc plain :options-resolvers {:things (fn [] nil)}))]
-        (should-not-contain "options:" out)))
+    (it "omits the options: line when there are no registered contributions"
+      (binding [registered-in/*module-index* {}]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-not-contain "options:" out))))
+
+    (it "excludes a contribution whose manifest value is :configurable? false"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:longwave     {}
+                                                           :hidden-relay {:configurable? false}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: longwave" out)
+          (should-not-contain "hidden-relay" out))))
 
     (it "renders options: in a field-block when the spec is inside a map schema"
-      (let [out (sut/spec->term {:type :map :schema {:kind {:type :string :options-from :things}}}
-                                (assoc plain :options-resolvers {:things (fn [] ["alpha" "beta"])}))]
-        (should-contain "options: alpha, beta" out))))
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm {:alpha {} :beta {}})]
+        (let [out (sut/spec->term {:type :map :schema {:kind {:type        :keyword
+                                                              :validations [[:registered-in? :marigold.bridge/comm]]}}}
+                                  plain)]
+          (should-contain "options: alpha, beta" out)))))
 
   (context "manifest variant annotation"
 

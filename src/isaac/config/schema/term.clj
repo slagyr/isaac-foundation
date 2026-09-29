@@ -11,7 +11,8 @@
   (:require [c3kit.apron.schema :as schema]
             [c3kit.apron.schema.doc :as doc]
             [clojure.string :as s]
-            [isaac.config.cli.common :as cli-common]))
+            [isaac.config.cli.common :as cli-common]
+            [isaac.schema.registered-in :as registered-in]))
 
 (defn- ansi [color? code text]
   (if color? (str "\033[" code "m" text "\033[0m") text))
@@ -99,12 +100,18 @@
           (recur (rest words) cand out)
           (recur (rest words) w (conj out line)))))))
 
+(defn- registered-in-validation
+  "The `[:registered-in? berth-id]` / `[:registered-in? berth-id config-path]`
+   entry in a field's :validations, if any."
+  [spec]
+  (some (fn [v] (when (and (vector? v) (= :registered-in? (first v))) v))
+        (:validations spec)))
+
 (defn- options-line [opts spec indent]
-  (when-let [src (:options-from spec)]
-    (when-let [resolver (get (:options-resolvers opts) src)]
-      (let [vals (sort (map str (resolver)))]
-        (when (seq vals)
-          [(str indent (bold-green opts (str "options: " (s/join ", " vals))))])))))
+  (when-let [validation-form (registered-in-validation spec)]
+    (let [vals ((:known (apply registered-in/registered-in? (rest validation-form))))]
+      (when (seq vals)
+        [(str indent (bold-green opts (str "options: " (s/join ", " vals))))]))))
 
 (defn- effective-description [spec]
   (let [description (:description spec)

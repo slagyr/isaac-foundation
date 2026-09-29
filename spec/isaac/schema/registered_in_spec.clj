@@ -88,6 +88,20 @@
                                               {:marigold.longwave {:longwave {}}})]
       (should-be-nil (error-message-of :marigold.bridge/comm nil))))
 
+  (it ":known excludes ids whose manifest contribution is :configurable? false"
+    (binding [sut/*module-index* (index-with :marigold.bridge
+                                              :marigold.bridge/comm
+                                              {:marigold.longwave {:longwave     {:label "lw"}
+                                                                   :hidden-relay {:configurable? false}}})]
+      (should= ["longwave"]
+               ((:known (sut/registered-in? :marigold.bridge/comm))))))
+
+  (it "still accepts a :configurable? false id in :validate (display-only exclusion)"
+    (binding [sut/*module-index* (index-with :marigold.bridge
+                                              :marigold.bridge/comm
+                                              {:marigold.longwave {:hidden-relay {:configurable? false}}})]
+      (should-be-nil (error-message-of :marigold.bridge/comm :hidden-relay))))
+
   (it "composes with :present? in a single :validations chain"
     (binding [sut/*module-index* (index-with :marigold.bridge
                                               :marigold.bridge/comm

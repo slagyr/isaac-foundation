@@ -39,12 +39,22 @@
 (defn- berth-declared? [module-index berth-id]
   (boolean (berth-decl module-index berth-id)))
 
+(defn- manifest-contribution-maps [module-index berth-id]
+  (mapcat (fn [[_ entry]]
+            (when-let [v (get-in entry [:manifest berth-id])]
+              (when (map? v) v)))
+          module-index))
+
 (defn- manifest-contribution-ids [module-index berth-id]
-  (->> module-index
-       (mapcat (fn [[_ entry]]
-                 (when-let [v (get-in entry [:manifest berth-id])]
-                   (when (map? v) (keys v)))))
-       (into #{})))
+  (into #{} (map key) (manifest-contribution-maps module-index berth-id)))
+
+(defn- configurable? [[_ v]]
+  (not (and (map? v) (false? (:configurable? v)))))
+
+(defn- manifest-configurable-ids [module-index berth-id]
+  (into #{}
+        (comp (filter configurable?) (map key))
+        (manifest-contribution-maps module-index berth-id)))
 
 (defn- config-contribution-ids [config config-path]
   (when (and config (seq config-path))
@@ -58,14 +68,17 @@
     (symbol? v)  (name v)
     :else        (str v)))
 
-(defn- contributions-for-berth [module-index config berth-id config-path]
-  ;; Normalize all contribution ids to plain names (strings) so the
-  ;; manifest-side (keys arrive as keywords) and config-side (keys
-  ;; may be keywords or strings depending on the user's EDN flavor)
-  ;; can be set-unioned without duplicates.
+(defn- contributions-for-berth
+  "Normalizes all contribution ids to plain names (strings) so the
+   manifest-side (keys arrive as keywords) and config-side (keys may be
+   keywords or strings depending on the user's EDN flavor) can be
+   set-unioned without duplicates. `manifest-ids-fn` selects which manifest
+   ids count — the full set for validation, the `:configurable?`-filtered
+   set for CLI display."
+  [manifest-ids-fn module-index config berth-id config-path]
   (into #{}
         (map ->id)
-        (concat (or (manifest-contribution-ids module-index berth-id) #{})
+        (concat (or (manifest-ids-fn module-index berth-id) #{})
                 (or (config-contribution-ids config config-path) #{}))))
 
 (defn- fail!
@@ -89,9 +102,11 @@
      `[:registered-in? :isaac.http/provider [:providers]]` — manifest + user-config
 
    Distinct failure messages for unknown berth, empty contribution
-   set, and bad value. Returns a validation map with a `:known` thunk
-   so the CLI renderer (isaac.config.cli.validate) can list accepted
-   ids alongside the failure."
+   set, and bad value. Returns a validation map with a `:known` thunk that
+   lists the berth's accepted ids for CLI display — a manifest contribution
+   whose value is a map with `:configurable? false` is left out of `:known`
+   (display only; a `:configurable? false` id is still accepted by
+   `:validate`, same as any other registered contribution)."
   ([berth-id]            (registered-in? berth-id nil))
   ([berth-id config-path]
    {:validate (fn [value]
@@ -102,7 +117,7 @@
                       (fail! (str "unknown berth: " berth-id))
 
                       :else
-                      (let [accepted (contributions-for-berth mi *config* berth-id config-path)]
+                      (let [accepted (contributions-for-berth manifest-contribution-ids mi *config* berth-id config-path)]
                         (cond
                           (empty? accepted)
                           (fail! (str "no registered impls for berth " berth-id))
@@ -119,7 +134,7 @@
     :message  (str "must be a registered contribution to " berth-id)
     :known    (fn []
                 (let [mi (or *module-index* {})]
-                  (->> (contributions-for-berth mi *config* berth-id config-path)
+                  (->> (contributions-for-berth manifest-configurable-ids mi *config* berth-id config-path)
                        sort
                        vec)))}))
 

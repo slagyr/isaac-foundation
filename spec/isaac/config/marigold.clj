@@ -157,7 +157,6 @@
                                        :factory        'isaac.comm.factory/create!
                                        :dynamic-schema {:berth :marigold.chartroom/signal :path [:extra-schema]}
                                        :schema         {:kind  {:type         :id
-                                                               :options-from :signals
                                                                :description  "Manifest signal kind to instantiate"
                                                                :validations  [[:registered-in? :marigold.chartroom/signal [:signals]]]}
                                                         :berth {:type        :id

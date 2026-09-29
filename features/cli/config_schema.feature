@@ -130,7 +130,6 @@ Feature: isaac config schema is generic — no module names it another module's 
        :relays  {:helm-station {:type :longwave :keeper "atticus"}}}
       """
 
-  @wip
   Scenario: root schema with no modules shows foundation's own fields and generated Try: examples
     Given the isaac file "isaac.edn" exists with:
       """
@@ -153,7 +152,6 @@ Feature: isaac config schema is generic — no module names it another module's 
     And the stdout does not contain "providers"
     And the exit code is 0
 
-  @wip
   Scenario: root schema lists a fixture module's dynamic-key config table
     When isaac is run with "config schema"
     Then the stdout matches:
@@ -161,7 +159,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | relays\s+.*\[relays\]      |
     And the exit code is 0
 
-  @wip
   Scenario: config schema <table> renders the map wrapper with key/value rows
     When isaac is run with "config schema relays"
     Then the stdout matches:
@@ -173,7 +170,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | Relay channel configurations             |
     And the exit code is 0
 
-  @wip
   Scenario: config schema <table>.value renders the entry fields
     When isaac is run with "config schema relays.value"
     Then the stdout matches:
@@ -183,7 +179,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | type\s+keyword\s+\[relays\.value\.type\]      |
     And the exit code is 0
 
-  @wip
   Scenario: config schema <table>.key resolves the map-key spec
     When isaac is run with "config schema relays.key"
     Then the stdout matches:
@@ -192,7 +187,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | keyword\s+\[relays\.key\]     |
     And the exit code is 0
 
-  @wip
   Scenario: config schema drills into a single field and shows its description
     When isaac is run with "config schema relays.value.keeper"
     Then the stdout matches:
@@ -202,7 +196,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | Keeper tending this relay           |
     And the exit code is 0
 
-  @wip
   Scenario: config schema drills through a slot id on the fixture table
     When isaac is run with "config schema relays.helm-station.keeper"
     Then the stdout matches:
@@ -211,14 +204,12 @@ Feature: isaac config schema is generic — no module names it another module's 
       | Keeper tending this relay                |
     And the exit code is 0
 
-  @wip
   Scenario: config schema gives a friendly error for a 2-segment typo, not a slot-id rewrite
     When isaac is run with "config schema relays.valued"
     Then the stderr contains "Path not found in config schema: relays.valued"
     And the stderr does not contain "Exception"
     And the exit code is 1
 
-  @wip
   Scenario: config schema --tree expands the fixture table's named sub-schema
     When isaac is run with "config schema --tree"
     Then the stdout matches:
@@ -228,7 +219,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | Keeper tending this relay      |
     And the exit code is 0
 
-  @wip
   Scenario: a [:registered-in?] field lists the berth's registered entries as options, excluding non-configurable ones
     When isaac is run with "config schema relays.value.type"
     Then the stdout matches:
@@ -239,7 +229,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | options:.*hidden-relay |
     And the exit code is 0
 
-  @wip
   Scenario: help config lists the schema subcommand
     When isaac is run with "help config"
     Then the stdout matches:
@@ -247,7 +236,6 @@ Feature: isaac config schema is generic — no module names it another module's 
       | schema \[schema-path\]\s+Print the config schema |
     And the exit code is 0
 
-  @wip
   Scenario: config schema --help describes --tree with generic examples and no other module's names
     When isaac is run with "config schema --help"
     Then the stdout matches:

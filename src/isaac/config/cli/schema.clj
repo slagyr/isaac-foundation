@@ -1,26 +1,23 @@
 (ns isaac.config.cli.schema
   "isaac config schema — print the schema for a schema path."
   (:require
+    [c3kit.apron.schema :as schema]
     [c3kit.apron.schema.path :as schema-path]
     [clojure.string :as str]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
-    [isaac.config.comm-kinds :as comm-kinds]
+    [isaac.config.schema-base :as schema-base]
+    [isaac.config.schema.examples :as schema-examples]
     [isaac.config.schema.term :as schema-term]
-    [isaac.module.discovery :as discovery]
+    [isaac.schema.registered-in :as registered-in]
 ))
 
 (def option-spec
   (into [[nil  "--tree" "Expand every named sub-schema as its own section"]]
         inspect/structured-option-spec))
 
-(def ^:private examples
-  (str "  isaac config schema\n"
-        "  isaac config schema crew\n"
-        "  isaac config schema providers.value\n"
-        "  isaac config schema crew.value.model\n"
-        "  isaac config schema providers.value.api-key\n"
-        "  isaac config schema --tree"))
+(defn- examples-body [root]
+  (str/join "\n" (map #(str "  " %) (schema-examples/command-lines root))))
 
 (defn help []
   (common/render-help
@@ -28,37 +25,37 @@
      :params      "[schema-path] [options]"
      :description (str "Print the config schema for a schema path. Schema paths use literal\n"
                        "'key' and 'value' segments to address the key/value types of a map —\n"
-                       "for example 'crew.value' is the schema of a single crew entry,\n"
-                       "'crew.value.soul' drills into the soul field on that entry.")
+                       "for example 'modules.value' is the schema of a single module entry,\n"
+                       "'modules.key' is the type of that entry's map key.")
      :option-spec option-spec
-     :examples    examples}))
+     :examples    (examples-body schema-base/base-root)}))
 
-(defn- guidance []
-  (str "\nTry:\n" examples))
+(defn- guidance [root]
+  (str "\nTry:\n" (examples-body root)))
 
 (defn- schema-context [opts]
   (common/schema-context opts))
 
-(defn- comm-resolver [module-index]
-  (let [module-index (or module-index (discovery/builtin-index))]
-    (if module-index
-      #(comm-kinds/comm-kinds module-index)
-      comm-kinds/comm-kinds)))
+(defn- table-spec-at [root first-segment]
+  (try (schema-path/schema-at root first-segment) (catch Exception _ nil)))
 
-(def ^:private collection-surfaces #{"comms" "providers"})
+(defn- dynamic-key-spec? [spec]
+  (let [spec (some-> spec schema/normalize-spec)]
+    (boolean (and spec (:key-spec spec) (:value-spec spec)))))
 
 (defn- substituted-path
-  "When `path-str` targets a map-of surface via a literal slot-id segment
-   followed by further drilling (e.g. `comms.discord.token`), rewrite the
-   slot segment as `.value` so apron's standard walker descends into the
-   value-spec. Requires at least three segments so a two-segment typo
-   (e.g. `providers.valued`) is not silently rewritten to `providers.value`.
+  "When `path-str` targets a dynamic-key map (a spec with both a :key-spec
+   and a :value-spec) via a literal slot-id segment followed by further
+   drilling (e.g. `comms.discord.token`), rewrite the slot segment as
+   `.value` so apron's standard walker descends into the value-spec.
+   Requires at least three segments so a two-segment typo (e.g.
+   `providers.valued`) is not silently rewritten to `providers.value`.
    Returns nil when no substitution applies."
-  [path-str]
+  [root path-str]
   (let [segments (some-> path-str (str/split #"\."))]
     (when (and (<= 3 (count segments))
-               (contains? collection-surfaces (first segments))
-               (not (#{"value" "key"} (second segments))))
+               (not (#{"value" "key"} (second segments)))
+               (dynamic-key-spec? (table-spec-at root (first segments))))
       (str/join "." (cons (first segments) (cons "value" (drop 2 segments)))))))
 
 (defn- resolve-path [root path-str]
@@ -66,7 +63,8 @@
     root
     (try
       (or (schema-path/schema-at root path-str)
-          (some-> path-str substituted-path (->> (schema-path/schema-at root))))
+          (when-let [substituted (substituted-path root path-str)]
+            (schema-path/schema-at root substituted)))
       (catch Exception _ nil))))
 
 (defn- print-schema! [opts path-str options]
@@ -82,16 +80,15 @@
 
           :else
           (let [root?  (or (nil? path-str) (str/blank? path-str))
-                output (schema-term/spec->term spec {:color?            (common/stdout-tty?)
-                                                     :config            config
-                                                     :module-index      module-index
-                                                     :path-prefix       (common/path-prefix path-str)
-                                                     :deep?             (boolean tree)
-                                                     :width             80
-                                                     :options-resolvers {:comms (comm-resolver module-index)}})]
+                output (binding [registered-in/*module-index* module-index
+                                  registered-in/*config*       config]
+                          (schema-term/spec->term spec {:color?      (common/stdout-tty?)
+                                                        :path-prefix (common/path-prefix path-str)
+                                                        :deep?       (boolean tree)
+                                                        :width       80}))]
             (if output
               (do
-                (println (if root? (str output (guidance)) output))
+                (println (if root? (str output (guidance root)) output))
                 0)
               (do
                 (binding [*out* *err*]
