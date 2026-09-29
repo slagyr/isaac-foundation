@@ -275,7 +275,7 @@
 ;; ----- Module introspection (isaac-gp4g) -----
 
 (defn- contribution-summary
-  "The value `modules show` / isaac-manual report for one contribution: the
+  "The value `modules show` / isaac-handbook report for one contribution: the
    contributed entry ids for a keyed (:map) berth, or the raw contribution
    value for an unkeyed (:seq / scalar) berth — there is no id to name."
   [berth-schema contribution]
@@ -285,11 +285,11 @@
 
 (defn module-report
   "Introspection for one installed module: its `:description`, its
-   `:manual` classpath resource (nil when undeclared), the berths it
+   `:handbook` classpath resource (nil when undeclared), the berths it
    declares (`berth-id -> {:description ...}`), and what it contributes to
    berths declared by any module (`berth-id -> contributed entry ids`, or
    the raw value for an unkeyed berth). Feeds `isaac modules show` and,
-   later, isaac-manual's `manual__read`."
+   later, isaac-handbook's `handbook__read`."
   [module-index id]
   (let [manifest    (get-in module-index [id :manifest])
         declares    (into {}
@@ -301,7 +301,7 @@
                                     [berth-key (contribution-summary (:schema decl) value)])))
                           (collect-contributions manifest))]
     {:description (:description manifest)
-     :manual      (:manual manifest)
+     :handbook    (:handbook manifest)
      :declares    declares
      :contributes contributes}))
 

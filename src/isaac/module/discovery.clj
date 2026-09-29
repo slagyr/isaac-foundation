@@ -41,31 +41,31 @@
 (defn- module-resource-roots [coord context]
   (or (:paths (module-deps-edn-map coord context)) ["resources" "src"]))
 
-(defn manual-resolves?
-  "True when a module's `:manual` classpath resource can be found — under
+(defn handbook-resolves?
+  "True when a module's `:handbook` classpath resource can be found — under
    one of the module's deps.edn `:paths` on disk (or `resources`/`src` when
    there is no deps.edn), or, failing that, anywhere on the live classpath
    by name (the module may already be loaded with no resolvable local root)."
-  [coord context manual]
+  [coord context handbook]
   (boolean
     (or (when-let [dir (coords/coord-directory coord context)]
           (let [fs* (coords/runtime-fs)]
-            (some #(coords/path-exists? fs* (str dir "/" % "/" manual))
+            (some #(coords/path-exists? fs* (str dir "/" % "/" handbook))
                   (module-resource-roots coord context))))
-        (and classpath/*resolve-classpath?* (seq (resource-urls manual))))))
+        (and classpath/*resolve-classpath?* (seq (resource-urls handbook))))))
 
-(defn- manual-warning [context [id entry]]
-  (let [manual (get-in entry [:manifest :manual])]
-    (when (and manual (not (manual-resolves? (:coord entry) context manual)))
-      {:key   (coords/manifest-error-key id :manual)
-       :value (str manual " not found")})))
+(defn- handbook-warning [context [id entry]]
+  (let [handbook (get-in entry [:manifest :handbook])]
+    (when (and handbook (not (handbook-resolves? (:coord entry) context handbook)))
+      {:key   (coords/manifest-error-key id :handbook)
+       :value (str handbook " not found")})))
 
-(defn manual-warnings
-  "Warning rows for every installed module whose `:manual` classpath
-   resource does not resolve. A missing manual is never an error — the
-   module still loads; the doc just isn't there for isaac-manual to read."
+(defn handbook-warnings
+  "Warning rows for every installed module whose `:handbook` classpath
+   resource does not resolve. A missing handbook is never an error — the
+   module still loads; the doc just isn't there for isaac-handbook to read."
   [index context]
-  (vec (keep (partial manual-warning context) index)))
+  (vec (keep (partial handbook-warning context) index)))
 
 (defn module-id-from-dep-coord [coord context]
   (when (map? coord)
@@ -473,7 +473,7 @@
                          (concat (cycle-errors index)
                                  (duplicate-berth-declaration-errors index)
                                  ((requiring-resolve 'isaac.module.berths/validate-contributions!) index)))
-         :warnings (manual-warnings index context)}))))
+         :warnings (handbook-warnings index context)}))))
 
 
 

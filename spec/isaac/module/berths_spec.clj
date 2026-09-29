@@ -151,8 +151,8 @@
 
 (describe "module-report"
 
-  ;; isaac-gp4g: `modules show` / isaac-manual introspection — a module's
-  ;; description, manual doc, declared berths, and contributions.
+  ;; isaac-ppyj: `modules show` / isaac-handbook introspection — a module's
+  ;; description, handbook doc, declared berths, and contributions.
   (def bridge-index
     {:marigold.bridge
      {:manifest {:id          :marigold.bridge
@@ -167,19 +167,19 @@
      {:manifest {:id                   :marigold.longwave
                  :version              "0.1.0"
                  :description          "Long-wave radio for the far reaches."
-                 :manual               "marigold/longwave/manual.md"
+                 :handbook             "marigold/longwave/handbook.md"
                  :marigold.bridge/comm {:longwave {:label "long-wave radio"}}}}})
 
-  (it "reports description, manual, declared berths, and contributions for the declaring module"
+  (it "reports description, handbook, declared berths, and contributions for the declaring module"
     (should= {:description "The ship's bridge: where channels are declared."
-              :manual      nil
+              :handbook    nil
               :declares    {:marigold.bridge/comm {:description "Comm channels."}}
               :contributes {}}
              (berths/module-report bridge-index :marigold.bridge)))
 
   (it "reports contributed entry ids for a keyed (:map) berth, with no berths of its own"
     (should= {:description "Long-wave radio for the far reaches."
-              :manual      "marigold/longwave/manual.md"
+              :handbook    "marigold/longwave/handbook.md"
               :declares    {}
               :contributes {:marigold.bridge/comm [:longwave]}}
              (berths/module-report bridge-index :marigold.longwave)))

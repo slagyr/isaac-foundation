@@ -102,7 +102,7 @@
     {:command     "isaac modules show"
      :params      "<name> [options]"
      :description (str "Show full detail for one module: coordinate, source,\n"
-                       "required-by, description, manual doc, and what it\n"
+                       "required-by, description, handbook doc, and what it\n"
                        "contributes to other modules' berths. Structured\n"
                        "output (also reporting declared berths) via --edn / --json.")
      :option-spec structured-option-spec}))
@@ -220,7 +220,7 @@
                           (str (module-id-str berth-id) "  " (format-contribution-value value)))
                         (sort-by (comp module-id-str key) contributes))))))
 
-(defn- render-module-detail [{:keys [id version status coord source required-by description manual contributes]}]
+(defn- render-module-detail [{:keys [id version status coord source required-by description handbook contributes]}]
   (let [coord-lines (format-full-coord-lines coord)
         indent      "            "]
     (str (module-id-str id) "\n"
@@ -232,7 +232,7 @@
            (str indent (str/join (str "\n" indent) (rest coord-lines)) "\n"))
          "Source:      " (name source) "\n"
          "Required by: " (format-required-by-detail required-by)
-         (when-not (str/blank? manual) (str "\nManual:      " manual))
+         (when-not (str/blank? handbook) (str "\nHandbook:    " handbook))
          (render-contributes-block contributes))))
 
 (defn- format-required-by [required-by]

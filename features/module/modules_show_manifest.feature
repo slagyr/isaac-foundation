@@ -48,7 +48,6 @@ Feature: isaac modules show — what a module is and what it provides
                  :marigold.longwave {:local/root "/tmp/modules/marigold.longwave"}}}
       """
 
-  @wip
   Scenario: show prints what a module is, its handbook, and what it contributes
     When isaac is run with "modules show marigold.longwave"
     Then the stdout lines contain in order:
@@ -58,7 +57,6 @@ Feature: isaac modules show — what a module is and what it provides
       | marigold.bridge/comm  longwave                    |
     And the exit code is 0
 
-  @wip
   Scenario: show --edn reports declared berths with their descriptions
     When isaac is run with "modules show marigold.bridge --edn"
     Then the stdout EDN contains:
@@ -68,7 +66,6 @@ Feature: isaac modules show — what a module is and what it provides
       | handbook                                  | nil                                               |
     And the exit code is 0
 
-  @wip
   Scenario: show --edn reports contributions by berth
     When isaac is run with "modules show marigold.longwave --edn"
     Then the stdout EDN contains:
@@ -77,7 +74,6 @@ Feature: isaac modules show — what a module is and what it provides
       | contributes.marigold.bridge/comm | [:longwave]                   |
     And the exit code is 0
 
-  @wip
   Scenario: a handbook that does not resolve is a warning, not an error
     Given the isaac file "/tmp/modules/marigold.longwave/resources/isaac-manifest.edn" exists with:
       """
