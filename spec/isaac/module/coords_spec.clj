@@ -1,19 +1,37 @@
 (ns isaac.module.coords-spec
   (:require
+    [clojure.tools.gitlibs :as gitlibs]
+    [isaac.cli.host :as host]
     [isaac.module.coords :as coords]
     [speclj.core :refer :all]))
 
 (describe "isaac.module.coords"
 
-  (it "looks for cached gitlibs under the configured cache directory"
-    (let [prev (System/getProperty "clojure.gitlibs.dir")]
+  (it "looks for cached gitlibs under the initialized tools.deps cache directory"
+    (with-redefs [gitlibs/cache-dir (constantly "/tmp/fixture-gitlibs")]
+      (should= "/tmp/fixture-gitlibs/libs" (coords/gitlibs-root))))
+
+  (it "uses the initialized tools.deps gitlibs cache even if the property changes later"
+    (with-redefs [gitlibs/cache-dir (constantly "/tmp/initialized-gitlibs")]
+      (should= "/tmp/initialized-gitlibs/libs" (coords/gitlibs-root))))
+
+  (it "uses the configured property ahead of the GITLIBS environment override"
+    (let [host (host/embedded-host {:env {"GITLIBS" "/tmp/host-gitlibs"}})]
+      (with-redefs [requiring-resolve (constantly nil)]
+        (binding [host/*host* host]
+          (should= (str (System/getProperty "clojure.gitlibs.dir") "/libs")
+                   (coords/gitlibs-root))))))
+
+  (it "uses the active CLI host's GITLIBS override when no property is configured"
+    (let [host (host/embedded-host {:env {"GITLIBS" "/tmp/host-gitlibs"}})
+          prior (System/getProperty "clojure.gitlibs.dir")]
       (try
-        (System/setProperty "clojure.gitlibs.dir" "/tmp/fixture-gitlibs")
-        (should= "/tmp/fixture-gitlibs/libs" (coords/gitlibs-root))
+        (System/clearProperty "clojure.gitlibs.dir")
+        (with-redefs [requiring-resolve (constantly nil)]
+          (binding [host/*host* host]
+            (should= "/tmp/host-gitlibs/libs" (coords/gitlibs-root))))
         (finally
-          (if prev
-            (System/setProperty "clojure.gitlibs.dir" prev)
-            (System/clearProperty "clojure.gitlibs.dir"))))))
+          (when prior (System/setProperty "clojure.gitlibs.dir" prior))))))
 
   (it "coerces raw ids to keywords"
     (should= :mod.a (coords/->module-id :mod.a))

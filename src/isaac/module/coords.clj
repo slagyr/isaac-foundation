@@ -5,6 +5,7 @@
     [c3kit.apron.schema :as cs]
     [clojure.edn :as edn]
     [clojure.string :as str]
+    [isaac.cli.host :as host]
     [isaac.fs :as fs]))
 
 (def foundation-module-id :isaac.foundation)
@@ -88,12 +89,14 @@
       (re-matches #"[A-Za-z]:.*" path)))
 
 (defn- gitlibs-dir
-  "The gitlibs cache dir, resolved as clojure.tools.gitlibs/cache-dir does
-   (GITLIBS env, then the clojure.gitlibs.dir property, then ~/.gitlibs) —
-   inline so the server's JVM classpath needs no tools.gitlibs."
+  "Use tools.deps' initialized cache when available; on the server JVM,
+   tools.gitlibs is absent, so resolve its configuration without linking it."
   []
-  (or (System/getenv "GITLIBS")
+  (or (when-let [cache-dir (try (requiring-resolve 'clojure.tools.gitlibs/cache-dir)
+                                (catch Exception _ nil))]
+        (cache-dir))
       (System/getProperty "clojure.gitlibs.dir")
+      (host/env "GITLIBS")
       (str (System/getProperty "user.home") "/.gitlibs")))
 
 (defn gitlibs-root []
