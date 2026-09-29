@@ -59,15 +59,18 @@
 (def valid-module-coord? coords/valid-module-coord?)
 
 (defn list-configured-modules
-  "Returns {:modules [{:id :coord :status :version :required-by}]} for explicit
-   config entries plus transitive module deps (deps.edn-native). Resolves the
-   unified classpath via discover! so :version reflects the manifest that won
-   resolution; explicit :coord values are echoed from config as written."
+  "Returns {:modules [{:id :coord :status :version :required-by}] :index ...}
+   for explicit config entries plus transitive module deps (deps.edn-native).
+   Resolves the unified classpath via discover! so :version reflects the
+   manifest that won resolution; explicit :coord values are echoed from
+   config as written. :index is the full module-index (id -> {:manifest ...})
+   discover! resolved, for callers (e.g. `modules show`) that need manifest
+   detail beyond the summary rows."
   [config context]
   (binding [classpath/*resolve-classpath?* true]
     (let [declared (get config :modules {})]
       (if (or (nil? declared) (not (map? declared)))
-        {:modules [] :conflicts [] :drift []}
+        {:modules [] :conflicts [] :drift [] :index (discovery/builtin-index)}
         (let [cwd              (or (:cwd context) (host/cwd))
               _                (discovery/preload-planned-module-deps! declared cwd)
               explicit-modules (discovery/explicit-module-map declared context)
@@ -97,7 +100,7 @@
                     (:version manifest) (assoc :version (:version manifest))
                     (:coord entry) (assoc :coord (:coord entry)))))
               {:keys [conflicts drift]} (versions/module-version-divergences explicit-modules context)]
-          (cond-> {:modules (vec (concat explicit-rows implied-rows))}
+          (cond-> {:modules (vec (concat explicit-rows implied-rows)) :index index}
             (seq conflicts) (assoc :conflicts conflicts)
             (seq drift)     (assoc :drift drift)))))))
 

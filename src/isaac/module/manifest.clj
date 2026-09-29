@@ -19,6 +19,11 @@
                             :message  "must be present"}
             :builtin?      {:type :boolean}
             :description   {:type :string}
+            ;; Classpath resource naming the module's operating-manual doc
+            ;; (markdown; fixed ## Purpose / ## Procedures / ## Emergencies
+            ;; headings). A manual that fails to resolve is a config
+            ;; warning, never an error (isaac.module.discovery/manual-warnings).
+            :manual        {:type :string}
             ;; :berths and :deps stay :ignore here because their nested
             ;; error keys are easier to emit directly (see
             ;; validate-berths-and-deps!) than to coax out of c3kit's
@@ -27,7 +32,7 @@
             :berths        {:type :ignore}
             :deps          {:type :ignore}}})
 
-(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :deps :description :factory :id :version})
+(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :deps :description :factory :id :manual :version})
 (def ^:private known-extend-kinds #{})
 (def ^:private known-keys (into known-meta-keys known-extend-kinds))
 

@@ -272,6 +272,39 @@
                    {:key   (str prefix (format-contribution-suffix path))
                     :value msg}))))))
 
+;; ----- Module introspection (isaac-gp4g) -----
+
+(defn- contribution-summary
+  "The value `modules show` / isaac-manual report for one contribution: the
+   contributed entry ids for a keyed (:map) berth, or the raw contribution
+   value for an unkeyed (:seq / scalar) berth — there is no id to name."
+  [berth-schema contribution]
+  (if (= :map (:type berth-schema))
+    (vec (keys contribution))
+    contribution))
+
+(defn module-report
+  "Introspection for one installed module: its `:description`, its
+   `:manual` classpath resource (nil when undeclared), the berths it
+   declares (`berth-id -> {:description ...}`), and what it contributes to
+   berths declared by any module (`berth-id -> contributed entry ids`, or
+   the raw value for an unkeyed berth). Feeds `isaac modules show` and,
+   later, isaac-manual's `manual__read`."
+  [module-index id]
+  (let [manifest    (get-in module-index [id :manifest])
+        declares    (into {}
+                          (map (fn [[berth-id decl]] [berth-id {:description (:description decl)}]))
+                          (:berths manifest))
+        contributes (into {}
+                          (keep (fn [[berth-key value]]
+                                  (when-let [decl (find-berth-decl module-index berth-key)]
+                                    [berth-key (contribution-summary (:schema decl) value)])))
+                          (collect-contributions manifest))]
+    {:description (:description manifest)
+     :manual      (:manual manifest)
+     :declares    declares
+     :contributes contributes}))
+
 (defn validate-contributions! [module-index]
   ;; Bind *module-index* so berth schemas using the :registered-in?
   ;; primitive can resolve sibling contributions across the loaded set

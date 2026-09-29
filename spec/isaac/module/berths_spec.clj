@@ -148,3 +148,56 @@
                    {:type :map :key-spec {:type :keyword}
                     :value-spec {:type :map :schema {:ttl {:type :int}}}})]
       (should= "module-index[\"isaac.google\"].isaac.http/identity[:google-pubsub].ttl" (:key (first errors))))))
+
+(describe "module-report"
+
+  ;; isaac-gp4g: `modules show` / isaac-manual introspection — a module's
+  ;; description, manual doc, declared berths, and contributions.
+  (def bridge-index
+    {:marigold.bridge
+     {:manifest {:id          :marigold.bridge
+                 :version     "1.0.0"
+                 :description "The ship's bridge: where channels are declared."
+                 :berths      {:marigold.bridge/comm
+                               {:description "Comm channels."
+                                :schema      {:type       :map
+                                              :key-spec   {:type :keyword}
+                                              :value-spec {:type :map}}}}}}
+     :marigold.longwave
+     {:manifest {:id                   :marigold.longwave
+                 :version              "0.1.0"
+                 :description          "Long-wave radio for the far reaches."
+                 :manual               "marigold/longwave/manual.md"
+                 :marigold.bridge/comm {:longwave {:label "long-wave radio"}}}}})
+
+  (it "reports description, manual, declared berths, and contributions for the declaring module"
+    (should= {:description "The ship's bridge: where channels are declared."
+              :manual      nil
+              :declares    {:marigold.bridge/comm {:description "Comm channels."}}
+              :contributes {}}
+             (berths/module-report bridge-index :marigold.bridge)))
+
+  (it "reports contributed entry ids for a keyed (:map) berth, with no berths of its own"
+    (should= {:description "Long-wave radio for the far reaches."
+              :manual      "marigold/longwave/manual.md"
+              :declares    {}
+              :contributes {:marigold.bridge/comm [:longwave]}}
+             (berths/module-report bridge-index :marigold.longwave)))
+
+  (it "reports the raw value for an unkeyed (:seq) berth contribution"
+    (let [index {:marigold.bridge
+                 {:manifest {:id     :marigold.bridge
+                              :berths {:marigold.bridge/signal-route
+                                       {:description "Routes a signal to a handler."
+                                        :schema      {:type :seq}}}}}
+                 :marigold.longwave
+                 {:manifest {:id                            :marigold.longwave
+                              :marigold.bridge/signal-route [{:method :get :path "/ping"}]}}}]
+      (should= [{:method :get :path "/ping"}]
+               (get-in (berths/module-report index :marigold.longwave)
+                       [:contributes :marigold.bridge/signal-route]))))
+
+  (it "skips a contribution whose berth isn't declared by any module"
+    (let [index {:marigold.longwave
+                 {:manifest {:id :marigold.longwave :marigold.mystery/thing {:x 1}}}}]
+      (should= {} (:contributes (berths/module-report index :marigold.longwave))))))

@@ -326,6 +326,7 @@
                                                             (into (:errors result))
                                                             (berths/normalize-errors (:index discovery)))
                                         all-warnings     (->> (concat (:warnings result) (:warnings contributed) (:warnings slices)
+                                                                      (:warnings discovery)
                                                                       (warnings/reference-warnings @unresolved*))
                                                               (berths/normalize-errors (:index discovery))
                                                               (sort-by :key)

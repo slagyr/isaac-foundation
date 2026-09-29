@@ -100,13 +100,6 @@
         text (str/replace text #"\s+" " ")]
     (subs text 0 (min 120 (count text)))))
 
-(defn- parse-path-segments [path]
-  (mapv (fn [segment]
-          (if (re-matches #"\d+" segment)
-            (parse-long segment)
-            segment))
-        (str/split path #"\.")))
-
 (defn- map-value [value segment]
   (let [keyword-segment (keyword segment)]
     (cond
@@ -114,24 +107,42 @@
       (contains? value keyword-segment) (get value keyword-segment)
       :else                             ::missing)))
 
+(defn- consume-token [current token]
+  (cond
+    (= ::missing current) ::missing
+
+    (re-matches #"\d+" token)
+    (let [idx (parse-long token)]
+      (if (and (sequential? current) (<= 0 idx) (< idx (count current)))
+        (nth current idx)
+        ::missing))
+
+    (map? current) (map-value current token)
+
+    :else ::missing))
+
 (defn- value-at-path [value path]
-  (reduce (fn [current segment]
-            (cond
-              (= ::missing current)
-              ::missing
-
-              (integer? segment)
-              (if (and (sequential? current) (<= 0 segment) (< segment (count current)))
-                (nth current segment)
-                ::missing)
-
-              (map? current)
-              (map-value current segment)
-
-              :else
-              ::missing))
-          value
-          (parse-path-segments path)))
+  ;; A "." both separates path segments and can appear literally inside a
+  ;; namespaced-keyword segment's own namespace (`marigold.bridge/comm`), so
+  ;; segments can't be pre-split once. At each step, greedily try the
+  ;; longest dotted join of the remaining leading tokens that resolves as
+  ;; one key against the current value, falling back to shorter joins —
+  ;; down to the plain single-token step every other path already relies on.
+  (loop [current value
+         tokens  (str/split path #"\.")]
+    (cond
+      (empty? tokens)       current
+      (= ::missing current) ::missing
+      :else
+      (let [[matched consumed]
+            (loop [n (count tokens)]
+              (if (zero? n)
+                [::missing 1]
+                (let [v (consume-token current (str/join "." (take n tokens)))]
+                  (if (= ::missing v)
+                    (recur (dec n))
+                    [v n]))))]
+        (recur matched (drop consumed tokens))))))
 
 (defn- parse-json-text [text]
   (try

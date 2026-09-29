@@ -26,14 +26,46 @@
             url))
         (resource-urls "isaac-manifest.edn")))
 
-(defn read-module-deps-edn [coord context]
+(defn- module-deps-edn-map [coord context]
   (when-let [dir (coords/coord-directory coord context)]
     (let [fs*       (coords/runtime-fs)
           deps-file (str dir "/deps.edn")]
       (when-let [body (coords/read-text-file fs* deps-file)]
         (try
-          (:deps (edn/read-string body))
+          (edn/read-string body)
           (catch Exception _ nil))))))
+
+(defn read-module-deps-edn [coord context]
+  (:deps (module-deps-edn-map coord context)))
+
+(defn- module-resource-roots [coord context]
+  (or (:paths (module-deps-edn-map coord context)) ["resources" "src"]))
+
+(defn manual-resolves?
+  "True when a module's `:manual` classpath resource can be found — under
+   one of the module's deps.edn `:paths` on disk (or `resources`/`src` when
+   there is no deps.edn), or, failing that, anywhere on the live classpath
+   by name (the module may already be loaded with no resolvable local root)."
+  [coord context manual]
+  (boolean
+    (or (when-let [dir (coords/coord-directory coord context)]
+          (let [fs* (coords/runtime-fs)]
+            (some #(coords/path-exists? fs* (str dir "/" % "/" manual))
+                  (module-resource-roots coord context))))
+        (and classpath/*resolve-classpath?* (seq (resource-urls manual))))))
+
+(defn- manual-warning [context [id entry]]
+  (let [manual (get-in entry [:manifest :manual])]
+    (when (and manual (not (manual-resolves? (:coord entry) context manual)))
+      {:key   (coords/manifest-error-key id :manual)
+       :value (str manual " not found")})))
+
+(defn manual-warnings
+  "Warning rows for every installed module whose `:manual` classpath
+   resource does not resolve. A missing manual is never an error — the
+   module still loads; the doc just isn't there for isaac-manual to read."
+  [index context]
+  (vec (keep (partial manual-warning context) index)))
 
 (defn module-id-from-dep-coord [coord context]
   (when (map? coord)
@@ -126,10 +158,14 @@
       explicit-modules)))
 
 (defn resolve-manifest-resource [id coord]
+  ;; A :local/root coord's directory is known upfront — no resolution
+  ;; needed — so its own on-disk (or mem-fs, in tests) manifest is always
+  ;; authoritative, deps.edn or not. Classpath-wide scan-by-id is the
+  ;; fallback for coords with no directly known directory (git/mvn) or
+  ;; when the local read comes up empty.
   (let [fs* (coords/runtime-fs)]
     (or (when-let [root (:local/root coord)]
-          (when-not (fs/exists? fs* (str root "/deps.edn"))
-            (coords/local-manifest-path root fs*)))
+          (coords/local-manifest-path root fs*))
         (when classpath/*resolve-classpath?*
           (manifest-resource id)))))
 
@@ -432,11 +468,12 @@
         ;; nested-nexus wrap or the wrap's restore discards any
         ;; nexus registrations the factories make. Callers invoke
         ;; process-manifest-berths! after load returns.
-        {:index  index
-         :errors (into (into init-errors errors)
-                       (concat (cycle-errors index)
-                               (duplicate-berth-declaration-errors index)
-                               ((requiring-resolve 'isaac.module.berths/validate-contributions!) index)))}))))
+        {:index    index
+         :errors   (into (into init-errors errors)
+                         (concat (cycle-errors index)
+                                 (duplicate-berth-declaration-errors index)
+                                 ((requiring-resolve 'isaac.module.berths/validate-contributions!) index)))
+         :warnings (manual-warnings index context)}))))
 
 
 

@@ -14,6 +14,7 @@
     [isaac.config.paths :as paths]
     [isaac.cli.table :as table]
     [isaac.fs :as fs]
+    [isaac.module.berths :as berths]
     [isaac.module.classpath :as classpath]
     [isaac.module.coords :as coords]
     [isaac.module.discovery :as discovery]
@@ -101,7 +102,9 @@
     {:command     "isaac modules show"
      :params      "<name> [options]"
      :description (str "Show full detail for one module: coordinate, source,\n"
-                       "and required-by. Structured output via --edn / --json.")
+                       "required-by, description, manual doc, and what it\n"
+                       "contributes to other modules' berths. Structured\n"
+                       "output (also reporting declared berths) via --edn / --json.")
      :option-spec structured-option-spec}))
 
 (defn- remove-help []
@@ -204,17 +207,33 @@
 (defn- enrich-module [config registry explicit-ids module]
   (assoc module :source (infer-module-source config registry explicit-ids module)))
 
-(defn- render-module-detail [{:keys [id version status coord source required-by]}]
+(defn- format-contribution-value [value]
+  (if (sequential? value)
+    (str/join " " (map module-id-str value))
+    (str value)))
+
+(defn- render-contributes-block [contributes]
+  (when (seq contributes)
+    (str "\nContributes:\n"
+         (str/join "\n"
+                   (map (fn [[berth-id value]]
+                          (str (module-id-str berth-id) "  " (format-contribution-value value)))
+                        (sort-by (comp module-id-str key) contributes))))))
+
+(defn- render-module-detail [{:keys [id version status coord source required-by description manual contributes]}]
   (let [coord-lines (format-full-coord-lines coord)
         indent      "            "]
     (str (module-id-str id) "\n"
+         (when-not (str/blank? description) (str "Description: " description "\n"))
          (when version (str "Version:     " version "\n"))
          "Status:      " (name status) "\n"
          "Coordinate:  " (first coord-lines) "\n"
          (when (> (count coord-lines) 1)
            (str indent (str/join (str "\n" indent) (rest coord-lines)) "\n"))
          "Source:      " (name source) "\n"
-         "Required by: " (format-required-by-detail required-by))))
+         "Required by: " (format-required-by-detail required-by)
+         (when-not (str/blank? manual) (str "\nManual:      " manual))
+         (render-contributes-block contributes))))
 
 (defn- format-required-by [required-by]
   (let [rb (cond
@@ -577,14 +596,15 @@
       (let [root     (:root opts)
             config   (or (read-root-config root) {})
             context  {:cwd (host/cwd)}
-            {:keys [modules]}
+            {:keys [modules index]}
             (loader/list-configured-modules config context)
             module   (find-module-by-name modules module-name)]
         (if-not module
           (common/print-cli-error! (str "Unknown module: " module-name))
           (let [{:keys [registry]} (registry/fetch-registry config root)
                 explicit-ids       (set (keys (:modules config)))
-                detail             (enrich-module config registry explicit-ids module)]
+                detail             (-> (enrich-module config registry explicit-ids module)
+                                       (merge (berths/module-report index (:id module))))]
             (cond
               (or edn json) (print-structured! edn json detail)
               :else         (println (render-module-detail detail)))

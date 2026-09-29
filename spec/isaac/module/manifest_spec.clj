@@ -69,6 +69,14 @@
    :version "1.0.0"
    :factory 'marigold.bridge/create-module})
 
+(def manual-manifest
+  ;; isaac-gp4g: :manual names a classpath resource — the module's
+  ;; operating-manual doc — read alongside :description.
+  {:id          :marigold.longwave
+   :version     "0.1.0"
+   :description "Long-wave radio for the far reaches."
+   :manual      "marigold/longwave/manual.md"})
+
 (def builtin-manifest
   {:id       :isaac.http
    :version  "1.0.0"
@@ -120,6 +128,10 @@
     (it "preserves the builtin classpath discovery flag"
       (spit (.getPath @tmp-file) (pr-str builtin-manifest))
       (should= builtin-manifest (sut/read-manifest (.getPath @tmp-file) (fs/real-fs))))
+
+    (it "parses a manifest with :manual naming its operating-manual doc"
+      (spit (.getPath @tmp-file) (pr-str manual-manifest))
+      (should= manual-manifest (sut/read-manifest (.getPath @tmp-file) (fs/real-fs))))
 
     (it "reads string paths from an explicit fs"
       (let [mem  (fs/mem-fs)
