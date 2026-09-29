@@ -1,14 +1,19 @@
 (ns isaac.module.coords-spec
   (:require
-    [clojure.tools.gitlibs :as gitlibs]
     [isaac.module.coords :as coords]
     [speclj.core :refer :all]))
 
 (describe "isaac.module.coords"
 
   (it "looks for cached gitlibs under the configured cache directory"
-    (with-redefs [gitlibs/cache-dir (constantly "/tmp/fixture-gitlibs")]
-      (should= "/tmp/fixture-gitlibs/libs" (coords/gitlibs-root))))
+    (let [prev (System/getProperty "clojure.gitlibs.dir")]
+      (try
+        (System/setProperty "clojure.gitlibs.dir" "/tmp/fixture-gitlibs")
+        (should= "/tmp/fixture-gitlibs/libs" (coords/gitlibs-root))
+        (finally
+          (if prev
+            (System/setProperty "clojure.gitlibs.dir" prev)
+            (System/clearProperty "clojure.gitlibs.dir"))))))
 
   (it "coerces raw ids to keywords"
     (should= :mod.a (coords/->module-id :mod.a))
