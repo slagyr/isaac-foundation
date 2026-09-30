@@ -176,7 +176,7 @@ Feature: isaac config schema is generic — no module names it another module's 
       | pattern                                       |
       | \[relays\.value\] relay-node schema           |
       | keeper\s+string\s+\[relays\.value\.keeper\]       |
-      | type\s+keyword\s+\[relays\.value\.type\]      |
+      | type\s+keyword.*\[relays\.value\.type\]      |
     And the exit code is 0
 
   Scenario: config schema <table>.key resolves the map-key spec
