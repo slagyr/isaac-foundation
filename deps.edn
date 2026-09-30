@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "resources"]
 
  :deps  {babashka/process             {:mvn/version "0.5.22"}
          cheshire/cheshire            {:mvn/version "5.13.0"}
