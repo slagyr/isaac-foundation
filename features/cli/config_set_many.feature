@@ -7,8 +7,8 @@ Feature: Atomic multi-path config writes (isaac-cvri)
   calls; isaac config set/unset are unchanged and stay single-path.
 
   New-entity placement inside a batch follows the SAME precedent as plain
-  `config set` (edit where it lives; new + siblings all files → new file;
-  else prefer-entity-files; else inline) — no separate override. See
+  `config set` (edit where it lives; a new entry becomes a file when
+  `:prefer-entity-files` is true, else inline) — no separate override. See
   `features/cli/config_set_new_entity_placement.feature` for that rule's
   own CLI-level proof; the last scenario here just confirms a batch gets
   it too, since it reuses the same `set-plan`/`choose-set-location`.
@@ -71,10 +71,13 @@ Feature: Atomic multi-path config writes (isaac-cvri)
     Then the mutation is refused with an error matching "bogus"
     And the config file "isaac.edn" does not contain "helm"
 
-  Scenario: a new whole-entity value in a batch follows the same siblings-all-files placement precedent as config set
-    Given the isaac file "config/berths/captain.edn" exists with:
+  @wip
+  Scenario: a new whole-entity value in a batch follows the same placement preference as config set (isaac-c4em)
+    Given config file "isaac.edn" containing:
       """
-      {:gauge "llama"}
+      {:modules             {:marigold.comm.parlor {:local/root "spec/isaac/config/fixtures/modules/marigold.comm.parlor"}}
+       :station             {:primary "grover"}
+       :prefer-entity-files true}
       """
     When config is set atomically:
       | op  | path           | value                                                                                  |
