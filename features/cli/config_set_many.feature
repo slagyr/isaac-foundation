@@ -71,7 +71,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
     Then the mutation is refused with an error matching "bogus"
     And the config file "isaac.edn" does not contain "helm"
 
-  @wip
   Scenario: a new whole-entity value in a batch follows the same placement preference as config set (isaac-c4em)
     Given config file "isaac.edn" containing:
       """

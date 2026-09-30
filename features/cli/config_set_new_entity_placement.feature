@@ -31,7 +31,6 @@ Feature: config set places a new entry by preference, an existing one where it l
       {:modules {:marigold.lshz.roster {:local/root "/tmp/modules/marigold.lshz.roster"}}}
       """
 
-  @wip
   Scenario: without the preference, a new entry lands inline even when its siblings are files
     Given the isaac file "config/roster/first-mate.edn" exists with:
       """
@@ -44,7 +43,6 @@ Feature: config set places a new entry by preference, an existing one where it l
       | roster.boatswain.rank | able  |
     And the isaac file "config/roster/boatswain.edn" does not exist
 
-  @wip
   Scenario: with the preference, a new entry becomes its own entity file
     Given the isaac file "isaac.edn" exists with:
       """
@@ -58,7 +56,6 @@ Feature: config set places a new entry by preference, an existing one where it l
       | rank | able  |
     And the isaac file "isaac.edn" does not contain "boatswain"
 
-  @wip
   Scenario: editing an entry that lives in its own file stays in that file
     Given the isaac file "config/roster/first-mate.edn" exists with:
       """
@@ -71,7 +68,6 @@ Feature: config set places a new entry by preference, an existing one where it l
       | rank | chief |
     And the isaac file "isaac.edn" does not contain "first-mate"
 
-  @wip
   Scenario: editing an inline entry stays inline, even with the preference
     Given the isaac file "isaac.edn" exists with:
       """

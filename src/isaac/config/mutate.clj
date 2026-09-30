@@ -157,25 +157,6 @@
            :companion?    (and entity? (companion-field? root-key field-path))
            :whole-entity? (and entity? (= 2 (count segments)))})))))
 
-(defn- inline-siblings?
-  "True when the root-key's inline map in root-data has any entries at all
-   (any id) — an inline sibling of any kind means \"not every entry is a
-   file\", regardless of whether it matches this write's entity id."
-  [root-data root-key]
-  (boolean (seq (value-at-path root-data [root-key]))))
-
-(defn- dir-has-files?
-  "True when entity-path's parent directory exists and has at least one
-   child — a sibling already stored as its own file. `fs/children` (not
-   `fs/dir?`) is the right check: MemFs never clears a directory's presence
-   marker after its last child is deleted, but `children` reports the
-   now-empty set, so a kind whose last file sibling was just unset correctly
-   reads as \"no file siblings\" (falls through to rules 3/4) rather than
-   wrongly keeping the all-files placement alive."
-  [entity-path]
-  (boolean (when-let [dir (some-> entity-path fs/parent)]
-             (seq (fs/children (runtime-fs) dir)))))
-
 (defn- config-state [root parsed]
   (let [root-path              (paths/root-config-file root)
         root-data              (or (read-edn-path root-path) {})
@@ -218,14 +199,6 @@
      :root-key-inline?      (path-present? root-data [(:root-key parsed)])
      :root-path-exists?     (path-present? root-data (:segments parsed))
      :root-path             root-path
-     ;; rule 2 (isaac-cvri): a NEW entity (not already a file, not already
-     ;; inline) whose kind has no inline siblings and at least one sibling
-     ;; already living in its own file — the new one follows suit.
-     :siblings-all-files?  (and (:entity? parsed)
-                                (not entity-exists?)
-                                (not entity-root-exists?)
-                                (not (inline-siblings? root-data (:root-key parsed)))
-                                (dir-has-files? entity-path))
      ;; config/<key>.edn — the whole value of one top-level key in its own file
      :slice-data            slice-data
      :slice-exists?         (boolean (fs/exists? (runtime-fs) slice-path))
@@ -253,13 +226,12 @@
 
 (defn- choose-set-location
   "Where a written value lands, in precedence order: (1) whichever form
-   already holds the key wins; (2) a brand-new entity whose kind's other
-   entries are ALL already entity files becomes one too (isaac-cvri); (3)
-   `:prefer-entity-files`; (4) else `isaac.edn`. Extended to the
-   `config/<key>.edn` slice (isaac-49zp) — the slice is checked before the
-   entity forms: a key stored as one file cannot also be a directory, so
-   routing a write into `<key>/<id>.edn` would manufacture the very conflict
-   the loader refuses."
+   already holds the key wins — an existing entry is never moved; (2) a
+   brand-new entity becomes its own entity file when `:prefer-entity-files`
+   is true; (3) else `isaac.edn`. Extended to the `config/<key>.edn` slice
+   (isaac-49zp) — the slice is checked before the entity forms: a key stored
+   as one file cannot also be a directory, so routing a write into
+   `<key>/<id>.edn` would manufacture the very conflict the loader refuses."
   [parsed state]
   (cond
     (and (:companion? parsed) (:md-exists? state)) :md
@@ -268,11 +240,10 @@
     (:slice-exists? state) :slice
     (and (:entity? parsed) (:frontmatter-relative state)) :frontmatter
     (and (:entity? parsed) (:entity-root-exists? state)) :root
-    (and (:entity? parsed) (:entity-exists? state)) :entity      ; rule 1 (same id already a file)
-    (and (:entity? parsed) (:siblings-all-files? state)) :entity ; rule 2 (isaac-cvri, NEW)
-    (and (:entity? parsed) (:prefer-entity-files? state)) :entity ; rule 3
+    (and (:entity? parsed) (:entity-exists? state)) :entity       ; rule 1 (existing entry stays where it lives)
+    (and (:entity? parsed) (:prefer-entity-files? state)) :entity ; rule 2 (new entry, preference)
     (and (:prefer-entity-files? state) (not (:root-key-inline? state))) :slice
-    :else :root))                                                 ; rule 4
+    :else :root))                                                 ; rule 3 (new entry, no preference)
 
 (defn- choose-unset-location [parsed state]
   (cond
@@ -298,7 +269,7 @@
 (defn- whole-entity-companion-field
   "The companion field name when `parsed` is a whole-entity write and
    `value` is a map carrying that field as a string — the shape a new
-   entity file placed by rule 1/2/3 (isaac-cvri) needs split out to its
+   entity file placed by rule 1/2 (isaac-cvri) needs split out to its
    companion .md, same as a per-field write already does. nil otherwise
    (no companion kind, no whole-entity write, or the field isn't in
    `value` as a string), meaning the whole map is written as-is."
@@ -671,8 +642,7 @@
    \"...\"} ...]` — as ONE atomic write: every path is parsed first (a parse
    failure on any op refuses the whole batch untouched), each op's plan is
    built with the same `set-plan`/`unset-plan`/`choose-set-location` rules
-   `set-config`/`unset-config` use (including the rule-2 siblings-all-files
-   placement fix), the plans are merged into one, staged, and validated ONCE
+   `set-config`/`unset-config` use, the plans are merged into one, staged, and validated ONCE
    against the resulting config (`validate-plan`, same pre-existing-error /
    new-error semantics as `set-config`). A blocking new error refuses the
    whole batch — nothing is written, not even the individually-valid ops.

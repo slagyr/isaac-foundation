@@ -33,15 +33,6 @@
 (defn- write-env! [content]
   (fs/spit (nexus/get :fs) (str marigold/root "/.env") content))
 
-(defn- write-siblings-baseline!
-  "A valid config with the berths kind holding exactly ONE entry, already
-   stored as its own file, and no inline :berths (nor :watch, which would
-   otherwise reference a berth by id) at all — the shape rule 2 (isaac-cvri)
-   targets."
-  []
-  (config-marigold/write-config! (dissoc config-marigold/baseline-config :berths :watch))
-  (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii}))
-
 (def ^:private parlor-module-root
   (str (config-marigold/fixture-modules-root) "/marigold.comm.parlor"))
 
@@ -470,44 +461,6 @@
         (should= :ok (:status result))
         (should= :helm-mark-iii (get-in (read-edn "isaac.edn") [:berths :newcomer :gauge]))))
 
-    (describe "siblings-all-files placement (isaac-cvri, rule 2)"
-
-      (it "routes a new entity to a file when every sibling of its kind is already a file"
-        (write-siblings-baseline!)
-        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
-          (should= :ok (:status result))
-          (should= "berths/newcomer.edn" (:file result))
-          (should= :helm-mark-iii (:gauge (read-edn "berths/newcomer.edn")))
-          (should-not-contain :newcomer (:berths (read-edn "isaac.edn")))))
-
-      (it "still lands inline when the kind has no siblings at all (rule 4, unaffected)"
-        (config-marigold/write-config! (dissoc config-marigold/baseline-config :berths :watch))
-        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
-          (should= :ok (:status result))
-          (should= "isaac.edn" (:file result))
-          (should-not (file-exists? "berths/newcomer.edn"))))
-
-      (it "stays inline when a sibling of its kind is inline, even with another already a file (mixed, unaffected)"
-        (config-marigold/write-config! (dissoc config-marigold/baseline-config :watch))
-        (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii})
-        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
-          (should= :ok (:status result))
-          (should= "isaac.edn" (:file result))
-          (should-not (file-exists? "berths/newcomer.edn"))))
-
-      (it "still writes to the existing file when the entity itself already lives there (rule 1 wins first, unaffected)"
-        (write-siblings-baseline!)
-        (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :helm-mark-iii)]
-          (should= :ok (:status result))
-          (should= (str "berths/" test-berth-path ".edn") (:file result))))
-
-      (it "falls through to rule 4 once the last file-backed sibling was just unset (open question, resolved: no siblings left)"
-        (write-siblings-baseline!)
-        (should= :ok (:status (sut/unset-config marigold/root (str "berths." test-berth-path))))
-        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
-          (should= :ok (:status result))
-          (should= "isaac.edn" (:file result)))))
-
   (describe "a key in its own file (isaac-49zp)"
 
     (it "writes to config/<key>.edn when the key already lives there"
@@ -685,13 +638,4 @@
                                  {:op :set :path "berths.*.gauge" :value :helm-mark-iii}])]
       (should= :invalid-path (:status result))
       (should= [] (:files result))
-      (should-not-contain :station (read-edn "isaac.edn"))))
-
-  (it "applies the rule-2 siblings-all-files placement inside a batch (isaac-cvri)"
-    (write-siblings-baseline!)
-    (let [result (sut/set-many! marigold/root
-                                [{:op :set :path "berths.newcomer" :value {:gauge :helm-mark-iii}}])]
-      (should= :ok (:status result))
-      (should= {:gauge :helm-mark-iii} (read-edn "berths/newcomer.edn"))
-      (should-not-contain :newcomer (:berths (read-edn "isaac.edn")))
-      (should-contain "berths/newcomer.edn" (:files result)))))
+      (should-not-contain :station (read-edn "isaac.edn")))))

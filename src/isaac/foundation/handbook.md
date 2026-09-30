@@ -248,12 +248,12 @@ and an invalid combination is refused whole with nothing written. Set
 related fields in one call rather than one at a time when they depend
 on each other.
 
-**Where a write lands.** A `set`/`unset` writes to whichever file
-already holds that key (a split-out `<key>.edn`, an entity file, or a
-markdown companion). If the key doesn't exist anywhere yet: a **new
-entity** whose kind's other entries are already ALL stored as their
-own files becomes a file too, following its siblings; otherwise it's
-added to the root `isaac.edn`.
+**Where a write lands.** Placement follows two rules. An **existing**
+entry is written where it already lives (a split-out `<key>.edn`, an
+entity file, or a markdown companion) — an entity file never becomes
+inline, and an inline entry never becomes a file. A **new** entry gets
+its own entity file when the config sets `:prefer-entity-files true`,
+otherwise it lands inline in `isaac.edn`.
 
 **Confirmation.** A successful set or unset reports what it did and
 where: `set crew.cordelia.model = "quantum-anvil" (crew/cordelia.edn)`.
