@@ -1,6 +1,7 @@
 {:id        :isaac.foundation
  :version   "0.1.29"
  :factory   isaac.foundation.module/create-module
+ :handbook  "isaac/foundation/handbook.md"
 
  :berths    {:isaac/component {:description "Runtime components contributed by modules. Entries are inert {:namespace <sym>} declarations; isaac.runner starts them in module dependency order and stops them in reverse."
                                   :schema      {:type       :map

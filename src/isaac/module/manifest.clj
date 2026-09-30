@@ -20,8 +20,10 @@
             :builtin?      {:type :boolean}
             :description   {:type :string}
             ;; Classpath resource naming the module's handbook doc
-            ;; (markdown; conventionally handbook.md, with fixed
-            ;; ## Purpose / ## Procedures / ## Emergencies headings). A
+            ;; (markdown; conventionally handbook.md). Chapters are
+            ;; free-form — there is no fixed heading set — but each
+            ;; concept a chapter covers conventionally gets its own ##
+            ;; heading with a nested ### Troubleshooting subsection. A
             ;; handbook that fails to resolve is a config warning, never an
             ;; error (isaac.module.discovery/handbook-warnings).
             :handbook      {:type :string}
