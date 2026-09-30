@@ -199,7 +199,7 @@
   (get (ordered-berth-decls module-index) berth-id))
 
 (defn- reconcile-path-berth-ids
-  "Maps a reconcile root path (e.g. [:comms]) to the berth id whose
+  "Maps a reconcile root path (e.g. [:widgets]) to the berth id whose
    :register-fn / :deregister-fn hooks apply to factory nodes under it."
   [module-index]
   (into {}

@@ -18,6 +18,10 @@
                             :validate schema/present?
                             :message  "must be present"}
             :builtin?      {:type :boolean}
+            ;; Marks the module that runs the server process. Foundation's
+            ;; module.lifecycle reads this flag to find the server module
+            ;; instead of naming any module's id (isaac-6pqo).
+            :server?       {:type :boolean}
             :description   {:type :string}
             ;; Classpath resource naming the module's handbook doc
             ;; (markdown; conventionally handbook.md). Chapters are
@@ -35,7 +39,7 @@
             :berths        {:type :ignore}
             :deps          {:type :ignore}}})
 
-(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :deps :description :factory :handbook :id :version})
+(def ^:private known-meta-keys #{:berths :bootstrap :builtin? :deps :description :factory :handbook :id :server? :version})
 (def ^:private known-extend-kinds #{})
 (def ^:private known-keys (into known-meta-keys known-extend-kinds))
 

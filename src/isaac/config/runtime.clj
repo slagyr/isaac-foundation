@@ -6,8 +6,8 @@
    the config change source that drives hot reload.
 
    This surface exists so server callers requiring lifecycle behavior don't
-   drag isaac.comm.registry (pulled in transitively by install / configurator)
-   into read-only foundation code. Everything outside
+   drag config-driven component registries (pulled in transitively by
+   install / configurator) into read-only foundation code. Everything outside
    the isaac.config.* namespaces requires *only* config.loader, config.api (test
    write helpers), and/or config.runtime — never install /
    configurator /

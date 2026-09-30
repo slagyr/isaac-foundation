@@ -14,6 +14,13 @@
     [isaac.nexus :as nexus]
     [speclj.core :as speclj]))
 
+(defn signal-factory
+  "Fixture factory for the :signals config table — not otherwise invoked
+   by these specs (schema composition only), but self-contained so this
+   fixture never has to reference another module's factory ns."
+  [_node-path slice]
+  slice)
+
 (def baseline-chartroom-manifest
   "Fictional chartroom module for config-spec schema composition."
   {:id       :marigold.chartroom
@@ -154,7 +161,7 @@
                          :key-spec    {:type :id}
                          :value-spec  {:name           :signal
                                        :type           :map
-                                       :factory        'isaac.comm.factory/create!
+                                       :factory        'isaac.config.marigold/signal-factory
                                        :dynamic-schema {:berth :marigold.chartroom/signal :path [:extra-schema]}
                                        :schema         {:kind  {:type         :id
                                                                :description  "Manifest signal kind to instantiate"

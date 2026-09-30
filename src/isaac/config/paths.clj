@@ -92,8 +92,8 @@
 (defn parse-path-segments
   "Parse a config path into c3kit `path/parse`-shaped segments
    (`[:key :kw]`, `[:index n]`, `[:str s]`) while keeping a `/` inside a
-   segment part of the keyword: `comms.gchat.gchat/allow-from` parses to
-   `[[:key :comms] [:key :gchat] [:key :gchat/allow-from]]` (isaac-cgxa).
+   segment part of the keyword: `widgets.gadget.gadget/allow-from` parses to
+   `[[:key :widgets] [:key :gadget] [:key :gadget/allow-from]]` (isaac-cgxa).
    Wildcards (`*`, `[*]`) throw exactly as c3kit's classifier does, so
    grammar-refusal callers see the same failure; unclassifiable segments
    are dropped, matching `path/parse`'s leniency."

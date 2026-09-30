@@ -38,11 +38,12 @@
      :clear-registrations (fn [] => any)                  — clears module-contributed registrations
      :user-config         (fn [root-key entry-id] => map) — reads user config for an extension
 
-   Every other extension kind has migrated to a :isaac.http/* berth
+   Every other extension kind has migrated to a manifest berth
    processed by `process-manifest-berths!` (phases 4–8 of brth):
    :isaac/cli (phase 4), :route (phase 5), :tools (phase 6),
    :slash-commands / :llm/api / :hook / :provider (phase 7), :comm
-   (phase 8)."
+   (phase 8) — each now declared by the module that owns it, not
+   named here."
   [kind handler-fn]
   (swap! handlers*
          (fn [handlers]
@@ -59,7 +60,12 @@
 (defn handlers-for [kind]
   (get @handlers* kind []))
 
-(def server-module-id :isaac.http)
+(defn- server-module-id
+  "The id of the builtin module whose manifest declares `:server? true` —
+   the module that runs the server process. nil when none does."
+  [module-index]
+  (some (fn [[id {:keys [manifest]}]] (when (:server? manifest) id))
+        module-index))
 
 (defn activate-foundation! []
   (activate! coords/foundation-module-id (discovery/foundation-index)))
@@ -68,7 +74,12 @@
   (swap! activated-modules* disj coords/foundation-module-id))
 
 (defn activate-server! []
-  (activate! server-module-id (discovery/builtin-index)))
+  (let [index (discovery/builtin-index)
+        id    (server-module-id index)]
+    (if id
+      (activate! id index)
+      (throw (ex-info "no builtin module manifest declares :server? true"
+                      {:type :module/no-server-module})))))
 
 (defn resolve-symbol! [sym]
   (requiring-resolve sym))
@@ -77,14 +88,14 @@
   "Reads the user-supplied config slot at `[root-key entry-id]` from
    the live config snapshot. Returns {} when nothing is configured.
    Public so berth factories (e.g. tool.registry/register-tool-entry!
-   for the :isaac.http/tools berth) can read their per-entry
+   for a manifest-declared tools berth) can read their per-entry
    user config without re-implementing the lookup."
   [root-key entry-id]
   (or ((handler-for :user-config) root-key entry-id) {}))
 
 (defn- register-extensions! [_manifest]
   ;; Phases 4–8 of the berth epic moved every extension kind into
-  ;; :isaac.http/* berths processed by process-manifest-berths!.
+  ;; manifest berths processed by process-manifest-berths!.
   ;; activate! still runs this for backwards compat with old call
   ;; sites; it's now a no-op.
   nil)
