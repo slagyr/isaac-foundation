@@ -28,7 +28,6 @@ Feature: <root>/.env layers into ${VAR} substitution below shell env (isaac-yo8d
       {:modules {:marigold.cln1.widgets {:local/root "target/test-cln1-env/widgets-module"}}}
       """
 
-  @wip
   Scenario: ${VAR} resolves from the isaac .env file
     Given the isaac file ".env" exists with:
       """
@@ -46,7 +45,6 @@ Feature: <root>/.env layers into ${VAR} substitution below shell env (isaac-yo8d
     Then the stdout contains "sk-from-isaac"
     And the exit code is 0
 
-  @wip
   Scenario: OS environment variables take precedence over the isaac .env file
     Given environment variable "CLN1_WIDGET_KEY" is "sk-from-os"
     And the isaac file ".env" exists with:
@@ -65,7 +63,6 @@ Feature: <root>/.env layers into ${VAR} substitution below shell env (isaac-yo8d
     Then the stdout contains "sk-from-os"
     And the exit code is 0
 
-  @wip
   Scenario: config loads when the isaac .env file is absent
     Given the isaac file "config/widgets/gizmo.edn" exists with:
       """
