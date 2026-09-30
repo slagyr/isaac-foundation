@@ -84,6 +84,21 @@
                [ref-key (exists-ref ref-key (resolve-known-fn known) message)]))
         (contributed-entries module-index)))
 
+(defn register-contributed-existence-refs!
+  "Registers `module-index`'s :isaac.config/validation-ref contributions into
+   apron's GLOBAL shared lexicon (cs/update-lexicon!, the same mechanism
+   foundation's own static refs above use). A scoped `with-lexicon` binding
+   isn't enough here: config load is a long, deeply-nested pipeline (compose,
+   root conform, per-entity-file validation, checks) that passes through
+   several independent dynamic-var scopes and can hop threads (isaac-agent's
+   :dynamic-schema gather); a scoped override closes before later steps run
+   and silently drops the ref. Idempotent and safe to call repeatedly — a
+   later call for the same ref-key just re-assocs the same shape. Call this
+   once module-index is known, before compose or validate reads the lexicon."
+  [module-index]
+  (doseq [[ref-key ref-def] (contributed-existence-refs module-index)]
+    (cs/update-lexicon! :validations assoc ref-key ref-def)))
+
 (def ^:private value-refs
   ;; nil-tolerant: apron's conform also resolves these refs and (unlike the
   ;; annotation layer) runs them on absent values.

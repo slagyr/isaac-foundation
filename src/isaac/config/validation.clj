@@ -162,11 +162,12 @@
   ([config root] (semantic-errors config root (schema-compose/cached-root-schema)))
   ([config root schema-spec]
    (let [module-index (merge (discovery/builtin-index) (:module-index config))]
-     (cs/with-lexicon {:validations (vlex/contributed-existence-refs module-index)}
-       (binding [vlex/*config*               (validation-context config)
-                 registered-in/*module-index* module-index
-                 registered-in/*config*       (or (:raw config) config)]
-         (annotation-errors* root [] schema-spec config))))))
+     ;; Global, not scoped (isaac-h2oo) — see register-contributed-existence-refs!.
+     (vlex/register-contributed-existence-refs! module-index)
+     (binding [vlex/*config*               (validation-context config)
+               registered-in/*module-index* module-index
+               registered-in/*config*       (or (:raw config) config)]
+       (annotation-errors* root [] schema-spec config)))))
 
 (defn- type-message [field-spec]
   (or (:message field-spec)

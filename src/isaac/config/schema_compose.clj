@@ -1,14 +1,13 @@
 (ns isaac.config.schema-compose
   (:require
-    [c3kit.apron.schema :as cs]
     [isaac.config.berths :as berths]
     [isaac.config.schema-base :as schema-base]
-    ;; load-for-side-effect (plus the aliased fns used below): registers the
-    ;; config validation lexicon (:one-of?, foundation's own existence refs,
-    ;; …) that inline-schema checks contributions against. A leaf ns, so no
-    ;; cycle with isaac.config.validation (which requires this ns). Guarantees
-    ;; the lexicon is populated before the first compose, so a pre-lexicon
-    ;; result can never be frozen in last-composed*.
+    ;; load-for-side-effect (plus register-contributed-existence-refs!, used
+    ;; below): registers the config validation lexicon (:one-of?, foundation's
+    ;; own existence refs, …) that inline-schema checks contributions against.
+    ;; A leaf ns, so no cycle with isaac.config.validation (which requires
+    ;; this ns). Guarantees the lexicon is populated before the first
+    ;; compose, so a pre-lexicon result can never be frozen in last-composed*.
     [isaac.config.validation-lexicon :as vlex]
     [isaac.logger :as log]
     [isaac.module.discovery :as discovery]
@@ -113,28 +112,31 @@
   ;; meta-conform after it is folded into the owning table's shell. The
   ;; meta-conform (isaac.schema.meta) verifies every :validations ref
   ;; resolves in the lexicon, so a module-contributed existence ref (e.g.
-  ;; isaac-agent's crew/model refs, isaac-h2oo) has to be in scope here too —
-  ;; overlaid fresh from module-index, same as the value-validation pass.
-  (cs/with-lexicon {:validations (vlex/contributed-existence-refs module-index)}
-    (let [grouped (reduce (fn [acc {:keys [config-key descriptor]}]
-                            (update acc config-key
-                                    (fn [existing]
-                                      (if existing
-                                        (merge-descriptors config-key existing descriptor)
-                                        descriptor))))
-                          {}
-                          (contribution-entries module-index))]
-      (reduce-kv
-        (fn [acc config-key descriptor]
-          (let [fragment (try
-                           (inline-schema descriptor module-index)
-                           (catch Throwable t
-                             (throw (invalid-schema-error config-key nil descriptor (ex-message t)))))]
-            (-> acc
-                (assoc-in [:fields config-key] fragment)
-                (assoc-in [:descriptors config-key] descriptor))))
-        {:fields {} :descriptors {}}
-        grouped))))
+  ;; isaac-agent's crew/model refs, isaac-h2oo) has to be registered before
+  ;; this runs — a scoped with-lexicon isn't enough (later pipeline steps,
+  ;; e.g. root-config conform, run after any scoped binding here has closed),
+  ;; so this registers into the GLOBAL lexicon instead (see
+  ;; register-contributed-existence-refs!).
+  (vlex/register-contributed-existence-refs! module-index)
+  (let [grouped (reduce (fn [acc {:keys [config-key descriptor]}]
+                          (update acc config-key
+                                  (fn [existing]
+                                    (if existing
+                                      (merge-descriptors config-key existing descriptor)
+                                      descriptor))))
+                        {}
+                        (contribution-entries module-index))]
+    (reduce-kv
+      (fn [acc config-key descriptor]
+        (let [fragment (try
+                         (inline-schema descriptor module-index)
+                         (catch Throwable t
+                           (throw (invalid-schema-error config-key nil descriptor (ex-message t)))))]
+          (-> acc
+              (assoc-in [:fields config-key] fragment)
+              (assoc-in [:descriptors config-key] descriptor))))
+      {:fields {} :descriptors {}}
+      grouped)))
 
 (defn compose-root-schema
   [module-index]
