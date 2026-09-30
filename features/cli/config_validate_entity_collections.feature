@@ -1,12 +1,18 @@
-Feature: config validate and config schema agree on which keys are entity tables (isaac-n140)
+Feature: config schema, config validate, and config set agree on which keys are entity tables (isaac-n140)
 
   Foundation never names another module's config tables. `config validate`'s
-  `--as PATH -` overlay and `config schema`'s path resolution used to each
-  carry their own hand-maintained set of "known entity table" names — and the
-  two sets disagreed (one included `:hail`, the other didn't), so a path like
-  `hail.<id>.crew` parsed differently for the two commands. Both now ask the
+  `--as PATH -` overlay and `isaac.config.schema.resolve` (which `config
+  set`/`unset` use to find a path's field spec) used to each carry their own
+  hand-maintained set of "known entity table" names — and the two sets
+  disagreed (one included `:hail`, the other didn't), so a path like
+  `hail.<id>.crew` parsed differently for different commands. A FRESH
+  module-declared entity-dir table — one that was never added to either
+  list — got the parse wrong for BOTH: `config set` on a field inside it
+  fell back to guessing the value's type instead of reading the field's real
+  spec, silently skipping type coercion. Both call sites now ask the
   composed schema itself: a key is an entity-collection table when its node
-  has both a `:key-spec` and a `:value-spec`, whatever module declared it.
+  has both a `:key-spec` and a `:value-spec`, whatever module declared it —
+  no list to fall out of date.
 
   This fixture module (`:marigold.n140.beacons`, a unique id so it never
   collides with another fixture) declares a `:beacons` entity table this way
@@ -26,7 +32,8 @@ Feature: config validate and config schema agree on which keys are entity tables
                                :key-spec   {:type :string}
                                :value-spec {:name   :beacon
                                             :type   :map
-                                            :schema {:crew {:type :string}}}}}}}
+                                            :schema {:crew {:type :string}
+                                                     :role {:type :keyword}}}}}}}
       """
     And the isaac file "config/isaac.edn" exists with:
       """
@@ -50,3 +57,10 @@ Feature: config validate and config schema agree on which keys are entity tables
     When isaac is run with "config validate --as beacons.cordelia.crew -"
     Then the stdout contains "OK - config is valid"
     And the exit code is 0
+
+  Scenario: config set finds a field's real spec inside a fresh module-declared entity-dir table
+    When isaac is run with "config set beacons.cordelia.role admin"
+    Then the exit code is 0
+    And the isaac file "isaac.edn" EDN contains:
+      | path                  | value  |
+      | beacons.cordelia.role | :admin |
