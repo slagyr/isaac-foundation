@@ -2,7 +2,6 @@
 (ns isaac.config.normalize
   "Normalize loaded config maps (defaults/crew/models/providers/cron) into canonical form."
   (:require
-    [clojure.set :as set]
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema-compose :as schema-compose]
     [isaac.schema.lexicon :as lexicon]))
@@ -76,55 +75,28 @@
           (:cron cfg))
     {}))
 
-(defn- modern-crew-map? [crew-block]
-  (and (map? crew-block)
-       (empty? (set/intersection #{:defaults :list :models} (set (keys crew-block))))))
-
 (defn- normalize-crew-config
   ([crew-block] (normalize-crew-config (cached-root-schema) crew-block false))
   ([root-schema crew-block] (normalize-crew-config root-schema crew-block false))
   ([root-schema crew-block raw-config?]
-   (let [old-crew-list (or (:list crew-block) [])]
-     (cond
-       (modern-crew-map? crew-block)
-       (into {} (map (fn [[id entity]] [(->id id) (normalize-crew root-schema entity raw-config?)])) crew-block)
-
-       (seq old-crew-list)
-       (into {} (map (fn [entity] [(->id (:id entity)) (normalize-crew root-schema entity raw-config?)])) old-crew-list)
-
-       :else
-       {}))))
+   (if-not (map? crew-block)
+     {}
+     (into {} (map (fn [[id entity]] [(->id id) (normalize-crew root-schema entity raw-config?)])) crew-block))))
 
 (defn- normalize-model-config
-  ([cfg crew-block] (normalize-model-config (cached-root-schema) cfg crew-block false))
-  ([root-schema cfg crew-block] (normalize-model-config root-schema cfg crew-block false))
-  ([root-schema cfg crew-block raw-config?]
-   (let [old-models (or (:models crew-block) {})]
-     (cond
-       (and (map? (:models cfg))
-            (not (vector? (:models cfg)))
-            (not (:providers (:models cfg))))
-       (into {} (map (fn [[id entity]] [(->id id) (normalize-model root-schema entity raw-config?)])) (:models cfg))
-
-       (seq old-models)
-       (into {} (map (fn [[id entity]] [(->id id) (normalize-model root-schema entity raw-config?)])) old-models)
-
-       :else
-       {}))))
+  ([cfg] (normalize-model-config (cached-root-schema) cfg false))
+  ([root-schema cfg] (normalize-model-config root-schema cfg false))
+  ([root-schema cfg raw-config?]
+   (if-not (map? (:models cfg))
+     {}
+     (into {} (map (fn [[id entity]] [(->id id) (normalize-model root-schema entity raw-config?)])) (:models cfg)))))
 
 (defn- normalize-provider-config
   ([cfg] (normalize-provider-config (cached-root-schema) cfg))
   ([_root-schema cfg]
-   (let [old-providers (or (get-in cfg [:models :providers]) [])]
-     (cond
-       (map? (:providers cfg))
-       (into {} (map (fn [[id entity]] [(->id id) entity])) (:providers cfg))
-
-       (seq old-providers)
-       (into {} (map (fn [entity] [(->id (or (:id entity) (:name entity))) (dissoc entity :name)])) old-providers)
-
-       :else
-       {}))))
+   (if-not (map? (:providers cfg))
+     {}
+     (into {} (map (fn [[id entity]] [(->id id) entity])) (:providers cfg)))))
 
 (defn- assoc-present-keys [result source keys]
   (reduce (fn [acc k]
@@ -149,7 +121,7 @@
          defaults      (or (:defaults cfg) (:defaults crew-block) {})
          new-cron      (normalize-cron-config cfg)
          new-crew      (normalize-crew-config root-schema crew-block raw-config?)
-         new-models    (normalize-model-config root-schema cfg crew-block raw-config?)
+         new-models    (normalize-model-config root-schema cfg raw-config?)
          new-providers (normalize-provider-config root-schema cfg)]
      (assoc-present-keys {:defaults  (normalize-defaults root-schema defaults raw-config?)
                           :crew      new-crew

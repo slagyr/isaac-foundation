@@ -109,19 +109,4 @@
                                                                             :spec        {:type :any}
                                                                             :description "Libraries to exclude from this coordinate's transitive deps"}}}
                                    :message     "must be a map of id to coordinate (legacy vector shape)"
-                                   :description "Declared modules as a map of module id to tools.deps coordinate"}
-                 :server          {:type        :map
-                                   :description "Retired HTTP/process settings"
-                                   :schema      {:auth               {:type   :map
-                                                                      :schema {:token {:type        :string
-                                                                                       :validations [[:retired? "use :http :auth :token"]]}}}
-                                                 :burst              {:type        :map
-                                                                      :validations [[:retired? "use :http :burst"]]}
-                                                 :host               {:type        :string
-                                                                      :validations [[:retired? "use :http :host"]]}
-                                                 :hot-reload         {:type        :boolean
-                                                                      :validations [[:retired? "use :hot-reload"]]}
-                                                 :port               {:type        :int
-                                                                      :validations [[:retired? "use :http :port"]]}
-                                                 :suspend-timeout-ms {:type        :int
-                                                                      :validations [[:retired? "use :bridge :suspend-timeout-ms"]]}}}}})
+                                   :description "Declared modules as a map of module id to tools.deps coordinate"}}})

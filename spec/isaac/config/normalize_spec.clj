@@ -202,29 +202,4 @@
         (let [result (normalize/normalize-defaults {:name :isaac :type :map
                                                     :schema {:defaults {:type :map :schema {}}}}
                                                    {:frequencies {:crew :main}})]
-          (should= :main (get-in result [:frequencies :crew])))))
-
-    (it "normalizes legacy crew lists nested models and provider vectors"
-      (with-redefs [lexicon/conform (fn [_ value] value)
-                    cs/error?  (constantly false)]
-        (let [helm-kw (keyword marigold/helm-systems)
-              cfg     {:crew   {:defaults {:frequencies {:crew :main} :crew {:model :grover}}
-                                :list     [{:id :main :soul "You are Isaac." :model :grover}
-                                           {:id "ketch" :model :grover}]
-                                :models   {:grover {:model "echo" :provider helm-kw :context-window 200000}}}
-                       :models {:providers [{:name helm-kw :api-key "sk-test"}
-                                            {:id :grover :base-url "https://grover.example"}]}}
-              result  (normalize/normalize-config cfg)]
-          (should= {:frequencies {:crew :main}
-                    :crew        {:model :grover}}
-                   (:defaults result))
-          (should= {"main"  {:id :main :soul "You are Isaac." :model :grover}
-                    "ketch" {:id "ketch" :model :grover}}
-                   (:crew result))
-          (should= {"grover" {:model "echo" :provider helm-kw :context-window 200000}}
-                   (:models result))
-          (should= {marigold/helm-systems {:api-key "sk-test"}
-                    "grover"              {:id :grover :base-url "https://grover.example"}}
-                   (:providers result))))))
-
-)
+          (should= :main (get-in result [:frequencies :crew])))))))
