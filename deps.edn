@@ -15,7 +15,8 @@
                            io.github.slagyr/gherclj            {:git/tag "v1.4.0" :git/sha "85245b1"}
                            marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
                            marigold.bridge/marigold.bridge     {:local/root "modules/marigold.bridge"}
-                           marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}}}
+                           marigold.longwave/marigold.longwave {:local/root "modules/marigold.longwave"}
+                           marigold.setup/marigold.setup       {:local/root "modules/marigold.setup"}}}
 
   :spec     {:main-opts ["-m" "dev.spec-main"]}
 

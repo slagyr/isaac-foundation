@@ -10,6 +10,7 @@
     [isaac.foundation.cli.host :as host]
     [isaac.foundation.config.api :as config-api]
     [isaac.foundation.config.cli.common :as common]
+    [isaac.foundation.config.loader :as config-loader]
     [isaac.foundation.config.mutate :as mutate]
     [isaac.foundation.config.paths :as paths]
     [isaac.foundation.cli.table :as table]
@@ -21,6 +22,7 @@
     [isaac.foundation.module.loader :as loader]
     [isaac.foundation.modules.pins :as pins]
     [isaac.foundation.modules.registry :as registry]
+    [isaac.foundation.modules.setup :as setup]
     [isaac.foundation.shell :as shell]))
 
 (def option-spec
@@ -49,6 +51,7 @@
                           "  pins                Check sibling git pins: coherent as a set, and against the fleet\n"
                           "  show <name>         Full detail for one module (coordinate, source, required-by)\n"
                           "  remove <name>       Remove a module from config :modules\n"
+                          "  setup <name> [--dry-run]  Run a module's setup (writes starter config)\n"
                           "  upgrade [name] ...  Refresh registry-sourced modules to latest coords\n"
                           "  help <subcommand>   Print usage for a subcommand")]]
      :option-spec option-spec}))
@@ -113,6 +116,22 @@
      :params      "<name>"
      :description "Remove a module from config :modules."
      :option-spec option-spec}))
+
+(def setup-option-spec
+  (into option-spec
+        [[nil "--dry-run" "Show the writes a setup would make, without making them"]]))
+
+(defn- setup-help []
+  (common/render-help
+    {:command     "isaac modules setup"
+     :params      "<name> [options]"
+     :description (str "Run a module's setup: a fn of the current config that proposes\n"
+                       "config writes plus optional hints, applied through the same\n"
+                       "validated, atomic path `isaac config set` uses. A path that\n"
+                       "already has a value is never overwritten. Runs automatically on\n"
+                       "`modules install` and `modules upgrade`; run it again by hand\n"
+                       "anytime, or pass --dry-run to preview the writes.")
+     :option-spec setup-option-spec}))
 
 (defn- upgrade-help []
   (common/render-help
@@ -383,6 +402,74 @@
       (do (common/print-errors! (:errors result) "error")
           1))))
 
+(defn- fresh-config
+  "Re-reads config from disk, bypassing the process memo — used right after
+   a write this same command made, so a module just added to :modules is
+   visible to discovery immediately (isaac-82nx)."
+  [root]
+  (:config (config-loader/load-config-result {:root root :fs (fs/instance) :skip-cache? true})))
+
+(defn- setup-module-index [config]
+  (:index (loader/list-configured-modules config {:cwd (host/cwd)})))
+
+(defn- try-setup-context
+  "{:config :index} for setup lookups after install/upgrade, or nil when
+   discovering the fresh module index blows up — e.g. a just-upgraded
+   module's own schema can't validate standalone without a sibling module
+   this environment doesn't have installed. install/upgrade already wrote
+   :modules successfully by the time this runs, so a discovery failure here
+   means only 'setup can't be checked right now', not 'the command failed'
+   (isaac-82nx)."
+  [root]
+  (try
+    (let [config' (fresh-config root)]
+      {:config config' :index (setup-module-index config')})
+    (catch Throwable _ nil)))
+
+(defn- format-write-line [[path value]]
+  (str "  " path " = " (pr-str value)))
+
+(defn- run-one-setup!
+  "Runs `id`'s :isaac/setup contribution (looked up in `module-index`)
+   against `config` at `root`. `verbose?` reports the 'no setup' / 'already
+   set up' cases — on for the explicit `modules setup` command, off for
+   install/upgrade, where a module contributing no setup has nothing to
+   report. `dry-run?` never writes."
+  [root module-index config id {:keys [dry-run? verbose?]}]
+  (if-let [descriptor (setup/find-setup module-index id)]
+    (let [{:keys [writes hints]} (setup/proposed-writes descriptor config)
+          missing                (setup/missing-writes config writes)]
+      (cond
+        (empty? missing)
+        (do (when verbose? (println (str (module-id-str id) " is already set up"))) 0)
+
+        dry-run?
+        (do (println (str "Would set up " (module-id-str id) ":"))
+            (run! println (map format-write-line missing))
+            0)
+
+        :else
+        (let [result (setup/apply-writes! root missing)]
+          (if (= :ok (:status result))
+            (do (println (str "Set up " (module-id-str id) ":"))
+                (run! println (map format-write-line missing))
+                (run! println hints)
+                0)
+            (do (common/print-errors! (:errors result) "error") 1)))))
+    (do (when verbose? (println (str (module-id-str id) " has no setup"))) 0)))
+
+(defn- run-setup [opts arguments options]
+  (let [module-name (first arguments)]
+    (if (str/blank? module-name)
+      (common/print-cli-error! "missing module name")
+      (let [root   (:root opts)
+            config (or (read-root-config root) {})]
+        (try
+          (run-one-setup! root (setup-module-index config) config (keyword module-name)
+                          {:dry-run? (:dry-run options) :verbose? true})
+          (catch Throwable t
+            (common/print-cli-error! (str "could not resolve modules: " (ex-message t)))))))))
+
 (defn- resolve-install-entries [registry names]
   (reduce
     (fn [result name]
@@ -427,10 +514,18 @@
                                     modules
                                     entries)
                     exit    (mutate-modules! root "modules" merged)]
-                (when (zero? exit)
-                  (doseq [{:keys [id]} entries]
-                    (println (str "Installed " (module-id-str id)))))
-                exit))))))))
+                (if-not (zero? exit)
+                  exit
+                  (let [ctx (try-setup-context root)]
+                    (reduce (fn [acc {:keys [id]}]
+                              (println (str "Installed " (module-id-str id)))
+                              (if (and ctx
+                                       (not (zero? (run-one-setup! root (:index ctx) (:config ctx) id
+                                                                   {:dry-run? false :verbose? false}))))
+                                1
+                                acc))
+                            0
+                            entries)))))))))))
 
 (defn- coord-revision [coord]
   (let [rev (or (:git/sha coord) (:git/tag coord) (:mvn/version coord))]
@@ -493,12 +588,21 @@
                                  (get config :modules {})
                                  upgrades)
                   exit   (mutate-modules! root "modules" merged)]
-              (when (zero? exit)
-                (loader/warm-module-checkouts! (assoc config :modules merged))
-                (doseq [{:keys [id old new]} upgrades]
-                  (println (str "Upgraded " (module-id-str id) ": "
-                                  (coord-revision old) " -> " (coord-revision new)))))
-              exit)))))))
+              (if-not (zero? exit)
+                exit
+                (do
+                  (loader/warm-module-checkouts! (assoc config :modules merged))
+                  (let [ctx (try-setup-context root)]
+                    (reduce (fn [acc {:keys [id old new]}]
+                              (println (str "Upgraded " (module-id-str id) ": "
+                                            (coord-revision old) " -> " (coord-revision new)))
+                              (if (and ctx
+                                       (not (zero? (run-one-setup! root (:index ctx) (:config ctx) id
+                                                                   {:dry-run? false :verbose? false}))))
+                                1
+                                acc))
+                            0
+                            upgrades)))))))))))
 
 (defn- short-sha [sha]
   (subs sha 0 (min 7 (count sha))))
@@ -650,6 +754,9 @@
    "remove"    {:option-spec option-spec
                 :runner      run-remove
                 :help-text   remove-help}
+   "setup"     {:option-spec setup-option-spec
+                :runner      run-setup
+                :help-text   setup-help}
    "upgrade"   {:option-spec option-spec
                 :runner      run-upgrade
                 :help-text   upgrade-help}})

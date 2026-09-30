@@ -82,6 +82,16 @@
                                                                             :validations [:present?]
                                                                             :description "Symbol resolving to (fn [ctx] {:errors [] :warnings []})."}}}}}
 
+             :isaac/setup
+             {:description "A module's setup: a fn of the current config that proposes config writes (plus optional hints — plain lines for what config can't do) applied through the same validated, atomic write path `isaac config set` uses. A path that already has a value is never overwritten. Runs on `modules install` / `modules upgrade`, or by hand via `isaac modules setup <id>`. No contribution means the module has no setup."
+              :schema      {:type   :map
+                            :schema {:fn          {:type        :symbol
+                                                   :validations [:present?]
+                                                   :description "Fully qualified fn [config] -> {:writes [[path value] ...] :hints [...]}."}
+                                     :description {:type        :string
+                                                   :validations [:present?]
+                                                   :description "One-line description of what this setup does."}}}}
+
              :isaac.config/validation-ref
              {:description "Schema validation-lexicon existence refs (e.g. a crew or model reference check) contributed by modules that own their own entity concept. Each entry registers a keyword usable in a field's :validations [...]; the contributing module supplies the known-id lookup and the error message — foundation names no other module's concept here."
               :schema      {:type       :map

@@ -13,6 +13,7 @@
          marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
          marigold.bridge/marigold.bridge       {:local/root "modules/marigold.bridge"}
          marigold.longwave/marigold.longwave   {:local/root "modules/marigold.longwave"}
+         marigold.setup/marigold.setup         {:local/root "modules/marigold.setup"}
          org.clojure/tools.cli               {:mvn/version "1.1.230"}
          speclj/speclj                       {:mvn/version "3.13.0"}
          org.clojure/tools.reader            {:mvn/version "1.4.2"}}

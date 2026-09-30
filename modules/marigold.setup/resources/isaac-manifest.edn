@@ -1,0 +1,16 @@
+{:id          :marigold.setup
+ :version     "0.1.0"
+ :factory     isaac.foundation.module.protocol/module
+ :description "Marigold fixture: sample module that contributes a setup"
+
+ :isaac.config/schema
+ {:marigold
+  {:schema
+   {:type   :map
+    :schema {:greeting {:type :string :description "Marigold's starter greeting."}
+             :chimes   {:type :int    :description "Number of chimes Marigold rings."}}}}}
+
+ ;; Contributes to isaac.foundation's :isaac/setup berth: a fn of the current
+ ;; config that proposes starter writes plus a hint.
+ :isaac/setup {:fn          marigold.setup/setup
+               :description "Sets Marigold's starter greeting and chime count."}}

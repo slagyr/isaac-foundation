@@ -214,43 +214,17 @@
   (it "registers the init command"
     (should-not-be-nil (sut/get-command "init")))
 
-  (it "scaffolds the default config files in a fresh root"
+  (it "scaffolds a bare config in a fresh root"
     (should= 0 (sut/init-run {:root test-home}))
-    (should= {:defaults {:frequencies {:crew :skipper} :crew {:model :llama}}
-               :tz "America/Chicago"
-               :prefer-entity-files true}
-              (slurp-edn (str test-home "/config/isaac.edn")))
-    (should= (str "---\n"
-                  "model: \"llama\"\n"
-                  "---\n\n"
-                  "You are Skipper. Keep the ship on course.")
-             (fs/slurp (fs/instance) (str test-home "/config/crew/skipper.md")))
-    (should= {:model "llama3.2" :provider :ollama}
-             (slurp-edn (str test-home "/config/models/llama.edn")))
-    (should= {:base-url "http://localhost:11434" :api :ollama}
-              (slurp-edn (str test-home "/config/providers/ollama.edn")))
-    (should= (str "---\n"
-                  "expr: \"*/30 * * * *\"\n"
-                  "crew: \"skipper\"\n"
-                  "---\n\n"
-                  "Heartbeat. Anything worth noting?")
-             (fs/slurp (fs/instance) (str test-home "/config/cron/heartbeat.md"))))
+    (should= {:tz "America/Chicago"
+              :prefer-entity-files true}
+             (slurp-edn (str test-home "/config/isaac.edn"))))
 
-  (it "prints the scaffold summary and ollama setup instructions on success"
+  (it "prints the scaffold summary on success"
     (should= 0 (sut/init-run {:root test-home}))
     (should= (str "Isaac initialized at " test-home ".\n\n"
                   "Created:\n"
-                  "  config/isaac.edn\n"
-                  "  config/crew/skipper.md\n"
-                  "  config/models/llama.edn\n"
-                  "  config/providers/ollama.edn\n"
-                  "  config/cron/heartbeat.md\n\n"
-                  "Isaac uses Ollama locally. If you don't have it:\n\n"
-                  "  brew install ollama\n"
-                  "  ollama serve &\n"
-                  "  ollama pull llama3.2\n\n"
-                  "Then try:\n\n"
-                  "  isaac prompt -m \"hello\"\n")
+                  "  config/isaac.edn\n")
              (str *out*)))
 
   (it "refuses when a config already exists"
@@ -273,8 +247,7 @@
   (it "accepts an explicit fs via opts"
     (let [mem (fs/mem-fs)]
       (should= 0 (sut/init-run {:root test-home :fs mem}))
-      (should= {:defaults {:frequencies {:crew :skipper} :crew {:model :llama}}
-                :tz "America/Chicago"
+      (should= {:tz "America/Chicago"
                 :prefer-entity-files true}
                (edn/read-string (fs/slurp mem (str test-home "/config/isaac.edn")))))))
 

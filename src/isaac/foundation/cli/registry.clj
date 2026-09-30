@@ -104,74 +104,30 @@
   (binding [*print-namespace-maps* false]
     (fs/spit fs* path (with-out-str (pprint/pprint value)))))
 
-(defn- yaml-scalar [value]
-  (cond
-    (keyword? value) (pr-str (name value))
-    (string? value) (pr-str value)
-    (number? value) (str value)
-    (true? value) "true"
-    (false? value) "false"
-    (nil? value) "null"
-    :else (throw (ex-info "unsupported YAML frontmatter value" {:value value}))))
-
-(defn- yaml-frontmatter [config]
-  (str/join "\n"
-            (map (fn [[k v]]
-                   (str (name k) ": " (yaml-scalar v)))
-                 config)))
-
-(defn- write-markdown-entity! [fs* path config body]
-  (fs/mkdirs fs* (fs/parent path))
-  (fs/spit fs* path (str "---\n"
-                         (yaml-frontmatter config)
-                         "\n---\n\n"
-                         body)))
-
 (defn- isaac-edn-path [root]
   (paths/root-config-file root))
 
 (defn- created-files []
-  ["config/isaac.edn"
-   "config/crew/skipper.md"
-   "config/models/llama.edn"
-   "config/providers/ollama.edn"
-   "config/cron/heartbeat.md"])
+  ["config/isaac.edn"])
 
 (defn- scaffold! [root fs*]
   (write-edn! fs* (paths/config-path root "isaac.edn")
-               {:defaults            {:frequencies {:crew :skipper}
-                                      :crew        {:model :llama}}
-                :tz                  "America/Chicago"
-                :prefer-entity-files true})
-  (write-markdown-entity! fs* (paths/config-path root "crew/skipper.md")
-                           {:model :llama}
-                           "You are Skipper. Keep the ship on course.")
-  (write-edn! fs* (paths/config-path root "models/llama.edn") {:model "llama3.2" :provider :ollama})
-  (write-edn! fs* (paths/config-path root "providers/ollama.edn") {:base-url "http://localhost:11434" :api :ollama})
-  (write-markdown-entity! fs* (paths/config-path root "cron/heartbeat.md")
-                           {:expr "*/30 * * * *" :crew :skipper}
-                           "Heartbeat. Anything worth noting?"))
+               {:tz                  "America/Chicago"
+                :prefer-entity-files true}))
 
 (defn- print-success! [display-root]
   (println (str "Isaac initialized at " display-root "."))
   (println)
   (println "Created:")
   (doseq [path (created-files)]
-    (println (str "  " path)))
-  (println)
-  (println "Isaac uses Ollama locally. If you don't have it:")
-  (println)
-  (println "  brew install ollama")
-  (println "  ollama serve &")
-  (println "  ollama pull llama3.2")
-  (println)
-  (println "Then try:")
-  (println)
-  (println "  isaac prompt -m \"hello\""))
+    (println (str "  " path))))
 
 (defn init-help []
   (str "Usage: isaac init\n\n"
-       "Scaffold a default Isaac config for a fresh install."))
+       "Scaffold a default Isaac config for a fresh install.\n"
+       "Creates the root and a bare isaac.edn — nothing module-specific.\n"
+       "Modules contribute their own starter config via `isaac modules\n"
+       "setup` (run automatically on `modules install` / `modules upgrade`)."))
 
 (defn init-run [{:keys [display-root root] :as opts}]
   (let [fs*  (runtime-fs opts)

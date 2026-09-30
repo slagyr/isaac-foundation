@@ -470,6 +470,34 @@ is a warning (`isaac modules show <id>` still runs; the chapter is just
 missing from `handbook__read`'s table of contents), never an error — a
 broken doc path never stops the ship.
 
+### Module setup
+
+`isaac init` scaffolds only the root and a bare `isaac.edn` (`tz`,
+`prefer-entity-files`) — nothing module-specific. A module that wants
+starter config opts in by contributing to foundation's `:isaac/setup`
+berth: a `:fn` symbol resolving to `(fn [config])` that looks at the
+current config and returns proposed writes (a dotted path plus a value
+for each) and optional `:hints` — plain lines for things a config write
+can't do, like installing a tool or pulling a model.
+
+Foundation applies the proposed writes through the same validated,
+atomic path `isaac config set` uses, and **skips any path that already
+has a value** — setup adds what's missing, it never overwrites. Every
+write it makes is printed, followed by any hints.
+
+Setup runs automatically on `isaac modules install <name>` and `isaac
+modules upgrade`. Run it again by hand anytime:
+
+```
+isaac modules setup <name>            # apply what's missing
+isaac modules setup <name> --dry-run  # preview the writes only
+```
+
+A module that contributes no setup says so (`<name> has no setup`) —
+that's not an error, just nothing to do. A module that's already fully
+set up says so too (`<name> is already set up`), and `--dry-run` never
+writes.
+
 ### Troubleshooting
 
 - **A module id doesn't show up in `handbook__read`'s table of
@@ -486,6 +514,13 @@ broken doc path never stops the ship.
   version conflict or a missing dependency — `isaac modules list` prints
   those as a conflict/drift table. Resolving it (bumping a pin,
   reinstalling) is CLI-only.
+- **`modules setup <name>` never changes anything.** Either the module
+  has no setup contribution (`isaac modules show <name>` lists what it
+  declares and contributes), or every path it proposes already has a
+  value — check with `isaac config get <path>`.
+- **A value you expected setup to write looks untouched.** That's by
+  design: setup never overwrites a path that already has a value. Set
+  it directly with `isaac config set` / `handbook__configure` instead.
 
 ## Scheduler
 

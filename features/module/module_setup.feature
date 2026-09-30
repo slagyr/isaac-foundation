@@ -17,7 +17,6 @@ Feature: Module setup
   Background:
     Given the user home directory is "/tmp/user"
 
-  @wip
   Scenario: init creates only the root and a bare isaac.edn
     Given an empty Isaac root at "target/test-state"
     When isaac is run with "--root target/test-state init"
@@ -34,7 +33,6 @@ Feature: Module setup
       | prefer-entity-files | true            |
     And the isaac file "config/isaac.edn" does not contain "defaults"
 
-  @wip
   Scenario: installing a module runs its setup and prints each write
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -59,7 +57,6 @@ Feature: Module setup
       | marigold.greeting | ahoy  |
       | marigold.chimes   | 3     |
 
-  @wip
   Scenario: setup never overwrites a value that is already set
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -79,7 +76,6 @@ Feature: Module setup
       | marigold.greeting | hello |
       | marigold.chimes   | 3     |
 
-  @wip
   Scenario: rerunning setup on a configured root changes nothing
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -91,7 +87,6 @@ Feature: Module setup
     Then the exit code is 0
     And the stdout contains "marigold.setup is already set up"
 
-  @wip
   Scenario: --dry-run prints the writes without making them
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -107,7 +102,6 @@ Feature: Module setup
       |   marigold.chimes = 3                |
     And the isaac file "config/isaac.edn" does not contain "ahoy"
 
-  @wip
   Scenario: a module without a setup says so
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
