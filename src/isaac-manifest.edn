@@ -80,7 +80,19 @@
                                                  :value-spec {:type   :map
                                                               :schema {:fn {:type        :symbol
                                                                             :validations [:present?]
-                                                                            :description "Symbol resolving to (fn [ctx] {:errors [] :warnings []})."}}}}}}
+                                                                            :description "Symbol resolving to (fn [ctx] {:errors [] :warnings []})."}}}}}
+
+             :isaac.config/validation-ref
+             {:description "Schema validation-lexicon existence refs (e.g. a crew or model reference check) contributed by modules that own their own entity concept. Each entry registers a keyword usable in a field's :validations [...]; the contributing module supplies the known-id lookup and the error message — foundation names no other module's concept here."
+              :schema      {:type       :map
+                            :key-spec   {:type :keyword}
+                            :value-spec {:type   :map
+                                        :schema {:known   {:type        :symbol
+                                                           :validations [:present?]
+                                                           :description "Fully qualified fn [config] -> known id strings for this reference."}
+                                                 :message {:type        :string
+                                                           :validations [:present?]
+                                                           :description "Error message reported when a value doesn't match a known id."}}}}}}
 
  :isaac.config/schema
  {:tz

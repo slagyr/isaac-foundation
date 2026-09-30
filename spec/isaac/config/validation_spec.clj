@@ -105,9 +105,9 @@
 
   (describe "existence-ref tagging"
 
-    (it "tags :model-exists? errors as :reference?"
-      (let [entry (first (sut/annotation-errors* nil [:model] {:validations [:model-exists?]} "ghost"))]
-        (should= "references undefined model" (:value entry))
+    (it "tags :berth-exists? errors as :reference?"
+      (let [entry (first (sut/annotation-errors* nil [:berth] {:validations [:berth-exists?]} "ghost"))]
+        (should= "references undefined berth" (:value entry))
         (should= true (:reference? entry))))
 
     (it "does not tag a value-validator error as :reference?"

@@ -9,11 +9,14 @@
     [isaac.module.discovery :as discovery]
     [isaac.schema.registered-in :as registered-in]))
 
-;; The config validation refs (:one-of?, :crew-exists?, …) are registered into
-;; apron's lexicon by isaac.config.validation-lexicon — a leaf ns so that
-;; schema-compose can require it too (this ns requires schema-compose, so the
-;; registration cannot live here). Loading vlex above guarantees the lexicon is
-;; populated wherever validation runs.
+;; The config validation refs (:one-of?, foundation's own existence refs, …)
+;; are registered into apron's lexicon by isaac.config.validation-lexicon — a
+;; leaf ns so that schema-compose can require it too (this ns requires
+;; schema-compose, so the registration cannot live here). Loading vlex above
+;; guarantees the lexicon is populated wherever validation runs. Refs a module
+;; contributes for its own entity concepts (isaac-agent's crew/model, …) are
+;; NOT registered at load time — semantic-errors below overlays them, fresh
+;; per pass, from the live module-index (isaac-h2oo).
 
 (defn- ->id [value]
   (schema-base/->id value))
@@ -21,14 +24,22 @@
 (defn- runtime-schema [spec]
   (schema-base/strip-validation-annotations spec))
 
+(defn- reference-ref-defs
+  "Every ref-def currently in the active lexicon tagged :reference? true —
+   ref-key agnostic, so this covers foundation's own existence refs and
+   whatever a module has contributed, without validation.clj naming any of
+   them (isaac-h2oo)."
+  []
+  (into {} (filter (fn [[_ ref-def]] (:reference? ref-def))) (:validations cs/*lexicon*)))
+
 (defn validation-context [config]
-  (let [known-values {:model-exists? (vlex/known-model-ids config)
-                      :crew-exists?  (vlex/known-crew-ids config)
-                      :gauge-exists? (vlex/known-gauge-ids config)
-                      :berth-exists? (vlex/known-berth-ids config)}]
-    {:raw          config
-     :known-values known-values
-     :known-sets   (into {} (map (fn [[predicate values]] [predicate (set values)])) known-values)}))
+  (binding [vlex/*config* {:raw config}]
+    (let [known-values (into {}
+                             (map (fn [[ref-key ref-def]] [ref-key ((:known ref-def))]))
+                             (reference-ref-defs))]
+      {:raw          config
+       :known-values known-values
+       :known-sets   (into {} (map (fn [[predicate values]] [predicate (set values)])) known-values)})))
 
 (defn- dotted-path [segments]
   (str/join "." segments))
@@ -150,11 +161,12 @@
   ([config] (semantic-errors config nil (schema-compose/cached-root-schema)))
   ([config root] (semantic-errors config root (schema-compose/cached-root-schema)))
   ([config root schema-spec]
-   (binding [vlex/*config*               (validation-context config)
-             registered-in/*module-index* (merge (discovery/builtin-index)
-                                                 (:module-index config))
-             registered-in/*config*       (or (:raw config) config)]
-     (annotation-errors* root [] schema-spec config))))
+   (let [module-index (merge (discovery/builtin-index) (:module-index config))]
+     (cs/with-lexicon {:validations (vlex/contributed-existence-refs module-index)}
+       (binding [vlex/*config*               (validation-context config)
+                 registered-in/*module-index* module-index
+                 registered-in/*config*       (or (:raw config) config)]
+         (annotation-errors* root [] schema-spec config))))))
 
 (defn- type-message [field-spec]
   (or (:message field-spec)

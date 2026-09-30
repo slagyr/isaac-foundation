@@ -259,7 +259,7 @@
     []))
 
 (defn- validate-node! [module-index spec value]
-  ;; annotation refs (:crew-exists?, [:registered-in? ...]) already ran
+  ;; annotation refs (existence-ref validators, [:registered-in? ...]) already ran
   ;; in the load-time semantic pass with full validation context; node
   ;; conform here is shape + coercion only.
   (binding [registered-in/*module-index* module-index]

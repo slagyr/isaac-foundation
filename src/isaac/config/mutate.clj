@@ -400,8 +400,10 @@
      (filter (fn [e] (contains? pre-set (error-signature e))) post-errors)]))
 
 (defn- reference-error?
-  "True for errors produced by existence-ref validators (model-exists?,
-   crew-exists?, etc.). Value-validator errors carry :bad-value too; only
+  "True for errors produced by existence-ref validators — foundation's own
+   (:berth-exists?, :gauge-exists?) plus any module-contributed ref (e.g.
+   isaac-agent's entity-reference checks). Value-validator errors carry
+   :bad-value too; only
    entries tagged :reference? — or check contributions that reuse the
    existence-ref message — are skipped under skip-ref-validation?."
   [e]
@@ -478,10 +480,11 @@
    surfaced as warnings and the change still applies, as long as the
    change itself doesn't introduce *new* validation errors.
 
-   When `skip-ref-validation?` is true, reference errors (model-exists?,
-   crew-exists?, etc.) are never treated as new errors — only type errors
-   can block the mutation. Use this from the CLI so operators can wire up
-   values that reference entities not yet defined."
+   When `skip-ref-validation?` is true, reference errors (existence-ref
+   validators, foundation's own or module-contributed) are never treated as
+   new errors — only type errors can block the mutation. Use this from the
+   CLI so operators can wire up values that reference entities not yet
+   defined."
   [root path value & {:keys [skip-ref-validation? skip-module-validation? force?]
                       :or   {skip-ref-validation? false
                              skip-module-validation? false
