@@ -7,7 +7,7 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
   each call, mirroring the coords compose-config-modules! adds to bb's classpath.
 
     --edn        (default) the -Sdeps map; launch with
-                 clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.main server
+                 clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.foundation.main server
     --classpath  the flattened classpath (shells clojure -Spath); debug / java -cp
 
   # Fixtures (real local/root modules in this repo):
@@ -86,7 +86,7 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
       """
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
-    # clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.main --version
-    When the emitted launch deps boot "isaac.main --version"
+    # clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.foundation.main --version
+    When the emitted launch deps boot "isaac.foundation.main --version"
     Then the stdout contains "isaac"
     And the exit code is 0

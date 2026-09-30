@@ -3,7 +3,7 @@
 Isaac's **foundation** is the CLI, module loader, config machinery, and shared
 runtime primitives that every module builds on. The foundation repo is splitting
 out from the monolith; module authors require **foundation components directly**
-(`isaac.nexus`, `isaac.fs`, `isaac.reconfigurable`, …) rather than through a
+(`isaac.foundation.nexus`, `isaac.foundation.fs`, `isaac.foundation.reconfigurable`, …) rather than through a
 single facade namespace. The right module-facing API will emerge from that split.
 
 ## Purpose
@@ -31,14 +31,14 @@ A minimal module needs a manifest and a factory:
 
 ```clojure
 (ns my.module
-  (:require [isaac.module.protocol :as module]))
+  (:require [isaac.foundation.module.protocol :as module]))
 
 (defn create-module []
   (module/module))
 ```
 
 To contribute a CLI command, add a berth entry in the manifest and implement
-`isaac.cli.api` multimethods in a separate namespace:
+`isaac.foundation.cli.api` multimethods in a separate namespace:
 
 ```edn
 {:isaac/cli {:hello {:usage     "hello"
@@ -48,7 +48,7 @@ To contribute a CLI command, add a berth entry in the manifest and implement
 
 ```clojure
 (ns my.module.cli
-  (:require [isaac.cli.api :as cli-api]))
+  (:require [isaac.foundation.cli.api :as cli-api]))
 
 (defmethod cli-api/run :hello [_id _opts]
   (println "Hello!")
@@ -65,18 +65,18 @@ Require these directly when building module code:
 
 | Namespace | Surface | Notes |
 |-----------|---------|-------|
-| `isaac.module.protocol` | `Module`, `module`, `module?` | Module lifecycle hooks |
-| `isaac.nexus` | `get`, `get-in`, `register!` | Publish factory output to runtime |
-| `isaac.cli.api` | `run`, `option-spec`, … | CLI multimethods |
-| `isaac.fs` | `Fs`, `real-fs`, `mem-fs` | Factory I/O |
-| `isaac.logger` | `info`, `warn`, `error`, `debug` | |
-| `isaac.config.paths` | `config-path`, `root-config-file`, … | Pure path helpers |
-| `isaac.config.root` | `default-root`, … | Bootstrap root before config load |
-| `isaac.reconfigurable` | `Reconfigurable` | Config-driven component lifecycle |
-| `isaac.schema.lexicon` | apron type registration | Advanced |
-| `isaac.schema.meta` | `conform-spec!` | Manifest schema authors |
+| `isaac.foundation.module.protocol` | `Module`, `module`, `module?` | Module lifecycle hooks |
+| `isaac.foundation.nexus` | `get`, `get-in`, `register!` | Publish factory output to runtime |
+| `isaac.foundation.cli.api` | `run`, `option-spec`, … | CLI multimethods |
+| `isaac.foundation.fs` | `Fs`, `real-fs`, `mem-fs` | Factory I/O |
+| `isaac.foundation.logger` | `info`, `warn`, `error`, `debug` | |
+| `isaac.foundation.config.paths` | `config-path`, `root-config-file`, … | Pure path helpers |
+| `isaac.foundation.config.root` | `default-root`, … | Bootstrap root before config load |
+| `isaac.foundation.reconfigurable` | `Reconfigurable` | Config-driven component lifecycle |
+| `isaac.foundation.schema.lexicon` | apron type registration | Advanced |
+| `isaac.foundation.schema.meta` | `conform-spec!` | Manifest schema authors |
 
-`isaac.nexus/schema` documents foundation-reserved slots: `:fs`, `:config`,
+`isaac.foundation.nexus/schema` documents foundation-reserved slots: `:fs`, `:config`,
 `:module-index`, `:scheduler`. Platform hosts install additional keys at runtime.
 
 ### Forbidden for modules
@@ -85,18 +85,18 @@ Do not require these from module production code (enforced in
 `spec/isaac/foundation_module_boundary_spec.clj`):
 
 ```
-isaac.module.loader
-isaac.module.manifest
-isaac.config.loader
-isaac.config.install
-isaac.config.configurator
-isaac.config.berths
-isaac.config.runtime
-isaac.config.schema-compose
-isaac.config.check-compose
-isaac.config.validation
-isaac.cli.registry
-isaac.main
+isaac.foundation.module.loader
+isaac.foundation.module.manifest
+isaac.foundation.config.loader
+isaac.foundation.config.install
+isaac.foundation.config.configurator
+isaac.foundation.config.berths
+isaac.foundation.config.runtime
+isaac.foundation.config.schema-compose
+isaac.foundation.config.check-compose
+isaac.foundation.config.validation
+isaac.foundation.cli.registry
+isaac.foundation.main
 isaac.api
 ```
 
@@ -109,10 +109,10 @@ Server, agent daemon, and test harnesses that boot the world.
 
 | Namespace | Surface |
 |-----------|---------|
-| `isaac.module.loader` | `discover!`, `process-manifest-berths!`, `load-modules!`, `reconcile-modules!`, `shutdown-modules!`, `builtin-index` |
-| `isaac.config.loader` | `load-config!`, `snapshot`, `root`, `env`, … |
-| `isaac.config.runtime` | `install!`, `install-config-berths!`, `reconcile!`, `reload!`, `validate-config!`, change-source |
-| `isaac.nexus` | Full surface including `init!`, `reset!`, `-with-nexus`, `-with-nested-nexus` |
+| `isaac.foundation.module.loader` | `discover!`, `process-manifest-berths!`, `load-modules!`, `reconcile-modules!`, `shutdown-modules!`, `builtin-index` |
+| `isaac.foundation.config.loader` | `load-config!`, `snapshot`, `root`, `env`, … |
+| `isaac.foundation.config.runtime` | `install!`, `install-config-berths!`, `reconcile!`, `reload!`, `validate-config!`, change-source |
+| `isaac.foundation.nexus` | Full surface including `init!`, `reset!`, `-with-nexus`, `-with-nested-nexus` |
 
 ## Berths
 
@@ -127,7 +127,7 @@ typed contribution slot declared in the foundation manifest (`:berths` in
 | `:isaac.config/check` | Map of check id → post-load validation fn |
 
 The loader resolves per-entry `:factory` symbols at activation time. Factories
-typically use `nexus/register!`, `isaac.logger`, and `isaac.fs` to publish live
+typically use `nexus/register!`, `isaac.foundation.logger`, and `isaac.foundation.fs` to publish live
 instances.
 
 Manifest-only modules (EDN contributions, no Clojure requires) are the common case.
@@ -138,13 +138,13 @@ Two different “roots”:
 
 | Concept | Namespace | When |
 |---------|-----------|------|
-| **Bootstrap root** | `isaac.config.root` | CLI / `main` resolves before config is loaded (`default-root`, `--root` flag) |
+| **Bootstrap root** | `isaac.foundation.config.root` | CLI / `main` resolves before config is loaded (`default-root`, `--root` flag) |
 | **Runtime root** | `loader/root` or snapshot `:root` | After `load-config!` commits the process-wide snapshot |
 
-Path construction helpers live in `isaac.config.paths`. Hosts load config via
-`isaac.config.loader/load-config!` at entry points and thread the value onward.
+Path construction helpers live in `isaac.foundation.config.paths`. Hosts load config via
+`isaac.foundation.config.loader/load-config!` at entry points and thread the value onward.
 
-### Templating — `:_base` (`isaac.config.templating`)
+### Templating — `:_base` (`isaac.foundation.config.templating`)
 
 Any config map entity may inherit from a **template** by naming it explicitly:
 
@@ -202,11 +202,11 @@ is the point.
 
 ## Reconfigurable
 
-Config-driven components implement `isaac.reconfigurable/Reconfigurable`:
+Config-driven components implement `isaac.foundation.reconfigurable/Reconfigurable`:
 
 ```clojure
 (ns my.module.node
-  (:require [isaac.reconfigurable :as reconfigurable]))
+  (:require [isaac.foundation.reconfigurable :as reconfigurable]))
 
 (defrecord RelayStation [state*]
   reconfigurable/Reconfigurable
@@ -216,7 +216,7 @@ Config-driven components implement `isaac.reconfigurable/Reconfigurable`:
     (reset! state* {:slice new-slice :event :changed})))
 ```
 
-The reconciler (`isaac.config.runtime`) invokes lifecycle methods on live nexus
+The reconciler (`isaac.foundation.config.runtime`) invokes lifecycle methods on live nexus
 instances.
 
 ## Enforcement

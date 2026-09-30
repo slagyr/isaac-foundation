@@ -20,8 +20,8 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
 
   The other three are NOT redundant — confirmed by reading
   config_schema.feature's own fixture and scenarios line by line:
-  isaac.schema.dynamic/merge-dynamic-fields does generically annotate a
-  module-merged field with `:isaac/variant`, and isaac.config.schema.term
+  isaac.foundation.schema.dynamic/merge-dynamic-fields does generically annotate a
+  module-merged field with `:isaac/variant`, and isaac.foundation.config.schema.term
   does generically render it as a `[variant]` prefix (both foundation-
   owned, no agent concept) — but no EXISTING config_schema.feature scenario
   ever drills into a dynamic-schema-merged field to assert that prefix, or
@@ -72,7 +72,7 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
       """
       (ns marigold.601n.bridge
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.601n.bridge.comm]))
 
       (defn create-module []
@@ -101,7 +101,7 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
       """
       (ns marigold.601n.longwave
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.601n.bridge.comm :as bridge.comm]))
 
       (defn create-module []
@@ -127,7 +127,7 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
       """
       (ns marigold.601n.skybeam
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.601n.bridge.comm :as bridge.comm]))
 
       (defn create-module []

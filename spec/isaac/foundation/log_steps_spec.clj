@@ -2,7 +2,7 @@
   (:require
     [gherclj.core :as g]
     [isaac.foundation.log-steps :as sut]
-    [isaac.logger :as log]
+    [isaac.foundation.logger :as log]
     [speclj.core :refer :all]))
 
 (describe "foundation log steps"

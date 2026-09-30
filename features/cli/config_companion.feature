@@ -3,9 +3,9 @@ Feature: Config companion .md — the load side reads the table's own descriptor
   Moved from isaac-agent's features/config/composition.feature and
   features/config/cli.feature. A table's `:companion` descriptor
   (`:field` + `:mode`) plus its `:entity-dir` decide which field a `.md`
-  companion fills, on both the LOAD side (isaac.config.companions/
-  companion-md-relative, isaac.config.entities/resolve-entity-data) and the
-  SET side (isaac.config.mutate/companion-spec) — isaac.config.companions
+  companion fills, on both the LOAD side (isaac.foundation.config.companions/
+  companion-md-relative, isaac.foundation.config.entities/resolve-entity-data) and the
+  SET side (isaac.foundation.config.mutate/companion-spec) — isaac.foundation.config.companions
   names no kind or field here. Before isaac-kcck, companion-md-relative
   hard-coded the kinds :crew (-> :soul) and :berths (-> :ledger), so these
   five scenarios stayed in isaac-agent even after isaac-mxgn/isaac-601n

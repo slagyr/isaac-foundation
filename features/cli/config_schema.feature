@@ -84,7 +84,7 @@ Feature: isaac config schema is generic — no module names it another module's 
       """
       (ns marigold.cnfs.bridge
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cnfs.bridge.comm]))
 
       (defn create-module []
@@ -114,7 +114,7 @@ Feature: isaac config schema is generic — no module names it another module's 
       """
       (ns marigold.cnfs.longwave
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cnfs.bridge.comm :as bridge.comm]))
 
       (defn create-module []

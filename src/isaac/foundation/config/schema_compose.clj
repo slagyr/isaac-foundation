@@ -1,0 +1,272 @@
+(ns isaac.foundation.config.schema-compose
+  (:require
+    [isaac.foundation.config.berths :as berths]
+    [isaac.foundation.config.schema-base :as schema-base]
+    ;; load-for-side-effect (plus register-contributed-existence-refs!, used
+    ;; below): registers the config validation lexicon (:one-of?, foundation's
+    ;; own existence refs, …) that inline-schema checks contributions against.
+    ;; A leaf ns, so no cycle with isaac.foundation.config.validation (which requires
+    ;; this ns). Guarantees the lexicon is populated before the first
+    ;; compose, so a pre-lexicon result can never be frozen in last-composed*.
+    [isaac.foundation.config.validation-lexicon :as vlex]
+    [isaac.foundation.logger :as log]
+    [isaac.foundation.module.discovery :as discovery]
+    [isaac.foundation.module.lifecycle :as lifecycle]
+))
+
+(def ^:private berth-key :isaac.config/schema)
+
+(defonce ^:private last-composed* (atom nil))
+(defonce ^:private last-descriptors* (atom nil))
+
+(defn- id-str [value]
+  (cond
+    (keyword? value) (str value)
+    (symbol? value)  (str value)
+    :else            (pr-str value)))
+
+(defn- collision-error [config-key path a b]
+  (ex-info (str "config-schema collision at " config-key
+                (when (seq path) (str " " (vec path)))
+                ": " (pr-str a) " vs " (pr-str b))
+           {:config-key config-key
+            :path       (vec path)
+            :a          a
+            :b          b
+            :type       :config-schema/collision}))
+
+(defn- invalid-schema-error [config-key module-id descriptor value]
+  (ex-info (str "config-schema contribution for " config-key " must carry a valid inline :schema map: " value)
+           {:config-key config-key
+            :descriptor descriptor
+            :module-id  module-id
+            :type       :config-schema/invalid-schema
+            :value      value}))
+
+(defn contribution-entries
+  "All :isaac.config/schema contributions, ordered so a later (more
+   dependent) module's contribution is processed last — last-wins
+   ownership then matches the activation berths. Ordering is module
+   topological order (deps before dependents); on a dependency cycle it
+   falls back to alphabetical id order so compose never throws here."
+  [module-index]
+  (let [order (try (zipmap (lifecycle/topological-order module-index) (range))
+                   (catch Throwable _ nil))
+        rank  (fn [module-id] (if order (get order module-id) (id-str module-id)))]
+    (->> module-index
+         (mapcat (fn [[module-id entry]]
+                   (for [[config-key descriptor] (sort-by key (get-in entry [:manifest berth-key] {}))]
+                     {:config-key config-key
+                      :descriptor descriptor
+                      :module-id  module-id})))
+         (sort-by (juxt #(rank (:module-id %)) #(id-str (:config-key %)))))))
+
+(defn- inline-schema [{:keys [schema] :as descriptor} module-index]
+  (if (map? schema)
+    ;; meta-conform + :dynamic-schema gather (map-form), shared with the
+    ;; reconcile engine so the effective root and the node schema agree.
+    (berths/compose-config-table-schema descriptor module-index)
+    (throw (ex-info (str "config-schema contribution :schema must be an inline map, got: " (pr-str schema))
+                    {:schema schema :type :config-schema/invalid-schema :value schema}))))
+
+(defn- override-event [config-key]
+  (keyword (name config-key) "override"))
+
+(defn- merge-descriptors
+  "Deep-merge two :isaac.config/schema descriptors for the same config
+   key. Two levels (isaac-un18, the unified collision policy):
+
+   - **Table shell** — everything outside the table's entry map —
+     deep-merges; a non-map leaf present in both must be equal, else the
+     modules disagree on the table's *structure*, a collision (error).
+   - **Entity level** — the per-id entry map at `[:schema :schema]` — is
+     owned per id: a later module's entry replaces an earlier one's
+     wholesale (override is a feature), logged `:<config-key>/override`.
+     Distinct ids just accrete.
+
+   This matches the activation berths, where a later module's factory
+   replaces an earlier one's by name; the schema half now agrees."
+  ([config-key a b] (merge-descriptors config-key [] a b))
+  ([config-key path a b]
+   (cond
+     (and (= path [:schema :schema]) (map? a) (map? b))
+     (reduce-kv (fn [acc entity-id b-entry]
+                  (when (contains? acc entity-id)
+                    (log/warn (override-event config-key) :config config-key :entity entity-id))
+                  (assoc acc entity-id b-entry))
+                a b)
+
+     (and (map? a) (map? b))
+     (reduce-kv (fn [acc k bv]
+                  (if (contains? acc k)
+                    (assoc acc k (merge-descriptors config-key (conj path k) (get acc k) bv))
+                    (assoc acc k bv)))
+                a b)
+     (= a b) a
+     :else   (throw (collision-error config-key path a b)))))
+
+(defn- merge-contributions [module-index]
+  ;; Group every contribution by config key (deep-merging descriptors so
+  ;; several modules can extend one table), THEN compose each merged
+  ;; descriptor once — a module's partial fragment (no :type) only has to
+  ;; meta-conform after it is folded into the owning table's shell. The
+  ;; meta-conform (isaac.foundation.schema.meta) verifies every :validations ref
+  ;; resolves in the lexicon, so a module-contributed existence ref (e.g.
+  ;; isaac-agent's crew/model refs, isaac-h2oo) has to be registered before
+  ;; this runs — a scoped with-lexicon isn't enough (later pipeline steps,
+  ;; e.g. root-config conform, run after any scoped binding here has closed),
+  ;; so this registers into the GLOBAL lexicon instead (see
+  ;; register-contributed-existence-refs!).
+  (vlex/register-contributed-existence-refs! module-index)
+  (let [grouped (reduce (fn [acc {:keys [config-key descriptor]}]
+                          (update acc config-key
+                                  (fn [existing]
+                                    (if existing
+                                      (merge-descriptors config-key existing descriptor)
+                                      descriptor))))
+                        {}
+                        (contribution-entries module-index))]
+    (reduce-kv
+      (fn [acc config-key descriptor]
+        (let [fragment (try
+                         (inline-schema descriptor module-index)
+                         (catch Throwable t
+                           (throw (invalid-schema-error config-key nil descriptor (ex-message t)))))]
+          (-> acc
+              (assoc-in [:fields config-key] fragment)
+              (assoc-in [:descriptors config-key] descriptor))))
+      {:fields {} :descriptors {}}
+      grouped)))
+
+(defn compose-root-schema
+  [module-index]
+  (let [{:keys [fields]} (merge-contributions module-index)]
+    (assoc schema-base/base-root :schema
+           (merge (schema-base/schema-fields schema-base/base-root) fields))))
+
+(defn descriptors
+  ([module-index]
+   (:descriptors (merge-contributions module-index)))
+  ([] (or @last-descriptors* (descriptors (discovery/builtin-index)))))
+
+(def ^:private template-key :entity-template)
+
+(defn- template-field-spec
+  "A default is a template: every entity of that kind behaves as if it had set
+   the field. Templates therefore never require a field and never assert its
+   presence — the entity itself carries those obligations."
+  [spec]
+  (let [validations (vec (remove #(or (= :present? %)
+                                      (and (vector? %) (= :present? (first %))))
+                                 (:validations spec)))]
+    (cond-> (dissoc spec :required)
+            true (dissoc :validations)
+            (seq validations) (assoc :validations validations))))
+
+(defn- template-source
+  "The schema a template copies: an entity table's :value-spec when the kind is
+   a table, else the kind's own map schema (e.g. :frequencies)."
+  [root-schema kind]
+  (let [field (get-in root-schema [:schema kind])]
+    (or (:value-spec field) field)))
+
+(defn entity-template-schema
+  "Field map for a :defaults section declared as {:entity-template {:kind …}}."
+  [root-schema {:keys [kind except override]}]
+  (let [fields (apply dissoc (schema-base/schema-fields (template-source root-schema kind))
+                      (or except []))]
+    (merge (reduce-kv (fn [acc field-key spec] (assoc acc field-key (template-field-spec spec)))
+                      {} fields)
+           (or override {}))))
+
+(defn resolve-entity-templates
+  "Expand every :entity-template marker in the :defaults schema against the
+   entity schemas already composed into `root-schema`. Runs last, so a kind's
+   dynamic-schema contributions are part of the template too."
+  [root-schema]
+  (if-not (map? (schema-base/schema-fields (get-in root-schema [:schema :defaults])))
+    root-schema
+    (update-in root-schema [:schema :defaults :schema]
+               (fn [fields]
+                 (reduce-kv (fn [acc field-key spec]
+                              (assoc acc field-key
+                                         (if-let [template (get spec template-key)]
+                                           (-> (dissoc spec template-key)
+                                               (assoc :schema (entity-template-schema root-schema template)))
+                                           spec)))
+                            {} fields)))))
+
+(defn effective-root-schema
+  [module-index]
+  (-> (compose-root-schema module-index)
+      (berths/effective-root-schema module-index)
+      resolve-entity-templates))
+
+(defn cache-composed!
+  [module-index]
+  (let [{:keys [descriptors]} (merge-contributions module-index)
+        root                  (effective-root-schema module-index)]
+    (reset! last-composed* root)
+    (reset! last-descriptors* descriptors)
+    root))
+
+(defn cached-root-schema
+  []
+  (or @last-composed* (effective-root-schema (discovery/builtin-index))))
+
+(defn entity-dir-names
+  []
+  (->> (vals (descriptors)) (keep :entity-dir) distinct vec))
+
+(defn frontmatter-entity-dirs
+  []
+  (->> (descriptors)
+       vals
+       (filter :frontmatter?)
+       (map :entity-dir)
+       set))
+
+(defn merge-root-entity-kinds
+  []
+  (->> (descriptors)
+       (filter (fn [[_ descriptor]] (:merge-root-entity? descriptor)))
+       (map key)
+       vec))
+
+(defn normalized-config-keys
+  []
+  (into #{:defaults}
+        (keep (fn [[kind descriptor]]
+                (when (:merge-root-entity? descriptor) kind))
+              (descriptors))))
+
+(defn entity-collection-key?
+  "True when the composed root schema's field at `head` is a dynamic-key
+   entity-collection table — both a :key-spec and a :value-spec, the same
+   structural signature isaac.foundation.config.schema.resolve's key-segment-for-schema
+   uses to descend a table's entity ids. No module-specific name list: a key
+   is an entity collection because its schema shape says so, not because a
+   module declared it (isaac-n140)."
+  [root-schema head]
+  (let [field (get-in root-schema [:schema head])]
+    (boolean (and (:key-spec field) (:value-spec field)))))
+
+(defn schema-for-kind
+  [root-schema kind]
+  (let [field (get-in root-schema [:schema kind])]
+    (if (= kind :defaults)
+      field
+      (:value-spec field))))
+
+(defn descriptor-for
+  [kind]
+  (get (descriptors) kind))
+
+(defn provider-entity-schema
+  [root-schema]
+  (schema-for-kind root-schema :providers))
+
+(defn clear-cache!
+  []
+  (reset! last-composed* nil)
+  (reset! last-descriptors* nil))

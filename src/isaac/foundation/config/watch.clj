@@ -1,0 +1,92 @@
+(ns isaac.foundation.config.watch
+  "Config hot-reload, owned by the process.
+
+   Foundation owns config and owns the daemon, so it owns noticing that config
+   changed. This used to live in isaac-http, which meant a host running any
+   other transport — or no transport — silently never reloaded anything, and a
+   host that simply never set :hot-reload got the same silence while the
+   resolver claimed the default was on (isaac-1pi2).
+
+   Every file the config layer recognises counts: isaac.edn, every
+   <kind>/<id>.edn under config/, and the markdown souls and ledgers beside
+   them. The watcher is recursive over the config root, so a file created after
+   boot is seen like any other."
+  (:require
+    [isaac.foundation.config.configurator :as configurator]
+    [isaac.foundation.config.loader :as loader]
+    [isaac.foundation.config.runtime :as runtime]
+    [isaac.foundation.logger :as log]))
+
+(def ^:private retired-path [:server :hot-reload])
+
+(defn hot-reload?
+  "Is the config watcher wanted? Default TRUE — a host says nothing and gets
+   hot reload. `:hot-reload false` turns it off. The retired
+   [:server :hot-reload] still works and says so once."
+  [config]
+  (let [current (:hot-reload config)
+        retired (get-in config retired-path)]
+    (cond
+      (boolean? current) current
+
+      (boolean? retired)
+      (do (log/warn :config.watch/retired-key
+                    :key retired-path
+                    :message "use the top-level :hot-reload; [:server :hot-reload] is retired")
+          retired)
+
+      :else true)))
+
+(defn registries
+  "What reload should reconcile: whatever modules declared through
+   :isaac.config/component. Foundation names no module (isaac-bbe0)."
+  [module-index]
+  (configurator/declared-registries module-index))
+
+(defn- reload-loop! [{:keys [source root fs host registries]}]
+  (future
+    (loop []
+      (when-let [path (runtime/poll! source 5000)]
+        (runtime/reload! {:root       root
+                          :fs         fs
+                          :old-config (loader/snapshot "reload: previous config for the reconcile diff")
+                          :registries registries
+                          :host       host
+                          :path       path}))
+      (recur))))
+
+(defn start!
+  "Start watching the config root, if this host wants it. Returns a handle to
+   pass to stop!, or nil when watching is off or impossible. Always says which
+   way it went: a watcher that silently does not exist is how isaac-1pi2 hid.
+
+   opts:
+     :source    - an explicit change source (tests and embedders inject one;
+                  a file watcher is built from :root otherwise)
+     :reloader? - false runs the source without the polling loop, for callers
+                  that drive reloads themselves"
+  [{:keys [config root fs host source reloader?]}]
+  (cond
+    (and (not root) (not source))
+    (do (log/info :config.watch/disabled :reason :no-root) nil)
+
+    (not (hot-reload? config))
+    (do (log/info :config.watch/disabled :reason :configured-off) nil)
+
+    :else
+    (let [source (or source (runtime/watch-service-source root))]
+      (runtime/start! source)
+      {:source   source
+       :reloader (when-not (false? reloader?)
+                   (reload-loop! {:source source :root root :fs fs
+                                  :host host
+                                  :registries (registries (:module-index host))}))})))
+
+(defn stop!
+  "Stop the watcher and its reload loop."
+  [handle]
+  (when-let [{:keys [source reloader]} handle]
+    (some-> reloader future-cancel)
+    (some-> source runtime/stop!)
+    (log/info :config.watch/stopped))
+  nil)

@@ -1,9 +1,9 @@
 (ns marigold.longwave
   "Fixture consumer module shared by manifest-only and config-berth tests."
   (:require
-    [isaac.cli.api :as cli-api]
-    [isaac.reconfigurable :as reconfigurable]
-    [isaac.module.protocol :as module]
+    [isaac.foundation.cli.api :as cli-api]
+    [isaac.foundation.reconfigurable :as reconfigurable]
+    [isaac.foundation.module.protocol :as module]
     [marigold.bridge.comm :as bridge.comm]))
 
 (defn create-module []

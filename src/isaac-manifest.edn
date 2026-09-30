@@ -3,7 +3,7 @@
  :factory   isaac.foundation.module/create-module
  :handbook  "isaac/foundation/handbook.md"
 
- :berths    {:isaac/component {:description "Runtime components contributed by modules. Entries are inert {:namespace <sym>} declarations; isaac.runner starts them in module dependency order and stops them in reverse."
+ :berths    {:isaac/component {:description "Runtime components contributed by modules. Entries are inert {:namespace <sym>} declarations; isaac.foundation.runner starts them in module dependency order and stops them in reverse."
                                   :schema      {:type       :map
                                                 :key-spec   {:type :keyword}
                                                 :value-spec {:type   :map
@@ -28,7 +28,7 @@
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
                                                  :value-spec {:type    :map
-                                                              :factory isaac.cli.registry/register-cli-command!
+                                                              :factory isaac.foundation.cli.registry/register-cli-command!
                                                               :schema  {:usage     {:type        :string
                                                                                     :validations [:present?]
                                                                                     :description "Usage line for isaac help (e.g. \"config <subcommand> [options]\"). Command name comes from the map key."}
@@ -37,7 +37,7 @@
                                                                                     :description "One-line description shown in command listings and the help header."}
                                                                         :namespace  {:type        :symbol
                                                                                      :validations [:present?]
-                                                                                     :description "Namespace symbol that implements isaac.cli.api multimethods (run required; option-spec, subcommands, help optional)."}
+                                                                                     :description "Namespace symbol that implements isaac.foundation.cli.api multimethods (run required; option-spec, subcommands, help optional)."}
                                                                         :local-only {:type        :boolean
                                                                                      :description "Refuse in-process embedded dispatch; command must run on the host."}
                                                                         :hosted     {:type        :boolean
@@ -48,7 +48,7 @@
                                    :schema      {:type       :map
                                                  :key-spec   {:type :keyword}
                                                  :value-spec {:type    :map
-                                                              :factory isaac.logs.streams/register-stream!
+                                                              :factory isaac.foundation.logs.streams/register-stream!
                                                               :schema  {:file        {:type        :string
                                                                                       :validations [:present?]
                                                                                       :description "Root-relative path to the log file (e.g. \"logs/cli.log\"). Stream name comes from the map key."}
@@ -126,25 +126,25 @@
 
  :isaac/cli {:server  {:usage      "server [options]"
                        :summary    "Start the Isaac process runner"
-                       :namespace  isaac.runner.cli
+                       :namespace  isaac.foundation.runner.cli
                        :local-only true}
              :service {:usage      "service [options] <subcommand>"
                        :summary    "Manage Isaac as a background service"
-                       :namespace  isaac.service.cli
+                       :namespace  isaac.foundation.service.cli
                        :local-only true}
              :init   {:usage     "init"
                       :summary   "Scaffold a default Isaac config"
-                      :namespace isaac.cli.registry}
+                      :namespace isaac.foundation.cli.registry}
              :help   {:usage     "help [command-or-topic]"
                       :summary   "Show help for a command or topic"
-                      :namespace isaac.cli.help}
+                      :namespace isaac.foundation.cli.help}
              :logs   {:usage     "logs [options]"
                       :summary   "Print Isaac logs in readable colorized format"
-                      :namespace isaac.logs.cli}
+                      :namespace isaac.foundation.logs.cli}
              :config  {:usage     "config <subcommand> [options]"
                        :summary   "Inspect and validate Isaac configuration"
-                       :namespace isaac.config.cli.command}
+                       :namespace isaac.foundation.config.cli.command}
              :modules {:usage      "modules <subcommand> [options]"
                        :summary    "Inspect and manage configured extension modules"
-                       :namespace  isaac.modules.cli
+                       :namespace  isaac.foundation.modules.cli
                        :local-only true}}}

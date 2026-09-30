@@ -3,7 +3,7 @@ Feature: isaac service — Linux systemd user unit management
   ~/.config/systemd/user/isaac.service, mirroring the macOS LaunchAgent
   subcommand for subcommand: install writes the unit with Isaac's
   invocation baked in and enables it, status reads systemctl, logs read
-  the file the unit appends to. Every subprocess goes through isaac.shell
+  the file the unit appends to. Every subprocess goes through isaac.foundation.shell
   so these scenarios run on any box with the shell stubbed.
 
   Background:
@@ -35,7 +35,7 @@ Feature: isaac service — Linux systemd user unit management
     When isaac is run with "service install --isaac-dir /projects/marigold-bridge"
     Then the INI file "~/.config/systemd/user/isaac.service" matches:
       | path                | value                                                                               |
-      | Service.ExecStart   | /opt/marigold/bin/bb --config /projects/marigold-bridge/bb.edn -m isaac.main server |
+      | Service.ExecStart   | /opt/marigold/bin/bb --config /projects/marigold-bridge/bb.edn -m isaac.foundation.main server |
       | Service.Environment | PATH=/opt/marigold/bin:/usr/bin:/bin                                                |
     And sh was called with "systemctl --user enable --now isaac"
     And the stdout contains "Resolved bb: /opt/marigold/bin/bb"
@@ -57,7 +57,7 @@ Feature: isaac service — Linux systemd user unit management
     When isaac is run with "service install --runtime jvm --root /srv/marigold"
     Then the INI file "~/.config/systemd/user/isaac.service" matches:
       | path              | value                                                                                                                                                  |
-      | Service.ExecStart | /bin/sh -c "exec clojure -Sdeps \"$$(/opt/marigold/bin/isaac --root /srv/marigold modules deps --edn)\" -M -m isaac.main --root /srv/marigold server" |
+      | Service.ExecStart | /bin/sh -c "exec clojure -Sdeps \"$$(/opt/marigold/bin/isaac --root /srv/marigold modules deps --edn)\" -M -m isaac.foundation.main --root /srv/marigold server" |
     And the exit code is 0
     When isaac is run with "service status"
     Then the stdout contains "runtime: jvm"

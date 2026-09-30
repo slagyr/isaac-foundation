@@ -11,15 +11,15 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven helper!]]
-    [isaac.config.api :as config]
-    [isaac.config.schema-compose :as schema-compose]
-    [isaac.fs :as fs]
-    [isaac.log.file :as lfile]
-    [isaac.logger :as log]
-    [isaac.module.classpath :as classpath]
-    [isaac.module.lifecycle :as lifecycle]
-    [isaac.modules.registry :as modules-registry]
-    [isaac.nexus :as nexus]))
+    [isaac.foundation.config.api :as config]
+    [isaac.foundation.config.schema-compose :as schema-compose]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.log.file :as lfile]
+    [isaac.foundation.logger :as log]
+    [isaac.foundation.module.classpath :as classpath]
+    [isaac.foundation.module.lifecycle :as lifecycle]
+    [isaac.foundation.modules.registry :as modules-registry]
+    [isaac.foundation.nexus :as nexus]))
 
 (helper! isaac.foundation.root-steps)
 
@@ -118,7 +118,7 @@
     (nexus/reset!)
     ;; lifecycle/clear-activations! already drops discovery's foundation/
     ;; builtin-index caches; the composed root-schema cache is a separate
-    ;; process-global atom (isaac.config.schema-compose) that nothing else
+    ;; process-global atom (isaac.foundation.config.schema-compose) that nothing else
     ;; resets between scenarios — without this, a schema composed from an
     ;; earlier scenario's module-index can leak into a later scenario for
     ;; the rest of the shared JVM process.

@@ -11,7 +11,7 @@ Feature: config set places a new entry by preference, an existing one where it l
       """
       {:id      :marigold.lshz.roster
        :version "0.1.0"
-       :factory isaac.module.protocol/module
+       :factory isaac.foundation.module.protocol/module
 
        :isaac.config/schema
        {:roster {:entity-dir "roster"

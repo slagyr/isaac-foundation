@@ -1,0 +1,331 @@
+(ns isaac.foundation.log-viewer
+  (:require
+    [clojure.edn :as edn]
+    [clojure.string :as str]
+    [isaac.foundation.cli.color :as color]
+    [isaac.foundation.cli.host :as host]))
+
+;; region ----- ANSI helpers -----
+
+(defn- ansi [& codes]
+  (str "\033[" (str/join ";" codes) "m"))
+
+(def ^:private reset      (ansi 0))
+(def ^:private dim        (ansi 2))
+
+(def ^:private palette
+  [(ansi "38;5;39")    ;; bright blue
+   (ansi "38;5;208")   ;; orange
+   (ansi "38;5;76")    ;; green
+   (ansi "38;5;213")   ;; pink
+   (ansi "38;5;220")   ;; gold
+   (ansi "38;5;51")    ;; aqua
+   (ansi "38;5;141")   ;; lavender
+   (ansi "38;5;167")   ;; salmon
+   (ansi "38;5;108")   ;; sage
+   (ansi "38;5;215")   ;; peach
+   (ansi "38;5;111")   ;; sky
+   (ansi "38;5;179")]) ;; mustard
+
+(defn- palette-color [s]
+  (nth palette (mod (Math/abs (hash (str s))) (count palette))))
+
+(defn color-for-ns [s] (palette-color s))
+(defn color-for-session [s] (palette-color s))
+
+(defn color-for-level [level]
+  (case level
+    :error (ansi 1 31)
+    :warn  (ansi 1 33)
+    :info  (ansi 1 36)
+    :debug dim
+    :trace dim
+    (ansi 0)))
+
+(defn color-for-value [v]
+  (cond
+    (nil? v)     (ansi 31)
+    (boolean? v) (ansi 33)
+    (number? v)  (ansi 32)
+    (keyword? v) (ansi 35)
+    :else        (ansi "38;5;222")))
+
+;; endregion ^^^^^ ANSI helpers ^^^^^
+
+;; region ----- Formatting -----
+
+(defn format-time [ts]
+  (try
+    (let [inst (java.time.Instant/parse (str ts))
+          ldt  (-> inst
+                   (.atZone (java.time.ZoneId/systemDefault))
+                   .toLocalDateTime)
+          fmt  (java.time.format.DateTimeFormatter/ofPattern "HH:mm:ss.SSS")]
+      (.format fmt ldt))
+    (catch Exception _
+      (let [s (str ts)]
+        (if (>= (count s) 12) (subs s 0 12) s)))))
+
+(defn- format-kv [k v color?]
+  (let [k-str (pr-str k)
+        v-str (pr-str v)]
+    (if color?
+      (let [val-color (if (and (= k :sessionId) (string? v))
+                        (color-for-session v)
+                        (color-for-value v))]
+        (str dim k-str reset " " val-color v-str reset))
+      (str k-str " " v-str))))
+
+(defn- format-map [m color?]
+  (let [pairs (str/join " " (map (fn [[k v]] (format-kv k v color?)) m))]
+    (if color?
+      (str dim "{" reset pairs dim "}" reset)
+      (str "{" pairs "}"))))
+
+(defn- unescape-log-text [s]
+  (let [placeholder "\u0000"]
+    (-> (or s "")
+        (str/replace "\\\\" placeholder)
+        (str/replace "\\n" "\n")
+        (str/replace "\\t" "\t")
+        (str/replace placeholder "\\"))))
+
+(defn- throwable-display-summary [throwable]
+  (if (map? throwable)
+    (select-keys throwable [:class :message])
+    throwable))
+
+(defn- format-throwable-expanded [throwable color?]
+  (when (and (map? throwable) (seq (:stacktrace throwable)))
+    (let [indent (if color? (str dim "    " reset) "    ")]
+      (->> (str/split-lines (unescape-log-text (:stacktrace throwable)))
+           (map #(str indent %))
+           (str/join "\n")))))
+
+(defn format-entry [entry color?]
+  (let [ts         (get entry :ts "")
+        level      (get entry :level :info)
+        event      (get entry :event "")
+        throwable  (:throwable entry)
+        kvs        (-> entry
+                       (dissoc :ts :level :event :file :line :throwable)
+                       (cond-> throwable (assoc :throwable (throwable-display-summary throwable))))
+        time-str   (format-time ts)
+        level-str  (format "%-5s" (str/upper-case (name (or level "INFO"))))
+        event-str  (str event)
+        event-ns   (when (keyword? event) (namespace event))
+        time-part  (if color? (str dim time-str reset "  ") (str time-str "  "))
+        level-part (if color?
+                     (str (color-for-level level) level-str reset "  ")
+                     (str level-str "  "))
+        event-part (if (and color? event-ns)
+                     (str (color-for-ns event-ns) event-str reset)
+                     event-str)
+        map-part   (when (seq kvs)
+                     (str "  " (format-map kvs color?)))
+        stack-part (format-throwable-expanded throwable color?)]
+    (cond-> (str time-part level-part event-part map-part)
+      stack-part (str "\n" stack-part))))
+
+(defn format-line [line color?]
+  (let [line (str/trim (or line ""))]
+    (when-not (str/blank? line)
+      (try
+        (let [entry (edn/read-string {:default tagged-literal} line)]
+          (if (map? entry)
+            (format-entry entry color?)
+            line))
+        (catch Exception _
+          line)))))
+
+(defn- zebra-wrap [s]
+  ;; Re-apply dim after every internal reset so the entire row stays muted.
+  (str dim (str/replace s reset (str reset dim)) reset))
+
+;; endregion ^^^^^ Formatting ^^^^^
+
+;; region ----- Tailing -----
+
+(def ^:dynamic *follow-sleep-ms* 100)
+
+(defn tty? []
+  (color/tty?))
+
+(def ^:private level-ranks {:report 0 :error 1 :warn 2 :info 3 :debug 4})
+
+(defn- line-level [line]
+  (try
+    (let [entry (edn/read-string {:default tagged-literal} (str/trim (or line "")))]
+      (when (map? entry) (:level entry)))
+    (catch Exception _ nil)))
+
+(defn- visible-level? [line level]
+  (let [entry-rank (get level-ranks (line-level line) Long/MAX_VALUE)
+        limit-rank (get level-ranks level (get level-ranks :debug))]
+    (<= entry-rank limit-rank)))
+
+(defn- print-line! [line row {:keys [color? zebra? plain? level]}]
+  (when (and line
+             (not (str/blank? line))
+             (or plain? (nil? level) (visible-level? line level)))
+    (let [out (if plain? line (format-line line color?))]
+      (when out
+        (println (if (and zebra? color? (odd? row))
+                   (zebra-wrap out)
+                   out))
+        true))))
+
+(defn- read-last-n-lines
+  "Read the last n newline-delimited lines by scanning backward from EOF.
+   Stops after n lines — does not read the whole file forward."
+  [^java.io.RandomAccessFile raf n]
+  (loop [pointer (dec (.length raf))
+         line    (StringBuilder.)
+         lines   []]
+    (cond
+      (>= (count lines) n)
+      (vec (take-last n (reverse lines)))
+
+      (neg? pointer)
+      (let [last-line (.toString line)]
+        (vec (take-last n (reverse (if (seq last-line)
+                                    (conj lines last-line)
+                                    lines)))))
+
+      :else
+      (do
+        (.seek raf pointer)
+        (let [ch (.read raf)]
+          (if (= ch (int \newline))
+            (if (seq line)
+              (recur (dec pointer) (StringBuilder.) (conj lines (.toString line)))
+              (recur (dec pointer) line lines))
+            (recur (dec pointer) (.insert line 0 (char ch)) lines)))))))
+
+(defn- read-all-lines [^java.io.RandomAccessFile raf]
+  (loop [acc []]
+    (if-let [line (.readLine raf)]
+      (recur (conj acc line))
+      acc)))
+
+(defn- read-initial-lines [^java.io.RandomAccessFile raf limit level plain?]
+  ;; Snapshot length before the dump so follow resumes at the pre-dump EOF.
+  ;; Seeking to the live length after the scan skips a line appended while
+  ;; we were reading (isaac-efb5).
+  (let [end     (.length raf)
+        filter? (and level (not plain?))
+        lines   (cond
+                  filter? (let [visible (filterv #(visible-level? % level) (read-all-lines raf))]
+                            (if (and limit (pos? limit)) (vec (take-last limit visible)) visible))
+                  (and limit (pos? limit)) (read-last-n-lines raf limit)
+                  :else (read-all-lines raf))]
+    (.seek raf end)
+    lines))
+
+(defn- missing-file-message [path follow?]
+  (str "No log file at " path " yet."
+       (when follow? " Waiting for log output...")
+       (when-not follow?
+         " Run an isaac command that produces logs first, or use --file PATH.")))
+
+(defn- wait-for-file! [^java.io.File file]
+  (loop []
+    (when-not (.exists file)
+      (Thread/sleep *follow-sleep-ms*)
+      (recur))))
+
+(defn- file-key [path]
+  (try
+    (let [p (.toPath (java.io.File. path))]
+      (when (java.nio.file.Files/exists p (into-array java.nio.file.LinkOption []))
+        (.fileKey (java.nio.file.Files/readAttributes
+                    p
+                    java.nio.file.attribute.BasicFileAttributes
+                    (into-array java.nio.file.LinkOption [])))))
+    (catch Exception _ nil)))
+
+(defn- rotated? [path ^java.io.RandomAccessFile raf tracked-key]
+  (let [f (java.io.File. path)]
+    (when (.exists f)
+      (let [pos (.getFilePointer raf)
+            len (.length f)
+            key (file-key path)]
+        (or (and (some? tracked-key) (some? key) (not= tracked-key key))
+            (< len pos))))))
+
+(defn- follow-tail! [path emit tracked-key ^java.io.RandomAccessFile raf]
+  (loop [raf raf key tracked-key]
+    (if (host/cancelled?)
+      nil
+      (if-let [line (.readLine raf)]
+        (do (emit line) (recur raf key))
+        (let [f   (java.io.File. path)
+              pos (.getFilePointer raf)
+              ;; File.length hits the filesystem; RAF.length can stay at the
+              ;; pre-dump size and skip the resync (isaac-efb5 flake).
+              len (.length f)]
+          (if (> len pos)
+            ;; File grew past our pointer but readLine still hit EOF
+            ;; (cached length). Resync and retry without sleeping.
+            (do (.seek raf pos)
+                (if-let [grown (.readLine raf)]
+                  (do (emit grown) (recur raf key))
+                  (do (Thread/sleep *follow-sleep-ms*)
+                      (recur raf key))))
+            (do
+              (Thread/sleep *follow-sleep-ms*)
+              (cond
+                (not (.exists f))
+                (let [_ (.close raf)]
+                  (wait-for-file! f)
+                  (let [new-raf (java.io.RandomAccessFile. path "r")]
+                    (recur new-raf (file-key path))))
+
+                (rotated? path raf key)
+                (let [_ (.close raf)
+                      new-raf (java.io.RandomAccessFile. path "r")]
+                  (recur new-raf (file-key path)))
+
+                :else
+                (recur raf key)))))))))
+
+(defn- tail-open-file!
+  [path {:keys [color? follow? zebra? plain? level limit]
+         :or   {color? false follow? false zebra? false plain? false}}]
+  (let [opts {:color? (and color? (not plain?))
+              :zebra? (and zebra? (not plain?))
+              :plain? plain?
+              :level  level}
+        row  (atom 0)
+        emit (fn [line]
+               (when (print-line! line @row opts)
+                 (swap! row inc)))]
+    (let [raf (java.io.RandomAccessFile. path "r")]
+      (try
+        (doseq [line (read-initial-lines raf limit level plain?)]
+          (emit line))
+        (when follow?
+          (follow-tail! path emit (file-key path) raf))
+        (finally
+          (.close raf))))))
+
+(defn tail!
+  "Print formatted log entries from `path`.
+   opts:
+     :color?  (bool, default false)
+     :follow? (bool, default false) — watch file for new lines; never returns
+     :zebra?  (bool, default false)
+     :plain?  (bool, default false) — raw passthrough, no parsing/coloring/zebra/filtering
+     :level   (keyword, default nil) — show this severity and above
+     :limit   (int, default nil)    — show only the last N lines (nil/0/neg = all)"
+  [path {:keys [follow?] :as opts :or {follow? false}}]
+  (let [file (java.io.File. path)]
+    (if-not (.exists file)
+      (do
+        (println (missing-file-message path follow?))
+        (when follow?
+          (wait-for-file! file)
+          (tail-open-file! path opts)))
+      (tail-open-file! path opts))))
+
+;; endregion ^^^^^ Tailing ^^^^^

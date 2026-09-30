@@ -1,5 +1,5 @@
 Feature: Atomic multi-path config writes (isaac-cvri)
-  isaac.config.mutate/set-many! (name open) applies several {op, path, value}
+  isaac.foundation.config.mutate/set-many! (name open) applies several {op, path, value}
   operations as ONE plan: staged, validated once against the resulting
   config, and applied all-or-nothing. A blocking error on ANY op refuses the
   whole batch — nothing is written, not even the individually-valid pairs.

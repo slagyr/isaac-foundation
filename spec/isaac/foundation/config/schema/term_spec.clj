@@ -1,0 +1,273 @@
+(ns isaac.foundation.config.schema.term-spec
+  (:require [clojure.string :as s]
+            [isaac.foundation.config.marigold :as config-marigold]
+            [isaac.foundation.config.schema-compose :as schema-compose]
+            [isaac.foundation.config.schema.term :as sut]
+            [isaac.foundation.schema.registered-in :as registered-in]
+            [speclj.core :refer [context describe it should should-contain should-not-contain should=]]))
+
+(def ^:private plain {:color? false :width 80})
+(def ^:private plain-no-paths {:color? false :paths? false :width 80})
+
+(defn- root-schema [] (config-marigold/test-root-schema))
+(defn- watch [] (get-in (root-schema) [:schema :watch]))
+(defn- berths-collection [] (get-in (root-schema) [:schema :berths]))
+(defn- foundry-entity [] (schema-compose/schema-for-kind (root-schema) :foundries))
+(defn- index-with [berth-id contributions] {:m1 {:manifest {berth-id contributions}}})
+
+(describe "schema.term"
+
+  (config-marigold/with-manifest)
+
+  (context "base-type"
+
+    (it "renders a map with only key-spec as 'map of K'"
+      (should= "map of keyword"
+               (#'sut/base-type {:type :map :key-spec {:type :keyword}})))
+
+    (it "renders seq specs recursively"
+      (should= "seq of string"
+               (#'sut/base-type {:type :seq :spec {:type :string}})))
+
+    (it "renders one-of specs as a comma-separated list"
+      (should= "one of: string, int"
+               (#'sut/base-type {:type :one-of :specs [{:type :string} {:type :int}]}))))
+
+  (context "plain (no color) output"
+
+    (it "renders a leaf type using the apron type name verbatim"
+      (should-contain "string" (sut/spec->term {:type :string} plain))
+      (should-contain "float" (sut/spec->term {:type :float} plain))
+      (should-contain "long" (sut/spec->term {:type :long} plain)))
+
+    (it "leaf includes description and example when present"
+      (let [out (sut/spec->term {:type :int :description "a count" :example 42} plain)]
+        (should-contain "int" out)
+        (should-contain "a count" out)
+        (should-contain "example: 42" out)))
+
+    (it "renders a map as a header with one line per field"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string}
+                                       :age  {:type :int}}}
+                  plain)]
+        (should-contain "age" out)
+        (should-contain "int" out)
+        (should-contain "name" out)
+        (should-contain "string" out)))
+
+    (it "sorts fields alphabetically"
+      (let [out   (sut/spec->term
+                    {:type :map :schema {:zeta {:type :string}
+                                         :alpha {:type :string}}}
+                    plain)
+            alpha (s/index-of out "alpha")
+            zeta  (s/index-of out "zeta")]
+        (should (< alpha zeta))))
+
+    (it "includes field description on its own line"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string
+                                              :description "User's name."}}}
+                  plain)]
+        (should-contain "User's name." out)))
+
+    (it "uses :description from config specs as the field description"
+      (let [out (sut/spec->term (watch) plain)]
+        (should-contain "Default berth id" out)
+        (should-contain "Default gauge alias" out)))
+
+    (it "renders field paths as absolute using the path-prefix option"
+      (let [out (sut/spec->term (root-schema) (assoc plain :path-prefix []))]
+        (should-contain "watch" out)
+        (should-contain "berths" out)
+        (should-contain "foundries" out)))
+
+    (it "prefixes paths with the configured path-prefix and wraps them in brackets"
+      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :berths)
+                                (assoc plain :path-prefix ["berths" "value"]))]
+        (should-contain "[berths.value.id]" out)
+        (should-contain "[berths.value.gauge]" out)))
+
+    (it ":paths? false suppresses field paths"
+      (let [out (sut/spec->term (schema-compose/schema-for-kind (root-schema) :berths)
+                                (assoc plain-no-paths :path-prefix ["berths" "value"]))]
+        (should-not-contain "[berths.value.id]" out)))
+
+    (it "marks required fields"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string :required true}}}
+                  plain)]
+        (should-contain "required" out)))
+
+    (it "shows example on its own line"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:age {:type :int :example 30}}}
+                  plain)]
+        (should-contain "example: 30" out)))
+
+    (it "shows default on its own line when present"
+      (let [out (sut/spec->term (watch) plain)]
+        (should-contain "default: \"main\"" out)
+        (should-contain "default: \"llama\"" out)))
+
+    (it "shows named ref with an arrow"
+      (let [pet {:type :map :name :pet :schema {:name {:type :string}}}
+            out (sut/spec->term
+                  {:type :map :schema {:pet pet}}
+                  plain)]
+        (should-contain "map → pet" out)))
+
+    (it "map with key-spec + value-spec renders 'map of K → V'"
+      (let [spec {:type :map :schema {:berths {:type :map
+                                               :key-spec   {:type :keyword}
+                                               :value-spec {:type :map :name :berth-entity
+                                                            :schema {:name {:type :string}}}}}}
+            out  (sut/spec->term spec plain)]
+        (should-contain "map of keyword → berth-entity" out)))
+
+    (it "map with only value-spec renders 'map → V'"
+      (let [spec {:type :map :schema {:counts {:type :map :value-spec {:type :int}}}}
+            out  (sut/spec->term spec plain)]
+        (should-contain "map → int" out)))
+
+    (it "does not recurse into named sub-schemas when :deep? is not set"
+      (let [pet  {:type :map :name :pet :schema {:species {:type :string}}}
+            spec {:type :map :schema {:pet pet}}
+            out  (sut/spec->term spec plain)]
+        (should-contain "pet" out)
+        (should-not-contain "species" out)))
+
+    (it "renders every named sub-schema in its own section when :deep? is true"
+      (let [pet  {:type :map :name :pet :schema {:species {:type :string :description "the kind"}}}
+            spec {:type :map :schema {:pet pet}}
+            out  (sut/spec->term spec (assoc plain :deep? true))]
+        (should-contain "pet" out)
+        (should-contain "species" out)
+        (should-contain "the kind" out))))
+
+  (context "map-with-value-spec rendering"
+
+    (it "renders map-of-id as title, description, and key/value rows"
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-contain "[berths] berth table schema" out)
+        (should-contain "Berth configurations" out)
+        (should-contain "key" out)
+        (should-contain "value" out)
+        (should-contain "[berths.key]" out)
+        (should-contain "[berths.value]" out)))
+
+    (it "renders description after the key/value rows"
+      (let [out  (sut/spec->term (berths-collection)
+                                 (assoc plain :path-prefix ["berths"]))
+            desc (s/index-of out "Berth configurations")
+            row  (s/index-of out "[berths.key]")]
+        (should (< row desc))))
+
+    (it "does not render the berth entity fields when showing the collection wrapper"
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-not-contain "Gauge this berth reads." out)
+        (should-not-contain "Standing orders." out))))
+
+  (context "titles"
+
+    (it "builds the root title from the entity name when no path-prefix is given"
+      (let [out (sut/spec->term (root-schema) plain)]
+        (should-contain "[isaac] isaac schema" out)))
+
+    (it "adds the entity-name suffix when path and entity differ"
+      (let [out (sut/spec->term (foundry-entity)
+                                (assoc plain :path-prefix ["foundries" "value"]))]
+        (should-contain "[foundries.value] foundry schema" out)))
+
+    (it "uses the collection's :name as the suffix when present"
+      (let [out (sut/spec->term (berths-collection)
+                                (assoc plain :path-prefix ["berths"]))]
+        (should-contain "[berths] berth table schema" out)))
+
+    (it "falls back to map suffix when a collection has no :name"
+      (let [out (sut/spec->term {:type :map :value-spec {:type :string}}
+                                (assoc plain :path-prefix ["stuff"]))]
+        (should-contain "[stuff] map schema" out)))
+
+    (it "uses just [path] schema for a leaf"
+      (let [out (sut/spec->term {:type :string :description "a string"}
+                                (assoc plain :path-prefix ["some" "path"]))]
+        (should-contain "[some.path] schema" out))))
+
+  (context "colored output"
+
+    (it "emits ANSI escape codes when :color? is true"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string}}}
+                  {:color? true :width 80})]
+        (should-contain "\033[" out)))
+
+    (it "suppresses ANSI codes when :color? is false"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string}}}
+                  plain)]
+        (should-not-contain "\033[" out))))
+
+  (context "section headings"
+
+    (it "underlines the heading with a rule"
+      (let [out (sut/spec->term
+                  {:type :map :schema {:name {:type :string}}}
+                  plain)]
+        (should-contain "schema\n──" out))))
+
+  (context "options from a [:registered-in?] validation"
+
+    (it "renders an options: line from the field's own [:registered-in?] validation"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:foo {} :bar {}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: bar, foo" out))))
+
+    (it "sorts options alphabetically"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:zebra {} :ant {} :mango {}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: ant, mango, zebra" out))))
+
+    (it "omits the options: line when the field has no [:registered-in?] validation"
+      (let [out (sut/spec->term {:type :string} plain)]
+        (should-not-contain "options:" out)))
+
+    (it "omits the options: line when there are no registered contributions"
+      (binding [registered-in/*module-index* {}]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-not-contain "options:" out))))
+
+    (it "excludes a contribution whose manifest value is :configurable? false"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm
+                                                          {:longwave     {}
+                                                           :hidden-relay {:configurable? false}})]
+        (let [out (sut/spec->term {:type :keyword :validations [[:registered-in? :marigold.bridge/comm]]} plain)]
+          (should-contain "options: longwave" out)
+          (should-not-contain "hidden-relay" out))))
+
+    (it "renders options: in a field-block when the spec is inside a map schema"
+      (binding [registered-in/*module-index* (index-with :marigold.bridge/comm {:alpha {} :beta {}})]
+        (let [out (sut/spec->term {:type :map :schema {:kind {:type        :keyword
+                                                              :validations [[:registered-in? :marigold.bridge/comm]]}}}
+                                  plain)]
+          (should-contain "options: alpha, beta" out)))))
+
+  (context "manifest variant annotation"
+
+    (it "prefixes a field's description with [variant] when :isaac/variant is set"
+      (let [out (sut/spec->term {:type :map :schema {:loft {:type :string
+                                                            :isaac/variant "parlor"
+                                                            :description "the roof"}}}
+                                plain)]
+        (should-contain "[parlor] the roof" out)))
+
+    (it "renders [variant] alone when there is no description"
+      (let [out (sut/spec->term {:type :map :schema {:loft {:type :string
+                                                            :isaac/variant "parlor"}}}
+                                plain)]
+        (should-contain "[parlor]" out)))))

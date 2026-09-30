@@ -1,5 +1,5 @@
 Feature: Scheduler trigger firing
-  isaac.scheduler.runtime fires registered tasks according to their trigger.
+  isaac.foundation.scheduler.runtime fires registered tasks according to their trigger.
   Each trigger kind (:interval, :delay, :at, :cron) has its own
   next-fire-at computation, dispatched by :kind via multimethod.
 

@@ -8,7 +8,7 @@
          org.clojure/tools.deps.alpha {:mvn/version "0.15.1254"}}
 
  :aliases
- {:isaac    {:main-opts ["-m" "isaac.main"]}
+ {:isaac    {:main-opts ["-m" "isaac.foundation.main"]}
 
   :test     {:extra-paths ["spec" "spec-support/src"]
              :extra-deps  {speclj/speclj                       {:mvn/version "3.13.0"}

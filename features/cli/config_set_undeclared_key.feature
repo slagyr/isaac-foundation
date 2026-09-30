@@ -50,7 +50,7 @@ Feature: config set/unset refuse a key the composed schema does not declare (isa
       """
       (ns marigold.cgxa.bridge
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cgxa.bridge.comm]))
 
       (defn create-module []
@@ -81,7 +81,7 @@ Feature: config set/unset refuse a key the composed schema does not declare (isa
       """
       (ns marigold.cgxa.longwave
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cgxa.bridge.comm :as bridge.comm]))
 
       (defn create-module []

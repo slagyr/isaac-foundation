@@ -3,7 +3,7 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
   set <path> [<value>]` and `isaac config unset <path>` mutate config via a
   schema-aware path walker: map keys are keywords, set members terminate the
   path. Both subcommands persist the updated config and are idempotent.
-  isaac.config.mutate is foundation's own generic machinery; agent's copy
+  isaac.foundation.config.mutate is foundation's own generic machinery; agent's copy
   only ever exercised it through :crew/:defaults.tools. This fixture proves
   the same mechanism with a fixture entity-dir and fixture root fields, no
   agent concept in the picture.
@@ -11,7 +11,7 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
   The keyword-set conforming scenarios ("bare name", "one-member", "comma
   list", set-member add/remove) use a ROOT-level fixture field
   (`:signal-tags`), not a field nested inside the `:vessels` entity table.
-  Confirmed empirically: isaac.config.schema.resolve's `schema-for-data-path`
+  Confirmed empirically: isaac.foundation.config.schema.resolve's `schema-for-data-path`
   — the function `config set`/`config unset` use to find a path's spec (and
   so detect `:set-type?`) — resolves a plain nested root field generically,
   but does NOT resolve a field nested under a dynamic key-spec/value-spec
@@ -21,7 +21,7 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
   is never in that set, so `vessels.cordelia.tags` silently falls through to
   a generic value-guess instead of the set-aware parse — the set-member CLI
   forms would misbehave, not merely lose type safety. This is a real gap
-  (isaac.config.schema.resolve, not isaac.config.mutate) distinct from the
+  (isaac.foundation.config.schema.resolve, not isaac.foundation.config.mutate) distinct from the
   read-side companion-field gap noted in config_composition.feature; both
   are flagged for a foundation fix in the isaac-601n mapping notes. Plain
   scalar/int fields on the entity table (`:captain`, `:effort`) are
@@ -56,7 +56,7 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
   This file also adds one scenario not in the original mapping: "warnings
   elsewhere in the config collapse to a count after the confirmation". The
   set_report.feature CHECK note asked whether that collapsing behavior is
-  itself generic; it is — the code lives in isaac.config.cli.mutate-common,
+  itself generic; it is — the code lives in isaac.foundation.config.cli.mutate-common,
   not in anything agent-owned. set_report.feature's own four scenarios
   (about the crew tool-directory "broad grant" warning specifically) still
   stay in agent; only the generic collapse mechanism moves, here and in the

@@ -5,7 +5,7 @@ Feature: Config set / unset report the result first, then a warning count for ev
   stay in agent untouched. This file resolves that bean's own CHECK note:
   is the underlying "warnings elsewhere in the config collapse to a single
   count that points at `isaac config validate`" behavior itself generic?
-  It is — the code lives in isaac.config.cli.mutate-common (foundation's
+  It is — the code lives in isaac.foundation.config.cli.mutate-common (foundation's
   own `config set`/`unset` result reporting), not in anything agent-owned.
   This file pins that generic mechanism with a Marigold fixture; the
   directory-grant-specific scenarios have no foundation-level equivalent to

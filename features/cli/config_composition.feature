@@ -2,7 +2,7 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
   Moved from isaac-agent's features/config/composition.feature — the root
   isaac.edn plus per-entity files (<entity-dir>/<id>.edn, <id>.md frontmatter)
   compose additively, filenames define entity ids, and duplicate ids across
-  sources are hard errors. isaac.config.entities is foundation's own generic
+  sources are hard errors. isaac.foundation.config.entities is foundation's own generic
   machinery; agent's copy only ever exercised it through :crew/:models/
   :providers. This fixture proves the same mechanism with a fixture
   entity-dir, so no agent concept is in the picture.
@@ -10,9 +10,9 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
   isaac-agent's original composition.feature also covered the "soul loads
   from a companion .md file" / "defining soul in both :soul and <id>.md is
   an error" mechanic. That mechanic did NOT move here: at the time,
-  isaac.config.companions/companion-md-relative (the config-LOAD side) was
+  isaac.foundation.config.companions/companion-md-relative (the config-LOAD side) was
   hard-coded to the kinds :crew (-> :soul) and :berths (-> :ledger) — unlike
-  isaac.config.mutate/companion-spec (the config-SET side), which already
+  isaac.foundation.config.mutate/companion-spec (the config-SET side), which already
   read a module's own `:companion` descriptor generically. isaac-kcck
   generalized the load side to match the write side and moved those two
   scenarios (plus three companion `config set` scenarios) to

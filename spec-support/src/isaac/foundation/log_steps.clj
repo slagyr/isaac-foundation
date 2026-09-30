@@ -5,9 +5,9 @@
   (:require
     [clojure.string :as str]
     [gherclj.core :as g :refer [defthen helper!]]
-    [isaac.logger :as log]
-    [isaac.spec-helper :as helper]
-    [isaac.step-tables :as match]))
+    [isaac.foundation.logger :as log]
+    [isaac.foundation.spec-helper :as helper]
+    [isaac.foundation.step-tables :as match]))
 
 (helper! isaac.foundation.log-steps)
 

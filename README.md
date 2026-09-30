@@ -31,19 +31,19 @@ platform uses the same extension API that third-party modules do.
 
 ## What's here
 
-- `isaac.main` / `isaac.cli.registry` — CLI dispatch; commands arrive as `:isaac/cli`
+- `isaac.foundation.main` / `isaac.foundation.cli.registry` — CLI dispatch; commands arrive as `:isaac/cli`
   berth contributions from module manifests.
 - `isaac.foundation` — Tier-1 public API facade for module authors (see
   [FOUNDATION.md](FOUNDATION.md)).
-- `isaac.module.*` — module discovery (tools.deps coordinates in user
+- `isaac.foundation.module.*` — module discovery (tools.deps coordinates in user
   config), manifest reading/validation, berth processing.
-- `isaac.config.*` — config loading, schema composition
+- `isaac.foundation.config.*` — config loading, schema composition
   (`:isaac.config/schema` berth), validation checks (`:isaac.config/check`
   berth), entity files, companions.
-- `isaac.schema.*` — schema runtime: lexicon extensions, dynamic schema,
+- `isaac.foundation.schema.*` — schema runtime: lexicon extensions, dynamic schema,
   `[:registered-in? ...]` validation.
-- Shared utilities: `isaac.fs`, `isaac.logger`, `isaac.nexus`,
-  `isaac.scheduler.runtime`, `isaac.shell`, `isaac.config.root`.
+- Shared utilities: `isaac.foundation.fs`, `isaac.foundation.logger`, `isaac.foundation.nexus`,
+  `isaac.foundation.scheduler.runtime`, `isaac.foundation.shell`, `isaac.foundation.config.root`.
 
 ## Development
 

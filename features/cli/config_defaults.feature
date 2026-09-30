@@ -54,7 +54,7 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       """
       (ns marigold.dflt.beacon
         (:require
-          [isaac.module.protocol :as module]))
+          [isaac.foundation.module.protocol :as module]))
 
       (defn create-module []
         (module/module))

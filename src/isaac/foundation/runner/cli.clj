@@ -1,0 +1,84 @@
+(ns isaac.foundation.runner.cli
+  (:require
+    [clojure.tools.cli :as tools-cli]
+    [isaac.foundation.cli.api :as cli-api]
+    [isaac.foundation.cli.common :as cli-common]
+    [isaac.foundation.cli.host :as host]
+    [isaac.foundation.config.root :as root]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.log.file :as log-file]
+    [isaac.foundation.log.output :as log-output]
+    [isaac.foundation.log-viewer :as viewer]
+    [isaac.foundation.logger :as log]
+    [isaac.foundation.nexus :as nexus]
+    [isaac.foundation.runner :as runner]
+    [isaac.foundation.runner.runtime :as runtime]))
+
+(def option-spec
+  [["-p" "--port N" "Port to listen on (default: 6674)"]
+   ["-H" "--host H" "Host to bind to (default: 127.0.0.1)"]
+   ["-d" "--dev" "Enable development reload mode"]
+   [nil "--runtime RUNTIME" "Server runtime: bb (default) or jvm" :default "bb"]
+   [nil "--logs" "Tail and print the log file while the server runs"]
+   [nil "--no-color" "Disable color output for --logs"]
+   [nil "--zebra" "Enable zebra striping for --logs"]
+   ["-h" "--help" "Show help"]])
+
+(defn block! []
+  (host/block-until-cancelled!))
+
+(defn- start-log-tail! [log-path root-dir {:keys [no-color zebra]}]
+  (when log-path
+    (let [path (if (.isAbsolute (java.io.File. log-path))
+                 log-path
+                 (str root-dir "/" log-path))]
+      (fs/mkdirs (fs/instance) (fs/parent path))
+      (when-not (fs/exists? (fs/instance) path)
+        (fs/spit (fs/instance) path ""))
+      (future (viewer/tail! path {:color?  (not no-color)
+                                  :zebra?  (boolean zebra)
+                                  :follow? true
+                                  :limit   10}))
+      path)))
+
+(defn run [{:keys [config host logs port] :as opts}]
+  (let [root-dir (root/default-root opts)
+        fs*      (or (:fs opts) (nexus/get :fs) (fs/real-fs))
+        dev?     (boolean (:dev opts))]
+    (log-output/apply-server! root-dir config :log-level (:log-level opts))
+    (when logs
+      (start-log-tail! (log-file/server-log-path root-dir) root-dir opts))
+    (let [started (runner/start! {:config config
+                                  :fs fs*
+                                  :host host
+                                  :port (some-> port str parse-long)
+                                  :root root-dir
+                                  :dev dev?})
+          started-port (some-> port str parse-long)
+          started-host (or host "127.0.0.1")]
+      (when dev?
+        (log/info :server/dev-mode-enabled :host started-host :port started-port))
+      (println (str "Isaac server running on " started-host ":" started-port))
+      (host/on-shutdown! runner/stop!)
+      (block!)
+      started)))
+
+(defn- parse-options [raw-args]
+  (tools-cli/parse-opts raw-args option-spec))
+
+(defn run-fn [opts]
+  (let [raw-args (or (:_raw-args opts) [])]
+    (cli-common/standard-run-fn
+      "server"
+      parse-options
+      (fn [merged]
+        (if-let [exit (runtime/maybe-trampoline! merged raw-args)]
+          exit
+          (run merged)))
+      opts)))
+
+(defmethod cli-api/run :server [_id opts]
+  (run-fn opts))
+
+(defmethod cli-api/option-spec :server [_id]
+  option-spec)

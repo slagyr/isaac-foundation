@@ -5,7 +5,7 @@ Feature: Config validation — dangling .md warnings (isaac-yo8d)
   matching .edn entity or config entry. A lone .md file with no matching
   entry is likely a typo or half-done config. Isaac warns at config-load
   time rather than silently ignoring it. Moved from isaac-agent's
-  features/config/dangling_md.feature — isaac.config.entities/dangling-md-
+  features/config/dangling_md.feature — isaac.foundation.config.entities/dangling-md-
   warnings is foundation's own generic function (it walks whatever
   entity-dirs the loaded schema declares); agent's copy only ever exercised
   it through :crew. This fixture proves the same behavior with a fixture

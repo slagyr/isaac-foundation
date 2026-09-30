@@ -5,10 +5,10 @@
             [clojure.string :as str]))
 
 (def ^:private allowed-ns-prefixes
-  #{"isaac.config."})
+  #{"isaac.foundation.config."})
 
 (def ^:private allowed-exact-ns
-  #{"isaac.cli.registry"})
+  #{"isaac.foundation.cli.registry"})
 
 (def ^:private suspicious-patterns
   [#"config/isaac\.edn"
@@ -57,7 +57,7 @@
   [& dirs]
   (let [hits (lint-targets dirs)]
     (doseq [{:keys [path ns]} hits]
-      (println (str path ": " ns " reads config content outside isaac.config.*")))
+      (println (str path ": " ns " reads config content outside isaac.foundation.config.*")))
     (if (seq hits)
       (do (println (str "\nconfig-bypass-lint: " (count hits) " violation(s)"))
           (System/exit 1))

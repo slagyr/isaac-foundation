@@ -31,7 +31,7 @@ Feature: isaac service — macOS LaunchAgent management
     And the plist contains:
       | path                      | value                                                                 |
       | ProgramArguments[0]       | /opt/marigold/bin/bb                                                  |
-      | ProgramArguments[4]       | isaac.main                                                            |
+      | ProgramArguments[4]       | isaac.foundation.main                                                            |
       | ProgramArguments[5]       | server                                                                |
       | EnvironmentVariables.PATH | /opt/marigold/bin:/opt/starboard/bin:/usr/bin:/bin:/Users/oscar/.signal-kit/bin |
     And the exit code is 0
@@ -69,7 +69,7 @@ Feature: isaac service — macOS LaunchAgent management
       | path                | value                |
       | Label               | com.slagyr.isaac     |
       | ProgramArguments[0] | /opt/homebrew/bin/bb |
-      | ProgramArguments[4] | isaac.main           |
+      | ProgramArguments[4] | isaac.foundation.main           |
       | ProgramArguments[5] | server               |
     And launchctl was called with "bootstrap"
     And the stdout contains "Resolved bb: /opt/homebrew/bin/bb"

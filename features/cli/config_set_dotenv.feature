@@ -1,6 +1,6 @@
 Feature: config set resolves ${VAR} refs from <root>/.env when validating a staged write (isaac-p4oj)
 
-  isaac.config.mutate/validate-plan stages a write's effect in a scratch
+  isaac.foundation.config.mutate/validate-plan stages a write's effect in a scratch
   filesystem, then loads+validates it there before committing — but that
   staging fs only ever received a copy of config/, never <root>/.env. Every
   ${VAR} reference therefore read as unset during validation, even when the
@@ -19,7 +19,7 @@ Feature: config set resolves ${VAR} refs from <root>/.env when validating a stag
       """
       {:id      :marigold.p4oj.discord
        :version "0.1.0"
-       :factory isaac.module.protocol/module
+       :factory isaac.foundation.module.protocol/module
 
        :berths
        {:marigold.p4oj.discord/kind

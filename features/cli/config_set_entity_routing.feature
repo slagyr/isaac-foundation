@@ -4,7 +4,7 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
   decide WHERE a write lands: inline in isaac.edn, the entity's existing
   `<entity-dir>/<id>.edn` file, its `<id>.md` frontmatter when that's where
   the entity lives, or a freshly created entity file when
-  `:prefer-entity-files` is set. isaac.config.mutate owns this routing
+  `:prefer-entity-files` is set. isaac.foundation.config.mutate owns this routing
   generically; agent's copy only ever exercised it through :crew.
   `:prefer-entity-files` is foundation's own existing base schema field
   (it shows up in config_defaults.feature's own root-field listing).
@@ -14,8 +14,8 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
   the companion .md when it already exists", "set creates a companion .md
   when a new soul exceeds 64 characters", "set writes short soul inline in
   the entity file"). At the time, the config-LOAD side of that mechanic
-  (isaac.config.companions/companion-md-relative) was hard-coded to kinds
-  :crew/:berths, even though the config-SET side (isaac.config.mutate/
+  (isaac.foundation.config.companions/companion-md-relative) was hard-coded to kinds
+  :crew/:berths, even though the config-SET side (isaac.foundation.config.mutate/
   companion-spec) already read a module's own `:companion` descriptor
   generically. isaac-kcck generalized the load side and moved those three
   scenarios (plus two companion `config get`/`validate` scenarios) to

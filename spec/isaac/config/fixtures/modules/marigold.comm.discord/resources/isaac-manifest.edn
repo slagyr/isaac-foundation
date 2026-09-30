@@ -1,6 +1,6 @@
 {:id      :marigold.comm.discord
  :version "0.1.0"
- :factory isaac.module.protocol/module
+ :factory isaac.foundation.module.protocol/module
 
  :berths
  {:marigold.comm.discord/kind

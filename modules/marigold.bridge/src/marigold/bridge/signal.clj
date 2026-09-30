@@ -3,7 +3,7 @@
    berth. Foundation calls register-route! once per route entry; the
    factory installs the handler in the nexus keyed by [method path]."
   (:require
-    [isaac.nexus :as nexus]))
+    [isaac.foundation.nexus :as nexus]))
 
 (defn register-route!
   [{:keys [method path handler]}]

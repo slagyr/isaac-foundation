@@ -1,6 +1,6 @@
 (ns marigold.cli.greeter
   (:require
-    [isaac.cli.api :as cli-api]))
+    [isaac.foundation.cli.api :as cli-api]))
 
 (def subcommands
   [{:name "wave" :summary "Wave hello"}

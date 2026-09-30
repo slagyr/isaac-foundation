@@ -10,9 +10,9 @@
    #"addShutdownHook"])
 
 (def ^:private allowed
-  ["src/isaac/cli/host.clj"
-   "src/isaac/main.clj"
-   "src/isaac/launcher.clj"])
+  ["src/isaac/foundation/cli/host.clj"
+   "src/isaac/foundation/main.clj"
+   "src/isaac/foundation/launcher.clj"])
 
 (defn findings [root]
   (for [path (bfs/glob root "src/**/*.clj")

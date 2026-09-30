@@ -2,9 +2,9 @@
   (:require
     [gherclj.core :as g]
     [isaac.foundation.fs-steps :as sut]
-    [isaac.fs :as fs]
-    [isaac.marigold :as marigold]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.marigold :as marigold]
+    [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (def test-root "/target/test-state")

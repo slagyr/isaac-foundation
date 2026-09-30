@@ -12,11 +12,11 @@
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
     [isaac.foundation.git-helpers :as git-helpers]
-    [isaac.fs :as fs]
-    [isaac.config.root :as root]
-    [isaac.nexus :as nexus]
-    [isaac.shell :as shell]
-    [isaac.step-tables :as step-tables]))
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.config.root :as root]
+    [isaac.foundation.nexus :as nexus]
+    [isaac.foundation.shell :as shell]
+    [isaac.foundation.step-tables :as step-tables]))
 
 (helper! isaac.foundation.fs-steps)
 

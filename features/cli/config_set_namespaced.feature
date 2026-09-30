@@ -51,7 +51,7 @@ Feature: config set keeps namespaced-keyword path segments whole (isaac-cgxa)
       """
       (ns marigold.cgxa.bridge
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cgxa.bridge.comm]))
 
       (defn create-module []
@@ -82,7 +82,7 @@ Feature: config set keeps namespaced-keyword path segments whole (isaac-cgxa)
       """
       (ns marigold.cgxa.longwave
         (:require
-          [isaac.module.protocol :as module]
+          [isaac.foundation.module.protocol :as module]
           [marigold.cgxa.bridge.comm :as bridge.comm]))
 
       (defn create-module []

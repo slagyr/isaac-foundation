@@ -58,9 +58,9 @@ shapes: `module:<id>`, `crew:<id>`, `config:<dotted.path>`.
 Isaac runs one of two ways: **babashka** (`bb`) or the **JVM** (`clj`,
 or a packaged launcher). Both run the same source. In a development
 checkout, `bb isaac <command>` runs everything with babashka's fast
-startup. A packaged install goes through `isaac.launcher`, which resolves
+startup. A packaged install goes through `isaac.foundation.launcher`, which resolves
 the config `:modules` coordinates, composes a classpath from them, then
-boots the same `isaac.main` babashka boots.
+boots the same `isaac.foundation.main` babashka boots.
 
 There's no config path for it, but the handbook's own inventory reports
 it: a reference topic names the live runtime as `babashka x.y` or `JVM

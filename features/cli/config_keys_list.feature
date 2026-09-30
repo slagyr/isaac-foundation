@@ -4,7 +4,7 @@ Feature: Config keys / list — bare key listing and structured output are gener
   none given); `config list [path]` prints the same keys with their
   contributing config source; a leaf path prints nothing; both emit
   structured output under --json, as does `config validate --json`.
-  isaac.config.cli owns these commands generically; agent's copy only ever
+  isaac.foundation.config.cli owns these commands generically; agent's copy only ever
   exercised them through :providers. This fixture proves the same mechanism
   with a fixture entity-dir, no agent concept in the picture, and confirms
   secret-looking values never leak into a bare key listing.
@@ -12,7 +12,7 @@ Feature: Config keys / list — bare key listing and structured output are gener
   Two isaac-agent scenarios also moved here because they document the same
   static, config-independent CLI help/registration text as the keys/list
   commands: "config help lists set and unset subcommands" and "config set
-  --help documents stdin form and examples" — both assert isaac.config.cli.
+  --help documents stdin form and examples" — both assert isaac.foundation.config.cli.
   set's own hard-coded help copy, unrelated to any loaded config.
 
   Fixture module marigold.601n.keys contributes a `:vessels` entity-dir

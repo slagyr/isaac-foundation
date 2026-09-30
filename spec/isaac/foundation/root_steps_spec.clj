@@ -1,10 +1,10 @@
 (ns isaac.foundation.root-steps-spec
   (:require
     [gherclj.core :as g]
-    [isaac.config.loader :as loader]
-    [isaac.config.schema-compose :as schema-compose]
+    [isaac.foundation.config.loader :as loader]
+    [isaac.foundation.config.schema-compose :as schema-compose]
     [isaac.foundation.root-steps :as sut]
-    [isaac.nexus :as nexus]
+    [isaac.foundation.nexus :as nexus]
     [speclj.core :refer :all]))
 
 (describe "foundation root steps"
@@ -33,7 +33,7 @@
         (loader/set-snapshot! {:crew {"main" {}}} "spec"))
       (should= {:crew {"main" {}}} (loader/snapshot "spec")))
 
-    ;; isaac.config.schema-compose caches the composed root schema in its own
+    ;; isaac.foundation.config.schema-compose caches the composed root schema in its own
     ;; process-global atom, independent of discovery's foundation/builtin
     ;; index caches (which lifecycle/clear-activations! already drops). Left
     ;; unreset, a schema composed from one scenario's module-index leaks into

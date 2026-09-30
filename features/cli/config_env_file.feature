@@ -4,7 +4,7 @@ Feature: <root>/.env layers into ${VAR} substitution below shell env (isaac-yo8d
   via ${VAR} syntax. This file loads as an additional env source, layered
   into c3kit's env precedence below shell env and cwd-local .env. Moved
   from isaac-agent's features/config/env_file.feature — the substitution
-  mechanism is foundation's own (isaac.config.env), exercised there only
+  mechanism is foundation's own (isaac.foundation.config.env), exercised there only
   through agent's :providers entity table. This fixture proves the same
   behavior with no agent concept in the picture.
 

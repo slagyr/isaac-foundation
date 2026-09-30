@@ -20,7 +20,7 @@
  :tasks
  {:init (System/setProperty "clojure.gitlibs.dir" (.getCanonicalPath (java.io.File. "target/gitlibs")))
   isaac         {:doc  "Isaac CLI"
-                 :task (apply (requiring-resolve 'isaac.main/-main) *command-line-args*)}
+                 :task (apply (requiring-resolve 'isaac.foundation.main/-main) *command-line-args*)}
 
   pins          {:doc  "Check sibling git pins against the configured module registry"
                  :task (shell "libexec/isaac" "modules" "pins")}
@@ -45,7 +45,7 @@
              :requires ([isaac.foundation.pin-lint :as lint])
              :task (lint/lint! *command-line-args*)}
 
-  config-bypass-lint {:doc "Fail on raw config slurp/read outside isaac.config.*"
+  config-bypass-lint {:doc "Fail on raw config slurp/read outside isaac.foundation.config.*"
                       :requires ([isaac.foundation.config-bypass-lint :as lint])
                       :task     (apply lint/lint! (or (seq *command-line-args*) ["src"]))}
 

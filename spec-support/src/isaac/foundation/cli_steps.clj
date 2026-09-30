@@ -12,15 +12,15 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [gherclj.core :as g :refer [defgiven defthen defwhen helper!]]
-    [isaac.cli.color :as color]
-    [isaac.fs :as fs]
-    [isaac.logs.streams :as log-streams]
-    [isaac.main :as main]
-    [isaac.config.root :as root]
-    [isaac.spec-helper :as helper]
-    [isaac.nexus :as nexus]
-    [isaac.shell :as shell]
-    [isaac.step-tables :as step-tables]
+    [isaac.foundation.cli.color :as color]
+    [isaac.foundation.fs :as fs]
+    [isaac.foundation.logs.streams :as log-streams]
+    [isaac.foundation.main :as main]
+    [isaac.foundation.config.root :as root]
+    [isaac.foundation.spec-helper :as helper]
+    [isaac.foundation.nexus :as nexus]
+    [isaac.foundation.shell :as shell]
+    [isaac.foundation.step-tables :as step-tables]
     [babashka.process :as process]))
 
 (helper! isaac.foundation.cli-steps)
@@ -641,12 +641,12 @@
    futures may not have finished yet).")
 
 (defgiven "the command {cmd:string} is available" isaac.foundation.cli-steps/command-available
-  "Stubs isaac.shell/cmd-available? to return true for this command
+  "Stubs isaac.foundation.shell/cmd-available? to return true for this command
    for the next 'isaac is run with'. Does not actually install anything —
    purely a test-time override. Only one stub at a time (replaces prior).")
 
 (defgiven "the command {cmd:string} is not available" isaac.foundation.cli-steps/command-not-available
-  "Stubs isaac.shell/cmd-available? to return false for this command
+  "Stubs isaac.foundation.shell/cmd-available? to return false for this command
    for the next 'isaac is run with'. Pairs with 'command is available'.")
 
 (defgiven "stdin is:" isaac.foundation.cli-steps/stdin-is

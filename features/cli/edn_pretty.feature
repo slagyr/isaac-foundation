@@ -1,5 +1,5 @@
 Feature: Human-readable EDN pretty printer (isaac-524u)
-  Default config get output uses isaac.util.edn/pretty — width-driven
+  Default config get output uses isaac.foundation.util.edn/pretty — width-driven
   block form for maps that exceed the line budget, not clojure.pprint.
 
   Background:

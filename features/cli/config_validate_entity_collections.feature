@@ -1,7 +1,7 @@
 Feature: config schema, config validate, and config set agree on which keys are entity tables (isaac-n140)
 
   Foundation never names another module's config tables. `config validate`'s
-  `--as PATH -` overlay and `isaac.config.schema.resolve` (which `config
+  `--as PATH -` overlay and `isaac.foundation.config.schema.resolve` (which `config
   set`/`unset` use to find a path's field spec) used to each carry their own
   hand-maintained set of "known entity table" names — and the two sets
   disagreed (one included `:hail`, the other didn't), so a path like
