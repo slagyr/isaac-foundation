@@ -60,26 +60,11 @@
 (defn handlers-for [kind]
   (get @handlers* kind []))
 
-(defn- server-module-id
-  "The id of the builtin module whose manifest declares `:server? true` —
-   the module that runs the server process. nil when none does."
-  [module-index]
-  (some (fn [[id {:keys [manifest]}]] (when (:server? manifest) id))
-        module-index))
-
 (defn activate-foundation! []
   (activate! coords/foundation-module-id (discovery/foundation-index)))
 
 (defn deactivate-foundation! []
   (swap! activated-modules* disj coords/foundation-module-id))
-
-(defn activate-server! []
-  (let [index (discovery/builtin-index)
-        id    (server-module-id index)]
-    (if id
-      (activate! id index)
-      (throw (ex-info "no builtin module manifest declares :server? true"
-                      {:type :module/no-server-module})))))
 
 (defn resolve-symbol! [sym]
   (requiring-resolve sym))

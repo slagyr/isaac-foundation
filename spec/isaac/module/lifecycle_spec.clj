@@ -302,37 +302,4 @@
           (should= 2 (count events))
           (should= ["marigold.bridge" "marigold.longwave"]
                    (mapv :module events))))))
-
-  (describe "server-module-id"
-
-    (it "finds the module id whose manifest declares :server? true"
-      (let [index {:marigold.bridge   {:manifest {}}
-                   :marigold.longwave {:manifest {:server? true}}}]
-        (should= :marigold.longwave (#'lifecycle/server-module-id index))))
-
-    (it "returns nil when no manifest declares :server? true"
-      (should-be-nil (#'lifecycle/server-module-id {:marigold.bridge {:manifest {}}}))))
-
-  (describe "activate-server!"
-
-    #_{:clj-kondo/ignore [:unresolved-symbol]}
-    (around [example]
-      (nexus/-with-nested-nexus {:fs (fs/mem-fs)}
-        (reset! @#'isaac.module.classpath/loaded-module-coords* #{})
-        (reset-cli-registry!)
-        (lifecycle/clear-activations!)
-        (example)
-        (reset! @#'isaac.module.classpath/loaded-module-coords* #{})
-        (lifecycle/clear-activations!)
-        (reset-cli-registry!)))
-
-    (it "activates the module whose manifest declares :server? true, by name alone"
-      (with-redefs [discovery/builtin-index
-                    (fn [] {:marigold.longwave {:manifest {:server? true}}})]
-        (lifecycle/activate-server!)
-        (should (contains? (lifecycle/activated-modules) :marigold.longwave))))
-
-    (it "raises a clear error when no builtin module declares :server? true"
-      (with-redefs [discovery/builtin-index
-                    (fn [] {:marigold.bridge {:manifest {}}})]
-        (should-throw Exception (lifecycle/activate-server!))))))
+)

@@ -29,7 +29,6 @@
 (def activate! lifecycle/activate!)
 (def activate-foundation! lifecycle/activate-foundation!)
 (def deactivate-foundation! lifecycle/deactivate-foundation!)
-(def activate-server! lifecycle/activate-server!)
 (def activate-modules! lifecycle/activate-modules!)
 (def topological-order lifecycle/topological-order)
 (def load-modules! lifecycle/load-modules!)

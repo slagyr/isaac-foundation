@@ -233,13 +233,7 @@
       (spit (.getPath @tmp-file) (pr-str (assoc pigeon-manifest :unknown-field "oops")))
       (let [result (log/capture-logs (sut/read-manifest (.getPath @tmp-file) (fs/real-fs)))]
         (should-not (contains? result :unknown-field))
-        (should (some #(= :manifest/unknown-key (:event %)) @log/captured-logs))))
-
-    (it "preserves :server? true — the flag marking the module that runs the server process"
-      (spit (.getPath @tmp-file) (pr-str (assoc pigeon-manifest :server? true)))
-      (let [result (log/capture-logs (sut/read-manifest (.getPath @tmp-file) (fs/real-fs)))]
-        (should= true (:server? result))
-        (should-not (some #(= :manifest/unknown-key (:event %)) @log/captured-logs)))))
+        (should (some #(= :manifest/unknown-key (:event %)) @log/captured-logs)))))
 
   (describe "verify-schema-lexes on :comm :schema fragments"
 
