@@ -249,19 +249,79 @@ where: `set crew.cordelia.model = "quantum-anvil" (crew/cordelia.edn)`.
 Read that line back — it's your confirmation the write landed, and it
 names the exact path to `config get` if you want to double-check later.
 
-### Schemas
+### Reading a schema
 
-Every config field a module declares carries: a **type** (`:string`,
-`:int`, `:boolean`, `:keyword`, `:map`, a set, …), whether it's
-**required**, a **default** (see Effective vs. written, below), the
-**options** it accepts when the field is a registered choice (a comm's
-`:type`, for instance, lists every comm kind actually installed), and a
-human **description**. From inside a turn, read all of that plus the
-field's **current value** through a `config:<dotted.path>` reference
-topic on `handbook__read` (`handbook__read` with topic
-`config:logging.level`, for instance) — that's the crew-facing
-route. `isaac config schema <path>` is the CLI equivalent, for an
-operator at a terminal.
+Every config field a module declares is a **c3kit schema** spec — a small
+data map describing that field's shape, not code. c3kit is Clean Coders'
+shared Clojure toolkit (`cleancoders/c3kit-apron`); its `schema` library
+is the full reference behind everything in this section.
+
+A spec's keys, the ones you'll actually see:
+
+- **`:type`** — a scalar (`:string`, `:int`, `:boolean`, `:keyword`, …); `:map`
+  with a nested `:schema` for a sub-object; `:seq` with a `:spec` for a
+  homogeneous list or set (foundation's own `:isaac.config/component` berth
+  declares its `:path` field this way — a seq of keywords); `:one-of` for a
+  value that may take one of several alternative shapes.
+- **`:required`** — the field must be present and non-blank; absent or `nil`
+  fails with `"is required"`.
+- **`:default`** — fills the key only when it's **absent** from the raw,
+  merged files; a key explicitly set to `nil` is never defaulted. See
+  Effective vs. written, below, for how a default shows in `config get`
+  versus `--raw`.
+- **`:description`** — the sentence `isaac config schema` prints under the
+  field.
+- **`:validations`** — named checks pulled from a shared lexicon rather than
+  inline code, so a schema stays plain data: `:present?` (required, spelled
+  out), `[:one-of :a :b :c]` for a fixed enum (foundation's own
+  `logging.level` is one), and existence refs like `[:registered-in?
+  :isaac/component]` or a module-contributed `:crew-exists?`-style ref —
+  registered through the `:isaac.config/validation-ref` berth, where the
+  module that owns an entity concept supplies the known-id lookup and the
+  message; foundation only supplies the mechanism.
+- **Options**, in the enum sense, come from either a literal `:one-of`, or,
+  when the valid values are *other modules' contributions* (a comm's
+  `:type`, say), from the berth the field's `:validations` name —
+  `isaac config schema` lists every id currently registered there.
+
+A dotted path and a nested schema line up directly: `crew.cordelia.model`
+walks the root schema's `crew` field into its entity's `:schema`, to
+`model`. Tables keyed by id — crew, cron jobs, any `:isaac.config/schema`
+contribution with `:entity-dir` set — are declared as a `:map` with
+`:key-spec`/`:value-spec` instead of a fixed `:schema`, which is what lets
+any id populate the table without the schema hard-coding one.
+
+**Coercion is forgiving and runs first**: `"12"` becomes `12` for an `:int`
+field, a string becomes the matching keyword. **Validation is strict and
+runs after**: it rejects what coercion couldn't fix, and checks `:required`
+and `:validations` against the coerced value.
+
+**How to see a field's schema today**: `isaac config schema <path>` prints
+its type, required-ness, default, description, and any registered options.
+There's no `handbook__read` topic for this yet — ask an operator to run it
+and read you back what it prints.
+
+### Troubleshooting
+
+- **A write is refused with `"is required"`.** The field is `:required` (or
+  carries `:validations [:present?]`) and the value came out absent or
+  blank — supply one, or, if it only makes sense alongside a sibling field,
+  set both in the same call.
+- **A write is refused with `"must be a boolean"` / `"must be an integer"` /
+  similar, or `can't coerce ... to <type>`.** The value doesn't match the
+  field's `:type` and wasn't something apron knows how to coerce — check
+  the field's `:type` with `isaac config schema <path>` before retrying.
+- **A write is refused with `"must be one of ..."` or `"must be a
+  registered contribution to ..."`.** The field only accepts a fixed enum
+  or a currently-registered id; `isaac config schema <path>` lists the
+  accepted values.
+- **A write is refused naming an unknown berth or reference** (`"unknown
+  berth: ..."`, `"references undefined ..."`). The value is meant to be the
+  id of something that has to exist first (a component, a crew, a gauge) —
+  create or register that first, or check the id for a typo.
+- **An error reads `"missing lex ... in :validations"`.** A module's own
+  schema names a validation ref that was never registered — that's a bug in
+  that module's manifest, not something a turn can fix; report it.
 
 ### Effective vs. written
 
