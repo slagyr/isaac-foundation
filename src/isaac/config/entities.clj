@@ -190,45 +190,36 @@
               {:error (if raw-parse-errors? (.getMessage e) "EDN syntax error")}))
           (parse/read-edn-file path substitute-env? raw-parse-errors?))))))
 
-(defn- resolve-entity-data [root kind id format raw-data body body-claimed?]
+(defn- resolve-entity-data
+  "Fills the entity's companion field (if the table declares one) from its
+   `.md` companion or its inline value, per the table's own `:companion`
+   descriptor (`:field` + `:mode`) — no kind or field name is hard-coded
+   here (isaac-kcck)."
+  [root kind id format raw-data body body-claimed?]
   (if (or body-claimed? (not (map? raw-data)))
     {:data raw-data :error nil :extra-errors []}
-    (let [{:keys [companion entity-dir]} (schema-compose/descriptor-for kind)
+    (let [{:keys [companion]} (schema-compose/descriptor-for kind)
+          field    (:field companion)
           load-md? (= format :md-frontmatter)
-          load-fn  (fn [] {:exists? true :text body})]
-      (case (:field companion)
-        (:soul :ledger)
+          relative (companions/companion-md-relative kind id)
+          load-fn  (if load-md?
+                     (fn [] {:exists? true :text body})
+                     #(companions/load-companion-text (str root "/" relative)))]
+      (case (:mode companion)
+        :exclusive
         (let [{resolved-data :data companion-error :error}
-              (companions/resolve-inline-or-md-companion kind (:field companion) id raw-data
-                                              (if load-md?
-                                                load-fn
-                                                #(companions/load-companion-text (str root "/"
-                                                                           (companions/companion-md-relative kind id)))))]
+              (companions/resolve-inline-or-md-companion kind field id raw-data load-fn)]
           {:data resolved-data :error companion-error :extra-errors []})
 
-        :prompt
-        (if (= kind :hail)
-          (let [{resolved-band :band prompt-errors :errors}
-                (companions/resolve-hail-prompt id raw-data (if load-md?
-                                                   load-fn
-                                                   #(companions/load-companion-text (str root "/" entity-dir "/" id ".md"))))]
-            {:data resolved-band :error nil :extra-errors prompt-errors})
-          (let [relative (paths/cron-relative id)
-                {resolved-job :job prompt-errors :errors}
-                (companions/resolve-cron-prompt id raw-data (if load-md?
-                                                   load-fn
-                                                   #(companions/load-companion-text (str root "/" relative)))
-                                     relative)]
-            {:data resolved-job :error nil :extra-errors prompt-errors}))
+        :required
+        (let [[resolved-entity companion-errors]
+              (companions/resolve-required-companion kind field id raw-data load-fn relative)]
+          {:data resolved-entity :error nil :extra-errors companion-errors})
 
-        :template
-        (let [relative (paths/hook-relative id)
-              {resolved-hook :hook template-errors :errors}
-              (companions/resolve-hook-template id raw-data (if load-md?
-                                                   load-fn
-                                                   #(companions/load-companion-text (str root "/" relative)))
-                                     relative)]
-          {:data resolved-hook :error nil :extra-errors template-errors})
+        :optional
+        (let [[resolved-entity companion-errors]
+              (companions/resolve-optional-companion field raw-data load-fn)]
+          {:data resolved-entity :error nil :extra-errors companion-errors})
 
         {:data raw-data :error nil :extra-errors []}))))
 

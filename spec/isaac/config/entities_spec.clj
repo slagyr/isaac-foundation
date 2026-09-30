@@ -243,9 +243,9 @@
 
     (it "loads markdown frontmatter hooks and records template errors"
       (with-redefs [parse/read-frontmatter-file         (fn [_ _ _] {:data {:berth :main} :body "Template body"})
-                    schema-compose/descriptor-for      (fn [_] {:companion {:field :template}})
-                    companions/resolve-hook-template         (fn [_ data _ _] {:hook (assoc data :template "Template body")
-                                                                         :errors [{:key "hooks.webhook.template" :value "warn"}]})
+                    schema-compose/descriptor-for      (fn [_] {:companion {:field :template :mode :required}})
+                    companions/resolve-required-companion    (fn [_ _ _ data _ _] [(assoc data :template "Template body")
+                                                                              [{:key "hooks.webhook.template" :value "warn"}]])
                     warnings/collect-unknown-key-warnings (fn [& _] [])
                     entities/schema-for                   (fn [_] ::hook)
                     lexicon/conform                       (fn [_ data] data)

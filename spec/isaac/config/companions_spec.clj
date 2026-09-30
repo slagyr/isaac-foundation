@@ -137,41 +137,75 @@
   (config-marigold/aboard)
   (helper/with-captured-logs)
 
-  (describe "resolve-hook-template"
+  (describe "companion-md-relative"
 
-    (it "reports a missing hook template when neither inline nor companion text exists"
+    (it "builds <entity-dir>/<id>.md from the table's own descriptor, naming no kind"
+      (with-extended-config-index
+        (fn []
+          (should= "cron/nightly.md" (companions/companion-md-relative :cron "nightly"))
+          (should= "hooks/webhook.md" (companions/companion-md-relative :hooks "webhook")))))
+
+    (it "is nil for a kind with no entity-dir"
+      (with-extended-config-index
+        (fn []
+          (should= nil (companions/companion-md-relative :bulwark "anything")))))
+
+    )
+
+  (describe "resolve-required-companion"
+
+    (it "reports a missing required field when neither inline nor companion text exists"
       (with-redefs [companion/resolve-text (fn [_]
                                              {:inline?           false
                                               :companion-exists? false
                                               :companion-empty?  false})]
-        (should= {:errors [{:key "hooks.lettuce.template"
-                            :value "required (inline or hooks/lettuce.md)"}]
-                  :hook   {:berth :main}}
-                 (#'companions/resolve-hook-template "lettuce" {:berth :main} (constantly nil) "hooks/lettuce.md"))))
+        (should= [{:berth :main}
+                  [{:key "hooks.lettuce.template" :value "required (inline or hooks/lettuce.md)"}]]
+                 (companions/resolve-required-companion :hooks :template "lettuce" {:berth :main} (constantly nil) "hooks/lettuce.md"))))
 
-    (it "reports an empty hook companion markdown file"
+    (it "reports an empty required companion markdown file"
       (with-redefs [companion/resolve-text (fn [_]
                                              {:inline?           false
                                               :companion-exists? true
                                               :companion-empty?  true})]
-        (should= {:errors [{:key "hooks.lettuce.template"
-                            :value "must not be empty"}]
-                  :hook   {:berth :main}}
-                 (#'companions/resolve-hook-template "lettuce" {:berth :main} (constantly nil) "hooks/lettuce.md"))))
+        (should= [{:berth :main}
+                  [{:key "hooks.lettuce.template" :value "must not be empty"}]]
+                 (companions/resolve-required-companion :hooks :template "lettuce" {:berth :main} (constantly nil) "hooks/lettuce.md"))))
 
-    (it "warns and keeps the inline hook template when a companion file also exists"
+    (it "warns and keeps the inline value when a companion file also exists"
       (with-redefs [companion/resolve-text (fn [_]
                                              {:inline?           true
                                               :companion-exists? true
                                               :companion-empty?  false
                                               :value             "Inline template."})]
-        (let [result (#'companions/resolve-hook-template "lettuce" {:template "Inline template."} (constantly nil) "hooks/lettuce.md")
-              entry  (last @log/captured-logs)]
-          (should= [] (:errors result))
-          (should= "Inline template." (get-in result [:hook :template]))
+        (let [[entity errors] (companions/resolve-required-companion :hooks :template "lettuce" {:template "Inline template."} (constantly nil) "hooks/lettuce.md")
+              entry           (last @log/captured-logs)]
+          (should= [] errors)
+          (should= "Inline template." (:template entity))
           (should= :config/companion-inline-wins (:event entry))
           (should= :template (:field entry))
           (should= "hooks.lettuce" (:key entry)))))
+
+    )
+
+  (describe "resolve-optional-companion"
+
+    (it "fills the field from the companion when inline is unset"
+      (with-redefs [companion/resolve-text (fn [_]
+                                             {:inline?           false
+                                              :companion-exists? true
+                                              :companion-empty?  false
+                                              :value             "Companion text."})]
+        (should= [{:prompt "Companion text."} []]
+                 (companions/resolve-optional-companion :prompt {} (constantly nil)))))
+
+    (it "never blocks when neither inline nor companion text exists"
+      (with-redefs [companion/resolve-text (fn [_]
+                                             {:inline?           false
+                                              :companion-exists? false
+                                              :companion-empty?  false})]
+        (should= [{} []]
+                 (companions/resolve-optional-companion :prompt {} (constantly nil)))))
 
      )
 

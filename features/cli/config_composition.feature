@@ -9,17 +9,14 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
 
   isaac-agent's original composition.feature also covered the "soul loads
   from a companion .md file" / "defining soul in both :soul and <id>.md is
-  an error" mechanic. That mechanic did NOT move: isaac.config.companions/
-  companion-md-relative (the config-LOAD side) is hard-coded to the kinds
-  :crew (-> :soul) and :berths (-> :ledger) — unlike isaac.config.mutate/
-  companion-spec (the config-SET side), which already reads a module's own
-  `:companion` descriptor generically. Declaring `:companion {:field ...}`
-  on a fixture kind that isn't :crew/:berths crashes every entity load in
-  that table (confirmed empirically: companion-md-relative returns nil for
-  an unrecognized kind, and the nil gets concatenated into a path that
-  resolves to the config directory itself, not a file). Those two scenarios
-  stay in isaac-agent pending a foundation fix that generalizes the read
-  side to match the write side — see the mapping notes for isaac-mxgn.
+  an error" mechanic. That mechanic did NOT move here: at the time,
+  isaac.config.companions/companion-md-relative (the config-LOAD side) was
+  hard-coded to the kinds :crew (-> :soul) and :berths (-> :ledger) — unlike
+  isaac.config.mutate/companion-spec (the config-SET side), which already
+  read a module's own `:companion` descriptor generically. isaac-kcck
+  generalized the load side to match the write side and moved those two
+  scenarios (plus three companion `config set` scenarios) to
+  config_companion.feature, with their own fixture module.
 
   Fixture module marigold.mxgn.vessels contributes a `:vessels` entity-dir
   table (mirroring crew) with plain scalar fields `:captain` and `:log`.

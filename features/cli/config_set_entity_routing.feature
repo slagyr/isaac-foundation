@@ -9,19 +9,17 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
   `:prefer-entity-files` is foundation's own existing base schema field
   (it shows up in config_defaults.feature's own root-field listing).
 
-  Three isaac-agent scenarios did NOT move — they exercise the companion
-  (`:soul`-like) .md mechanic specifically ("set writes soul to the
-  companion .md when it already exists", "set creates a companion .md when
-  a new soul exceeds 64 characters", "set writes short soul inline in the
-  entity file"). Per config_composition.feature's note, the config-LOAD
-  side of that mechanic (isaac.config.companions/companion-md-relative) is
-  hard-coded to kinds :crew/:berths — even though the config-SET side
-  (isaac.config.mutate/companion-spec) already reads a module's own
-  `:companion` descriptor generically. Declaring `:companion` on a fixture
-  kind to test the WRITE routing would make every subsequent `config get`/
-  `validate` on that table crash (the same crash documented in
-  config_composition.feature). These three stay in agent pending a
-  foundation fix to companion-md-relative.
+  Three isaac-agent scenarios did NOT move here — they exercise the
+  companion (`:soul`-like) .md mechanic specifically ("set writes soul to
+  the companion .md when it already exists", "set creates a companion .md
+  when a new soul exceeds 64 characters", "set writes short soul inline in
+  the entity file"). At the time, the config-LOAD side of that mechanic
+  (isaac.config.companions/companion-md-relative) was hard-coded to kinds
+  :crew/:berths, even though the config-SET side (isaac.config.mutate/
+  companion-spec) already read a module's own `:companion` descriptor
+  generically. isaac-kcck generalized the load side and moved those three
+  scenarios (plus two companion `config get`/`validate` scenarios) to
+  config_companion.feature, with their own fixture module.
 
   One isaac-agent scenario did not move because it's a title-identical
   duplicate within the SAME original file family: "set errors on a path

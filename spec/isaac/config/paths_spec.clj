@@ -25,15 +25,6 @@
     (should= (str "models/" marigold/helm-mark-iii ".edn") (sut/entity-relative :models marigold/helm-mark-iii))
     (should= (str "providers/" marigold/helm-systems ".edn") (sut/entity-relative :providers marigold/helm-systems)))
 
-  (it "soul-relative builds crew/<id>.md"
-    (should= (str "crew/" marigold/first-mate ".md") (sut/soul-relative marigold/first-mate)))
-
-  (it "cron-relative builds cron/<id>.md"
-    (should= "cron/nightly.md" (sut/cron-relative "nightly")))
-
-  (it "hook-relative builds hooks/<id>.md"
-    (should= "hooks/webhook.md" (sut/hook-relative "webhook")))
-
   (it "config-file? allowlists known config file shapes"
     (should (sut/config-file? "isaac.edn"))
     (should (sut/config-file? (str "crew/" marigold/first-mate ".edn")))

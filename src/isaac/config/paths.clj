@@ -41,18 +41,6 @@
 (defn entity-relative [kind id]
   (str (name kind) "/" id ".edn"))
 
-(defn soul-relative [id]
-  (str "crew/" id ".md"))
-
-(defn ledger-relative [id]
-  (str "berths/" id ".md"))
-
-(defn cron-relative [id]
-  (str "cron/" id ".md"))
-
-(defn hook-relative [id]
-  (str "hooks/" id ".md"))
-
 (defn config-relative [root path]
   (let [root-prefix (str (config-root root) "/")]
     (when (str/starts-with? path root-prefix)
