@@ -49,7 +49,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
       {:modules {:marigold.mxgn.vessels {:local/root "target/test-mxgn-composition/vessels-module"}}}
       """
 
-  @wip
   Scenario: vessel members are keyed by id
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -60,7 +59,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     Then the stdout contains "You are steady at the helm."
     And the exit code is 0
 
-  @wip
   Scenario: loads a vessel from vessels/<id>.edn
     Given the isaac file "config/vessels/wavecrest.edn" exists with:
       """
@@ -71,7 +69,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stdout contains ":log \"You keep the second watch.\""
     And the exit code is 0
 
-  @wip
   Scenario: loads a vessel from vessels/<id>.md frontmatter
     Given the isaac file "config/vessels/wavecrest.md" exists with:
       """
@@ -87,7 +84,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stdout contains ":log \"You keep the second watch.\""
     And the exit code is 0
 
-  @wip
   Scenario: derives vessel id from filename when :id is not specified
     Given the isaac file "config/vessels/ketch.edn" exists with:
       """
@@ -97,7 +93,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     Then the stdout contains "Cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: explicit :id must match filename
     Given the isaac file "config/vessels/wavecrest.edn" exists with:
       """
@@ -109,7 +104,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stderr contains "ketch"
     And the exit code is 1
 
-  @wip
   Scenario: unknown keys in entity files produce warnings but still load
     Given the isaac file "config/vessels/wavecrest.edn" exists with:
       """
@@ -121,7 +115,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stdout contains "OK"
     And the exit code is 0
 
-  @wip
   Scenario: composes vessels from isaac.edn and vessels/*.edn additively
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -140,7 +133,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stdout contains "Full sail ahead."
     And the exit code is 0
 
-  @wip
   Scenario: duplicate vessel id across isaac.edn and vessels/*.edn is a hard error
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -156,7 +148,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stderr contains "defined in both isaac.edn and vessels/wavecrest.edn"
     And the exit code is 1
 
-  @wip
   Scenario: malformed EDN in a config file is reported with the file path
     Given the isaac file "config/vessels/wavecrest.edn" exists with:
       """
@@ -167,7 +158,6 @@ Feature: Config composition — entity-dir mechanics are foundation's own (isaac
     And the stderr contains "EDN syntax error"
     And the exit code is 1
 
-  @wip
   Scenario: ${VAR} references are substituted from the environment
     Given environment variable "MXGN_VESSEL_CAPTAIN" is "Cordelia"
     And the isaac file "config/isaac.edn" exists with:

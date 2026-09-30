@@ -37,7 +37,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
        :vessels {:helm-station {:captain "Cordelia"}}}
       """
 
-  @wip
   Scenario: config get redacts resolved ${VAR} values by default; an unresolved ${VAR} is named in :unresolved-refs
     # Current behavior (post-isaac-dnib): the whole-config dump does not
     # inline an unresolved substitution at its own path — it drops the key
@@ -62,7 +61,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stdout does not contain "sk-test-123"
     And the exit code is 0
 
-  @wip
   Scenario: config get --raw prints pre-substitution values
     Given environment variable "MXGN_BEACON_CODE" is "sk-test-123"
     And the isaac file "config/isaac.edn" exists with:
@@ -76,7 +74,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stdout does not contain "redacted"
     And the exit code is 0
 
-  @wip
   Scenario: config get --reveal shows real values after typed confirmation
     Given environment variable "MXGN_BEACON_CODE" is "sk-test-123"
     And the isaac file "config/isaac.edn" exists with:
@@ -93,7 +90,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stdout contains "sk-test-123"
     And the exit code is 0
 
-  @wip
   Scenario: config get --reveal refuses without typed confirmation
     Given environment variable "MXGN_BEACON_CODE" is "sk-test-123"
     And the isaac file "config/isaac.edn" exists with:
@@ -111,7 +107,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stdout does not contain "sk-test-123"
     And the exit code is 1
 
-  @wip
   Scenario: config sources lists contributing files
     Given the isaac file "config/vessels/wavecrest.edn" exists with:
       """
@@ -124,13 +119,11 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
       | config/vessels/wavecrest\.edn |
     And the exit code is 0
 
-  @wip
   Scenario: validate passes for a well-formed config
     When isaac is run with "config validate"
     Then the stdout contains "OK"
     And the exit code is 0
 
-  @wip
   Scenario: validate reports errors with exit code 1
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -142,7 +135,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stderr contains "is required"
     And the exit code is 1
 
-  @wip
   Scenario: validate reports warnings but still exits 0
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -157,7 +149,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     And the stdout contains "OK"
     And the exit code is 0
 
-  @wip
   Scenario: validate reads stdin as the full config and ignores on-disk files
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -172,7 +163,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     Then the stdout contains "valid"
     And the exit code is 0
 
-  @wip
   Scenario: validate --as overlays stdin at the given config path before validating
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -187,7 +177,6 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     Then the stdout contains "valid"
     And the exit code is 0
 
-  @wip
   Scenario: validate --as rejects file-path style with a hint to use a config path
     Given stdin is:
       """
@@ -197,26 +186,22 @@ Feature: Config get / validate — redaction, sources, and overlay mechanics are
     Then the stderr contains "config path"
     And the exit code is 1
 
-  @wip
   Scenario: get prints a scalar value by dotted keyword path
     When isaac is run with "config get vessels.helm-station.captain"
     Then the stdout contains "Cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: get prints a scalar value by bracket keyword path
     When isaac is run with "config get vessels[:helm-station].captain"
     Then the stdout contains "Cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: get prints a nested structure as EDN
     When isaac is run with "config get vessels.helm-station"
     Then the stdout contains ":captain"
     And the stdout contains "Cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: get exits non-zero for a missing key
     When isaac is run with "config get vessels.helm-station.nope"
     Then the stderr contains "not found: vessels.helm-station.nope"
