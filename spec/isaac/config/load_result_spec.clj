@@ -589,7 +589,11 @@
          :foundries {(keyword marigold/helm-systems) {}}})
       (let [result (marigold/load-config)]
         (should= [] (:errors result))
-        (should= :main (get-in result [:config :watch :berth]))))
+        ;; :watch.berth is schema-typed :id (isaac-dnib: root-level fields now
+        ;; conform-overlay same as any other), so the canonical :id coercion
+        ;; (keyword -> its name) applies same as it always has for berth/crew
+        ;; ids read any other way.
+        (should= "main" (get-in result [:config :watch :berth]))))
 
     (it "preserves cron jobs and timezone from the root config"
       (with-extended-config-index

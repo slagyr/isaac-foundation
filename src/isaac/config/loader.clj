@@ -84,15 +84,25 @@
       {:data nil :errors [] :warnings [] :sources []})))
 
 (defn -validate-root-config
-  "Private intent, but feature spies (isaac-v1la) wrap this var."
-  ([result] (-validate-root-config (cached-root-schema) result))
-  ([root-schema {:keys [data] :as result}]
+  "Private intent, but feature spies (isaac-v1la) wrap this var.
+
+   Loaded config is a conformed-over-raw overlay (isaac-dnib): the returned
+   `:data` is `data` with the conform result overlaid on top field-by-field —
+   defaults fill, coercible values coerce, but any key/subtree the schema
+   doesn't declare (and any field whose conform failed) survives from raw.
+   `raw-config?` (used by `config get --raw`) skips the overlay entirely, so
+   `:data` comes back exactly as given — pre-conform, no defaults."
+  ([result] (-validate-root-config (cached-root-schema) result false))
+  ([root-schema result] (-validate-root-config root-schema result false))
+  ([root-schema {:keys [data] :as result} raw-config?]
    (if-not data
      result
      (let [root-result     (lexicon/conform (runtime-schema root-schema) data)
            defaults-result (when-let [defaults (:defaults data)]
-                             (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))]
+                             (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))
+           overlaid-data   (if raw-config? data (schema-base/overlay-conformed data root-result))]
        (-> result
+           (assoc :data overlaid-data)
            (update :errors into (concat
                                   (when (cs/error? root-result) (validation/schema-error-entries nil root-result))
                                   (when (and defaults-result (cs/error? defaults-result))
@@ -166,7 +176,7 @@
                 acc       (update acc :warnings into warns)]
             (if (cs/error? conformed)
               (update acc :errors into (validation/schema-error-entries
-                                         (str/join "." (map name path)) conformed))
+                                        (str/join "." (map name path)) conformed))
               (assoc-in acc (into [:config] path) conformed))))))
     {:config config :errors [] :warnings []}
     (berths/config-paths module-index)))
@@ -194,7 +204,7 @@
 (defn load-config-result
   "Load and validate configuration from the current filesystem.
    `:skip-cache?` remains accepted as a compatibility no-op."
-  [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay dotenv]
+  [& [{:keys [root raw-parse-errors? substitute-env? skip-entity-files? data-path-overlay dotenv raw-config?]
        :or   {substitute-env? true}
        :as   opts}]]
   (let [fs*         (parse/runtime-fs opts)
@@ -247,8 +257,9 @@
                                         discovery       (discovery/discover! discovery-input {:root root
                                                                                                   :cwd  (host/cwd)})
                                         [effective-schema compose-error] (compose-or-fallback (:index discovery))
-                                        {root-errors :errors root-warnings :warnings root-sources :sources}
-                                        (-validate-root-config effective-schema root-read)
+                                        {root-errors :errors root-warnings :warnings root-sources :sources
+                                         overlaid-root-data :data}
+                                        (-validate-root-config effective-schema root-read raw-config?)
                                         ;; Every directory under config/ is a key; foundation knows no
                                         ;; kind by name and reads no :entity-dir declaration (isaac-49zp).
                                         entity-kinds     (vec (:dirs layout))
@@ -257,7 +268,7 @@
                                                         [kind (entities/entity-files config-root dir opts)])
                                                       entity-kinds))
                                         md-warnings      (entities/dangling-md-warnings config-root (:dirs layout) root-data opts)
-                                        base-config      (normalize/normalize-config effective-schema (or root-data {}))
+                                        base-config      (normalize/normalize-config effective-schema (or overlaid-root-data {}) raw-config?)
                                         result           {:config          base-config
                                                           :errors          root-errors
                                                           :missing-config? false
@@ -291,7 +302,7 @@
                                                                (resolve effective-schema result))
                                                              (catch Throwable _ result))
                                                            result)
-                                        config           (update (:config result) :defaults #(normalize/normalize-defaults effective-schema %))
+                                        config           (update (:config result) :defaults #(normalize/normalize-defaults effective-schema % raw-config?))
                                         config           (if data-path-overlay
                                                            (assoc-in config (:path data-path-overlay) (:value data-path-overlay))
                                                            config)
@@ -300,7 +311,9 @@
                                         ;; as a real entry (isaac-h2ck).
                                         templating       (templating/resolve-config config)
                                         config           (:config templating)
-                                        slices           (conform-berth-slices (:index discovery) effective-schema config)
+                                        slices           (if raw-config?
+                                                           {:config config :errors [] :warnings []}
+                                                           (conform-berth-slices (:index discovery) effective-schema config))
                                         config           (assoc (:config slices)
                                                            :module-index (:index discovery)
                                                            :root root)
@@ -346,7 +359,14 @@
                                      :warnings (->> all-warnings
                                                     (warnings/log-unknown-keys!)
                                                     (warnings/log-unresolved-refs!))
-                                     :sources  (vec (sort (:sources result)))})))))))
+                                     :sources  (vec (sort (:sources result)))
+                                     ;; Raw (pre-conform-overlay) root-level data, already computed
+                                     ;; above — a companion for callers that need to tell a schema
+                                     ;; default apart from a file-set value (isaac-dnib's `(default)`
+                                     ;; annotation) WITHOUT a second `load-config-result` call, which
+                                     ;; would violate "the CLI resolves the config once per command"
+                                     ;; (isaac-v1la). Root-level fields only — not entity-dir files.
+                                     :raw-root (or root-data {})})))))))
 
 ;; region ----- Ambient Config Snapshot -----
 

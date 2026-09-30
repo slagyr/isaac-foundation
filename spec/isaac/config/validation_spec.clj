@@ -120,9 +120,12 @@
     ;; A nested map spec carries two obligations that isaac-ruom's first cut
     ;; conflated. `:present?` on an inner field means "if this map is written,
     ;; this field must be in it" — it says nothing about whether the map may be
-    ;; left out. `:required? true` on an inner field is what makes the map
-    ;; itself unskippable, and only that may make validation descend into a map
-    ;; that was never written.
+    ;; left out. `:required true` (apron 3.2.1's spec key, née `:required?`) on
+    ;; an inner field is what makes the map itself unskippable, and only that
+    ;; may make validation descend into a map that was never written
+    ;; (isaac-dnib: demands-a-field? reads the bare `:required` key, never
+    ;; `doc/required?` — that resolves `:validations [:present?]` too, which
+    ;; would erase this exact distinction).
 
     (defn- optional-map-spec []
       ;; :episodes :embedding — an optional capability (isaac-episodes)
@@ -133,13 +136,13 @@
     (defn- demanding-map-spec []
       ;; :defaults :frequencies — omitting it is omitting the default crew
       {:type   :map
-       :schema {:crew  {:type :id :required? true :validations [:present?]}
+       :schema {:crew  {:type :id :required true :validations [:present?]}
                 :model {:type :id}}})
 
     (it "an absent map whose inner fields are only :present? reports nothing"
       (should= [] (sut/annotation-errors* nil ["episodes" "embedding"] (optional-map-spec) nil)))
 
-    (it "an absent map with a :required? true inner field still names that field"
+    (it "an absent map with a :required true inner field still names that field"
       (let [entries (sut/annotation-errors* nil ["defaults" "frequencies"] (demanding-map-spec) nil)]
         (should= ["defaults.frequencies.crew"] (map :key entries))
         (should= ["is required"] (map :value entries))))

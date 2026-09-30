@@ -64,7 +64,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       {:modules {:marigold.dflt.beacon {:local/root "/tmp/modules/marigold.dflt.beacon"}}}
       """
 
-  @wip
   Scenario: config schema <table> shows the default and required marker for its fields
     Given the isaac file "isaac.edn" exists with:
       """
@@ -79,7 +78,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | keeper\s+string.*\*required            |
     And the exit code is 0
 
-  @wip
   Scenario: config schema drilled to a single required field also shows the required marker
     When isaac is run with "config schema beacon.keeper"
     Then the stdout matches:
@@ -87,7 +85,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | \*required |
     And the exit code is 0
 
-  @wip
   Scenario: config schema --edn includes :default for a field with one
     When isaac is run with "config schema beacon.power --edn"
     Then the stdout matches:
@@ -95,7 +92,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | :default\s+42   |
     And the exit code is 0
 
-  @wip
   Scenario: config schema --edn includes :required for a field marked required
     When isaac is run with "config schema beacon.keeper --edn"
     Then the stdout matches:
@@ -103,7 +99,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | :required\s+true   |
     And the exit code is 0
 
-  @wip
   Scenario: config get on an absent key returns the schema default, annotated
     Given the isaac file "isaac.edn" exists with:
       """
@@ -115,7 +110,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "42"
     And the stdout contains "(default)"
 
-  @wip
   Scenario: config get on a set key returns the set value, unannotated
     Given the isaac file "isaac.edn" exists with:
       """
@@ -127,7 +121,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "7"
     And the stdout does not contain "(default)"
 
-  @wip
   Scenario: config get --edn on an absent key returns the plain default value, no annotation
     Given the isaac file "isaac.edn" exists with:
       """
@@ -139,7 +132,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "42"
     And the stdout does not contain "(default)"
 
-  @wip
   Scenario: config get --raw on an absent key omits the default — raw is what's set
     Given the isaac file "isaac.edn" exists with:
       """
@@ -150,7 +142,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     Then the exit code is 1
     And the stderr contains "not found: beacon.power"
 
-  @wip
   Scenario: an unknown nested key under a schema'd root map survives in config get
     Given the isaac file "isaac.edn" exists with:
       """
@@ -163,7 +154,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "kept in the margin"
     And the stdout contains ":power"
 
-  @wip
   Scenario: a coercible-but-wrong-typed value comes back coerced through config get
     Given the isaac file "isaac.edn" exists with:
       """
@@ -177,7 +167,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | pattern |
       | ^true$  |
 
-  @wip
   Scenario: config get --raw preserves the original, uncoerced value
     Given the isaac file "isaac.edn" exists with:
       """
@@ -189,7 +178,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     Then the exit code is 0
     And the stdout contains "\"true\""
 
-  @wip
   Scenario: an undeclared module coordinate key survives in config get modules
     Given the isaac file "isaac.edn" exists with:
       """
@@ -202,7 +190,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "the crew that added it"
     And the stdout contains ":local/root"
 
-  @wip
   Scenario: a module coordinate with none of local/root, mvn/version, or git/url fails validation
     Given the isaac file "isaac.edn" exists with:
       """
@@ -214,7 +201,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     Then the exit code is 1
     And the stderr contains "must include at least one of"
 
-  @wip
   Scenario: config set of one key does not write the other field's default into the file
     When isaac is run with "config set beacon.keeper Atticus"
     Then the exit code is 0
@@ -223,7 +209,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | beacon.keeper | Atticus |
     And the isaac file "isaac.edn" does not contain "power"
 
-  @wip
   Scenario: an explicit value equal to the default is kept as set, not pruned
     Given the isaac file "isaac.edn" exists with:
       """
@@ -237,7 +222,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | beacon.keeper | Cordelia |
       | beacon.power  | 42     |
 
-  @wip
   Scenario: config validate reports a missing required field
     Given the isaac file "isaac.edn" exists with:
       """
@@ -249,7 +233,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stderr contains "beacon.keeper"
     And the stderr contains "is required"
 
-  @wip
   Scenario: config validate passes when the required field is present
     Given the isaac file "isaac.edn" exists with:
       """
@@ -260,7 +243,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     Then the exit code is 0
     And the stdout contains "OK - config is valid"
 
-  @wip
   Scenario: an invalid field keeps its raw value; the rest of the map still conforms
     Given the isaac file "isaac.edn" exists with:
       """
@@ -275,7 +257,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     Then the exit code is 1
     And the stderr contains "power"
 
-  @wip
   Scenario: config schema lists namespaced coordinate keys by their full names
     When isaac is run with "config schema modules.value"
     Then the stdout matches:
@@ -288,7 +269,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | (?m)^\s*:root\b |
     And the exit code is 0
 
-  @wip
   Scenario: config schema drills into a namespaced coordinate key by its dotted path
     When isaac is run with "config schema modules.value.local/root"
     Then the stdout matches:

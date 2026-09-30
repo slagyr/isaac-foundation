@@ -90,18 +90,23 @@
                  (cs/message-map result)))))
 
 (defn- demands-a-field?
-  "Does this map spec declare a `:required? true` field? Such a map cannot be
-   satisfied by leaving the map itself out — omitting `:defaults :frequencies`
-   is omitting the default crew — so validation descends into an absent one to
-   say which field is missing (isaac-ruom).
+  "Does this map spec declare a `:required true` field (apron 3.2.1's spec
+   key, née `:required?`)? Such a map cannot be satisfied by leaving the map
+   itself out — omitting `:defaults :frequencies` is omitting the default
+   crew — so validation descends into an absent one to say which field is
+   missing (isaac-ruom).
 
-   `:required?` is the only marker that says so. `:present?` on an inner field
-   is a narrower claim — *if* the map is written, that field must be in it —
-   and reading it as this one made every optional nested map (`:episodes
-   :embedding`, a principal's `:previous` rotation overlap) error whenever it
-   was left out (isaac-ajlh)."
+   The literal `:required` key is the only marker that says so. `:present?`
+   on an inner field — bare or via apron's own `doc/required?`, which treats
+   `:validations [:present?]` as equivalent to `:required true` — is a
+   narrower claim: *if* the map is written, that field must be in it, but the
+   map itself may be omitted. Reading `:present?` as demanding-the-map made
+   every optional nested map (`:episodes :embedding`, a principal's
+   `:previous` rotation overlap) error whenever it was left out (isaac-ajlh);
+   isaac-dnib's `:required?` → `:required` cutover keeps that same narrower
+   reading, just under the new key name."
   [spec]
-  (boolean (some (fn [[_ field-spec]] (:required? field-spec))
+  (boolean (some (fn [[_ field-spec]] (:required field-spec))
                  (:schema spec))))
 
 (defn annotation-errors* [root path spec value & [entity field-key]]

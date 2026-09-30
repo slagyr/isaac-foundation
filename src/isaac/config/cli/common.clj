@@ -279,10 +279,19 @@
      :root         (schema-resolve/root-schema-for config result)
      :result       result}))
 
-(defn load-raw-result [opts]
-  (loader/load-config-result {:root            (resolve-root opts)
-                              :fs              (or (:fs opts) (nexus/get :fs) (fs/real-fs))
-                              :substitute-env? false}))
+(defn load-raw-result
+  "Load with `${VAR}` substitution skipped. `raw-config?` (default false) also
+   skips the conform-over-raw overlay (isaac-dnib), so `:config` comes back
+   exactly as merged from files — no schema defaults, no coercion. Plain
+   `config get` (no --raw) uses the default (overlay still applied) so it can
+   compute env-value redaction against the resolved view; `config get --raw`
+   passes `raw-config? true` for the true pre-conform read."
+  ([opts] (load-raw-result opts false))
+  ([opts raw-config?]
+   (loader/load-config-result {:root            (resolve-root opts)
+                               :fs              (or (:fs opts) (nexus/get :fs) (fs/real-fs))
+                               :substitute-env? false
+                               :raw-config?     raw-config?})))
 
 (defn- source-path [root source]
   (let [path (if (str/starts-with? source "/") source (str root "/" source))]

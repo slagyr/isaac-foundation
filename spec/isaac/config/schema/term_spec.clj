@@ -96,7 +96,7 @@
 
     (it "marks required fields"
       (let [out (sut/spec->term
-                  {:type :map :schema {:name {:type :string :required? true}}}
+                  {:type :map :schema {:name {:type :string :required true}}}
                   plain)]
         (should-contain "required" out)))
 

@@ -121,14 +121,27 @@
       variant                   (str "[" variant "]")
       :else                     description)))
 
+(defn- key-label
+  "A field's label with its full keyword name — `:local/root`, never the
+   namespace-dropping `:root` (isaac-dnib)."
+  [k]
+  (str k))
+
+(defn- key-segment
+  "A field's own path segment, namespace intact (`local/root`, not `root`) —
+   isaac's own path parser (isaac-cgxa) already keeps a `/` inside a segment,
+   this keeps the rendered path consistent with it (isaac-dnib)."
+  [k]
+  (subs (str k) 1))
+
 (defn- field-block [name-width required path-prefix [k raw-spec] opts]
   (let [spec      (schema/normalize-spec raw-spec)
-        padded-nm (cli-common/pad-right (str ":" (name k)) name-width)
+        padded-nm (cli-common/pad-right (key-label k) name-width)
         header    (header-with-path opts
                                      (str "  " (bold-cyan opts padded-nm)
                                           "  " (colored-type-phrase opts spec)
-                                          (when (or (contains? required k) (:required? spec)) (yellow opts " *required")))
-                                     (path-str (conj path-prefix (name k))))
+                                          (when (or (contains? required k) (doc/required? spec)) (yellow opts " *required")))
+                                     (path-str (conj path-prefix (key-segment k))))
         indent    (apply str (repeat (+ 4 name-width) " "))
         desc-w    (max 20 (- (:width opts) (count indent)))
         desc      (when-let [d (effective-description spec)]
@@ -143,7 +156,7 @@
 (defn- object-section [schema-map opts path-prefix]
   (let [required (set (doc/required-fields schema-map))
         entries  (sort-by (comp name key) schema-map)
-        name-w   (apply max 4 (map #(inc (count (name (key %)))) entries))]
+        name-w   (apply max 4 (map #(count (key-label (key %))) entries))]
     (s/join "\n\n" (map #(field-block name-w required path-prefix % opts) entries))))
 
 (defn- description-lines [description opts]
@@ -183,7 +196,7 @@
                                     (str indent
                                          (when label (str (bold-cyan opts label) "  "))
                                          (colored-type-phrase opts spec)
-                                         (when (:required? spec) (yellow opts " *required")))
+                                         (when (doc/required? spec) (yellow opts " *required")))
                                     (path-str path-prefix))
         options   (options-line opts spec indent)
         default   (when (contains? spec :default)

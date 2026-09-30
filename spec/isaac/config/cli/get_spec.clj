@@ -49,7 +49,7 @@
 
   (describe "whole config"
 
-    (redefs-around [common/load-raw-result (fn [_] (api-key-load-result))])
+    (redefs-around [common/load-raw-result (fn [_ & [_raw-config?]] (api-key-load-result))])
 
     (it "prints the resolved config when no path is given, redacting env values"
       (c3env/override! "CONFIG_TEST_API_KEY" "sk-test-123")

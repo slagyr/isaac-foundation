@@ -269,11 +269,7 @@ topic on `handbook__read` (`handbook__read` with topic
 route. `isaac config schema <path>` is the CLI equivalent, for an
 operator at a terminal.
 
-### Effective vs. written `[dnib]`
-
-*This behavior is landing (isaac-dnib) and may not be live everywhere
-yet — check it against a real `config get` before relying on exact
-wording.*
+### Effective vs. written
 
 The config a running Isaac actually uses is **conformed-over-raw**: the
 raw, merged files, with schema defaults filled in for absent keys and
@@ -357,7 +353,7 @@ retired in favor of the top-level `hot-reload`.
   that's set — `config get <path> --raw` shows whether it's really
   there, and where.
 - **`(default)` shows up where you expected a real value**, or vice
-  versa `[dnib]` — this is the conformed-over-raw behavior above; use
+  versa — this is the conformed-over-raw behavior above; use
   `--raw` to see the ground truth of what's written.
 - **A secret shows `<VAR:UNRESOLVED>`.** The environment variable isn't
   set where Isaac can see it (process env or `<root>/.env`). This is an

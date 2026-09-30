@@ -150,7 +150,7 @@
   (let [validations (vec (remove #(or (= :present? %)
                                       (and (vector? %) (= :present? (first %))))
                                  (:validations spec)))]
-    (cond-> (dissoc spec :required?)
+    (cond-> (dissoc spec :required)
             true (dissoc :validations)
             (seq validations) (assoc :validations validations))))
 

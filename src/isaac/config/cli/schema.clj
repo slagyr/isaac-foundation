@@ -6,6 +6,7 @@
     [clojure.string :as str]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
+    [isaac.config.paths :as paths]
     [isaac.config.schema-base :as schema-base]
     [isaac.config.schema.examples :as schema-examples]
     [isaac.config.schema.term :as schema-term]
@@ -36,6 +37,25 @@
 (defn- schema-context [opts]
   (common/schema-context opts))
 
+(defn- segment->schema-token
+  "One isaac-parsed path segment as an apron schema-path token — always the
+   bracket form, so a namespaced keyword (`:local/root`) round-trips whole
+   instead of being split on `/` (isaac-cgxa/isaac-dnib: apron's own path
+   tokenizer excludes `/` from its identifier class)."
+  [[kind v]]
+  (case kind
+    :key   (str "[:" (subs (str v) 1) "]")
+    :index (str "[" v "]")
+    :str   (str "[" (pr-str v) "]")))
+
+(defn- ->schema-path
+  "Rewrite an isaac config path (which keeps a `/`-namespaced segment whole,
+   isaac-cgxa) into the bracket-form apron's own `schema-path/schema-at`
+   already understands, so `modules.value.local/root` resolves the same
+   `:local/root` field `modules.value[:local/root]` does."
+  [path-str]
+  (apply str (map segment->schema-token (paths/parse-path-segments path-str))))
+
 (defn- table-spec-at [root first-segment]
   (try (schema-path/schema-at root first-segment) (catch Exception _ nil)))
 
@@ -62,9 +82,9 @@
   (if (str/blank? path-str)
     root
     (try
-      (or (schema-path/schema-at root path-str)
+      (or (schema-path/schema-at root (->schema-path path-str))
           (when-let [substituted (substituted-path root path-str)]
-            (schema-path/schema-at root substituted)))
+            (schema-path/schema-at root (->schema-path substituted))))
       (catch Exception _ nil))))
 
 (defn- print-schema! [opts path-str options]

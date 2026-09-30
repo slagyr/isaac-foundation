@@ -34,7 +34,7 @@
                                                            :schema {:id     {:type :id}
                                                                     :effort {:type :int}
                                                                     :model  {:type        :id
-                                                                             :required?   true
+                                                                             :required    true
                                                                              :validations [:present?]}}}}}
                        :frequencies {:schema {:name   :frequencies
                                               :type   :map
@@ -48,7 +48,7 @@
                                                        :frequencies {:type            :map
                                                                      :entity-template {:kind     :frequencies
                                                                                        :except   [:with-crew]
-                                                                                       :override {:crew {:type :id :required? true}}}}}}}}}}})
+                                                                                       :override {:crew {:type :id :required true}}}}}}}}}}})
 
 ;; Deferred (isaac-p5v2 #3): "root conforms a complete config" over every REAL shipped
 ;; fragment belongs as a smoke test in the top-level isaac app once it exists.
@@ -108,7 +108,7 @@
     (it "a template never requires a field the entity requires"
       (let [model (get-in (sut/effective-root-schema template-index)
                           [:schema :defaults :schema :crew :schema :model])]
-        (should-be-nil (:required? model))
+        (should-be-nil (:required model))
         (should-be-nil (:validations model))))
 
     (it "omits excepted fields"
@@ -124,7 +124,7 @@
       (let [crew (get-in (sut/effective-root-schema template-index)
                          [:schema :defaults :schema :frequencies :schema :crew])]
         (should= :id (:type crew))
-        (should (true? (:required? crew))))))
+        (should (true? (:required crew))))))
 
   (describe "composed root"
 
