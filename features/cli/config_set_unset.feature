@@ -105,7 +105,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
       {:modules {:marigold.601n.vessels {:local/root "target/test-601n-set-unset/vessels-module"}}}
       """
 
-  @wip
   Scenario: scalar set writes a value at a known map path
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value    |
@@ -116,7 +115,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains "Marlow"
     And the exit code is 0
 
-  @wip
   Scenario: scalar unset removes a value at a known map path
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -128,7 +126,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout does not contain "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: config set is idempotent when the value is already present
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value  |
@@ -139,7 +136,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains "Marlow"
     And the exit code is 0
 
-  @wip
   Scenario: config unset is idempotent when the value is absent
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -150,7 +146,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: config set errors when the value doesn't match the schema type
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -159,7 +154,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stderr contains "effort"
     And the exit code is 1
 
-  @wip
   Scenario: config set helm.max-signals succeeds and the value lands
     When isaac is run with "config set helm.max-signals 500"
     Then the exit code is 0
@@ -167,7 +161,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains "500"
     And the exit code is 0
 
-  @wip
   Scenario: config set conforms a bare name to the keyword set the field holds
     Given the isaac EDN file "config/isaac.edn" exists with:
       | path        | value            |
@@ -182,7 +175,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     And the stdout does not contain ":role/lookout"
     And the exit code is 0
 
-  @wip
   Scenario: config set conforms a keyword to a one-member set instead of crashing
     When isaac is run with "config set signal-tags :jackalope"
     Then the stderr does not contain "ISeq"
@@ -191,7 +183,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains ":jackalope"
     And the exit code is 0
 
-  @wip
   Scenario: config set conforms a comma list to a set of keywords
     When isaac is run with "config set signal-tags jackalope,role/lookout"
     Then the exit code is 0
@@ -200,7 +191,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     And the stdout contains ":role/lookout"
     And the exit code is 0
 
-  @wip
   Scenario: config set keeps digits a string when the field is a string
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -210,7 +200,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     When isaac is run with "config validate"
     Then the exit code is 0
 
-  @wip
   Scenario: config unset with a member removes only that member
     Given the isaac EDN file "config/isaac.edn" exists with:
       | path        | value                       |
@@ -222,7 +211,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     And the stdout does not contain ":jackalope"
     And the exit code is 0
 
-  @wip
   Scenario: config unset refuses a value on a path that is not a set
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -235,7 +223,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout contains "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: config set confirms what it wrote and where
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -246,7 +233,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
       | set vessels\.cordelia\.captain = "Marlow".*vessels/cordelia\.edn |
     And the exit code is 0
 
-  @wip
   Scenario: config set confirms a set member it added
     When isaac is run with "config set signal-tags.wip"
     Then the stdout matches:
@@ -254,7 +240,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
       | set signal-tags \+= :wip.*isaac\.edn |
     And the exit code is 0
 
-  @wip
   Scenario: config unset confirms what it removed
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -265,7 +250,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
       | unset vessels\.cordelia\.captain.*vessels/cordelia\.edn |
     And the exit code is 0
 
-  @wip
   Scenario: config set --edn prints only the structured record
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -274,7 +258,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
     Then the stdout does not contain "set vessels.cordelia.captain"
     And the exit code is 0
 
-  @wip
   Scenario: config set --help documents the set-member path form
     When isaac is run with "config set --help"
     Then the stdout matches:
@@ -283,7 +266,6 @@ Feature: Config set / unset — scalar, set-member, and nested-path mechanics ar
       | isaac config set crew\.marvin\.tags\.role/worker |
     And the exit code is 0
 
-  @wip
   Scenario: warnings elsewhere in the config collapse to a count after the confirmation
     # The exact count isn't pinned: an unrelated entity's "unknown key"
     # warning is collected once per internal validate pass in the mutate

@@ -144,7 +144,6 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
        :relays  {:helm-station {:type :longwave :keeper "Atticus"}}}
       """
 
-  @wip
   Scenario: config schema renders a manifest-supplied field with a provenance prefix
     When isaac is run with "config schema relays.value.helm/freq"
     Then the stdout matches:
@@ -155,7 +154,6 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
       | Longwave carrier frequency |
     And the exit code is 0
 
-  @wip
   Scenario: config schema <table>.value renders every manifest-supplied field inline, not grouped by type
     When isaac is run with "config schema relays.value"
     Then the stdout matches:
@@ -171,7 +169,6 @@ Feature: Config schema renders manifest-contributed fields with a provenance pre
       | type:\s+skybeam\s  |
     And the exit code is 0
 
-  @wip
   Scenario: config schema <table>.value with no contributing modules shows only base fields
     Given the isaac file "isaac.edn" exists with:
       """

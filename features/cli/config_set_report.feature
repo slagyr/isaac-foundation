@@ -48,7 +48,6 @@ Feature: Config set / unset report the result first, then a warning count for ev
                  :wavecrest {:captain "Marlow" :bogus-field 1}}}
       """
 
-  @wip
   Scenario: warnings elsewhere in the config collapse to a count after the confirmation
     When isaac is run with "config set vessels.cordelia.captain Cordelia"
     Then the stdout contains "set vessels.cordelia.captain = \"Cordelia\""
@@ -58,7 +57,6 @@ Feature: Config set / unset report the result first, then a warning count for ev
     And the stdout does not contain "unknown key"
     And the exit code is 0
 
-  @wip
   Scenario: a refused set leads with the error, then the warning count
     When isaac is run with "config set vessels.cordelia.effort not-a-number"
     Then the stderr matches:

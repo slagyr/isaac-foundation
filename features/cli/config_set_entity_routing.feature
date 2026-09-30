@@ -59,7 +59,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
       {:modules {:marigold.601n.routing {:local/root "target/test-601n-routing/vessels-module"}}}
       """
 
-  @wip
   Scenario: set writes a new entity to isaac.edn by default
     When isaac is run with "config set vessels.cordelia.captain Atticus"
     Then the isaac file "config/isaac.edn" EDN contains:
@@ -67,7 +66,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
       | vessels.cordelia.captain | Atticus |
     And the exit code is 0
 
-  @wip
   Scenario: set writes to the existing entity file when one already defines the key
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -79,7 +77,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     And the isaac file "config/isaac.edn" does not contain "cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: set writes to isaac.edn when the entity is already defined there
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -93,7 +90,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     And the isaac file "config/vessels/cordelia.edn" does not exist
     And the exit code is 0
 
-  @wip
   Scenario: set writes new entities to entity files when prefer-entity-files is true
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -107,7 +103,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     And the isaac file "config/isaac.edn" does not contain "cordelia"
     And the exit code is 0
 
-  @wip
   Scenario: set edits the frontmatter of an entity that lives in <id>.md
     Given the isaac file "config/vessels/cordelia.md" exists with:
       """
@@ -125,7 +120,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     Then the stdout contains "Marlow"
     And the exit code is 0
 
-  @wip
   Scenario: unset removes a frontmatter field from an entity that lives in <id>.md
     Given the isaac file "config/vessels/cordelia.md" exists with:
       """
@@ -145,14 +139,12 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     And the stdout contains "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: set refuses to write a value that fails type validation
     When isaac is run with "config set vessels.cordelia.effort not-a-number"
     Then the stderr contains "effort"
     And the isaac file "config/isaac.edn" does not contain "not-a-number"
     And the exit code is 1
 
-  @wip
   Scenario: unset removes a key from the file where it lives
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -165,7 +157,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     And the isaac file "config/vessels/cordelia.edn" does not contain "effort"
     And the exit code is 0
 
-  @wip
   Scenario: unset that empties an entity file deletes it
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |
@@ -174,7 +165,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
     Then the isaac file "config/vessels/cordelia.edn" does not exist
     And the exit code is 0
 
-  @wip
   Scenario: set writes a whole entity read from stdin
     Given stdin is:
       """
@@ -187,7 +177,6 @@ Feature: Config set / unset — entity-file routing mechanics are generic (isaac
       | vessels.cordelia.effort  | 5      |
     And the exit code is 0
 
-  @wip
   Scenario: set replaces an existing entity rather than merging
     Given the isaac EDN file "config/vessels/cordelia.edn" exists with:
       | path    | value   |

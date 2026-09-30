@@ -46,7 +46,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
       {:modules {:marigold.601n.keys {:local/root "target/test-601n-keys-list/vessels-module"}}}
       """
 
-  @wip
   Scenario: config keys prints bare key names at a path
     Given the isaac EDN file "config/vessels/wavecrest.edn" exists with:
       | path         | value               |
@@ -61,7 +60,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     And the stdout does not contain "sk-real-secret-value"
     And the exit code is 0
 
-  @wip
   Scenario: config keys with no path lists root keys
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -74,7 +72,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     And the stdout does not contain "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: config list prints keys with their config source
     Given the isaac EDN file "config/vessels/wavecrest.edn" exists with:
       | path        | value                |
@@ -85,7 +82,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     And the stdout does not contain "sk-real-secret-value"
     And the exit code is 0
 
-  @wip
   Scenario: config list with no path lists root keys and sources
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -98,7 +94,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     And the stdout does not contain "Atticus"
     And the exit code is 0
 
-  @wip
   Scenario: a leaf path prints nothing
     Given the isaac EDN file "config/vessels/wavecrest.edn" exists with:
       | path        | value                |
@@ -107,7 +102,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     Then the stdout is empty
     And the exit code is 0
 
-  @wip
   Scenario: keys and list emit structured output under --json
     Given the isaac EDN file "config/vessels/wavecrest.edn" exists with:
       | path        | value                |
@@ -125,7 +119,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     And the stdout does not contain "sk-real-secret-value"
     And the exit code is 0
 
-  @wip
   Scenario: config validate --json emits structured warnings
     Given the isaac file "config/isaac.edn" exists with:
       """
@@ -137,7 +130,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
     Then the stdout parses as JSON with a warnings array naming the offending path
     And the exit code is 0
 
-  @wip
   Scenario: config help lists set and unset subcommands
     When isaac is run with "help config"
     Then the stdout matches:
@@ -146,7 +138,6 @@ Feature: Config keys / list — bare key listing and structured output are gener
       | unset <config-path>\s+Remove a value at a config path    |
     And the exit code is 0
 
-  @wip
   Scenario: config set --help documents stdin form and examples
     When isaac is run with "config set --help"
     Then the stdout matches:
