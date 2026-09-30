@@ -37,7 +37,6 @@ Feature: string-keyed tables keep one entry per key (isaac-4eay)
         (module/module))
       """
 
-  @wip
   Scenario: keyword keys in a string-keyed table load as one entry each
     Given the isaac file "isaac.edn" exists with:
       """
@@ -51,7 +50,6 @@ Feature: string-keyed tables keep one entry per key (isaac-4eay)
       | north |
       | south |
 
-  @wip
   Scenario: the single entry carries its conformed values
     Given the isaac file "isaac.edn" exists with:
       """

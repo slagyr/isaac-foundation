@@ -25,6 +25,16 @@
    :id         {:coercions   [->id]
                 :validations [{:validate (schema/nil?-or string?)
                                :message  "must be an id (string or keyword)"}]}
+   ;; Override apron's stock :string coercion (`(some-> value str)`), which
+   ;; stringifies a keyword to its printed form (":north", colon included)
+   ;; rather than its bare name. A dynamic map's `:key-spec {:type :string}`
+   ;; conforms every keyword key through this same type, so the stock
+   ;; coercion made a conformed key that could never unify with its raw
+   ;; keyword counterpart in the conformed-over-raw overlay (isaac-dnib) —
+   ;; both survived as separate entries (isaac-4eay). `->id` already has the
+   ;; right shape (keyword → name, string passes through); keep the rest of
+   ;; apron's :string lex (its "must be a string" validation) as-is.
+   :string     (assoc (get-in schema/default-lexicon [:types :string]) :coercions [->id])
    ;; an apron schema literal — a map of field keyword → spec, validated
    ;; against the meta-schema (e.g. comm/tool berth :extra-schema fields).
    ;; meta populates schema-map-validator at load; if it hasn't loaded

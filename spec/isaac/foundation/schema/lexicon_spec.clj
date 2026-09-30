@@ -53,6 +53,18 @@
   (it "conforms a non-keyword non-string id via str"
     (should= "42" (sut/conform! {:type :id} 42)))
 
+  (it "conforms a :string schema by coercing a keyword to its bare name, not `str` (isaac-4eay)"
+    (should= "north" (sut/conform! {:type :string} :north)))
+
+  (it "conforms a :string schema passing a string through untouched"
+    (should= "north" (sut/conform! {:type :string} "north")))
+
+  (it "conforms a :string schema by coercing a non-keyword non-string value via str"
+    (should= "42" (sut/conform! {:type :string} 42)))
+
+  (it "conforms a nil :string to nil"
+    (should= nil (sut/conform! {:type :string} nil)))
+
   (it "conforms a :schema-map of valid field specs"
     (should= {:loft {:type :string} :freq {:type :int}}
              (sut/conform! {:type :schema-map} {:loft {:type :string} :freq {:type :int}})))
