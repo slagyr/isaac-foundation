@@ -238,6 +238,17 @@
                 (when (:merge-root-entity? descriptor) kind))
               (descriptors))))
 
+(defn entity-collection-key?
+  "True when the composed root schema's field at `head` is a dynamic-key
+   entity-collection table — both a :key-spec and a :value-spec, the same
+   structural signature isaac.config.schema.resolve's key-segment-for-schema
+   uses to descend a table's entity ids. No module-specific name list: a key
+   is an entity collection because its schema shape says so, not because a
+   module declared it (isaac-n140)."
+  [root-schema head]
+  (let [field (get-in root-schema [:schema head])]
+    (boolean (and (:key-spec field) (:value-spec field)))))
+
 (defn schema-for-kind
   [root-schema kind]
   (let [field (get-in root-schema [:schema kind])]

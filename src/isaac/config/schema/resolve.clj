@@ -8,9 +8,6 @@
     [isaac.module.discovery :as discovery]
 ))
 
-(def ^:private entity-collections
-  #{:berths :gauges :foundries :crew :hail :models :providers})
-
 (defn module-index-for-config
   [config result]
   (let [builtin-index       (discovery/builtin-index)
@@ -44,13 +41,13 @@
                  segment))
              segments)))))
 
-(defn- normalize-data-path [path-str]
+(defn- normalize-data-path [root-schema path-str]
   (let [segments (paths/parse-path-segments path-str)]
     (when (seq segments)
       (segments->path
         (map-indexed (fn [idx segment]
                        (if (and (= 1 idx)
-                                (contains? entity-collections (second (first segments)))
+                                (schema-compose/entity-collection-key? root-schema (second (first segments)))
                                 (#{:key :str} (first segment)))
                          [:key :value]
                          segment))
@@ -114,6 +111,6 @@
   [root-schema path-str]
   (try
     (or (schema-for-path root-schema path-str)
-        (when-let [normalized (normalize-data-path path-str)]
+        (when-let [normalized (normalize-data-path root-schema path-str)]
           (schema-at-segments root-schema (paths/parse-path-segments normalized))))
     (catch Exception _ nil)))

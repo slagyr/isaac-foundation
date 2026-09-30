@@ -304,12 +304,13 @@
        :else
        (finalize-entity-load root-schema result kind id relative data extra-errors)))))
 
-(defn- dangling-entry-kind [kind]
-  (case kind
-    :hooks "hook"
-    :models "model"
-    :providers "provider"
-    (name kind)))
+(defn- dangling-entry-kind
+  "The singular display form of an entity kind, read from the schema's own
+   entry-level `:name` (the same field `isaac config schema` reads for its
+   collection titles) rather than a hand-maintained case of module-owned
+   names (isaac-n140)."
+  [kind]
+  (or (some-> (schema-for kind) :name name) (name kind)))
 
 (defn dangling-md-warnings
   "A `.md` under `config/<key>/` that is neither an entity of its own (it has no

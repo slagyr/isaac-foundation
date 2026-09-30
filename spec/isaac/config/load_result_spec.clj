@@ -257,7 +257,7 @@
       (config-marigold/write-berth-md! :ghost "I have no matching entity.")
       (let [result (marigold/load-config)]
         (should= [] (:errors result))
-        (should= [{:key "berths/ghost.md" :value "dangling: no matching berths entry"}]
+        (should= [{:key "berths/ghost.md" :value "dangling: no matching berth entry"}]
                  (filter #(= "berths/ghost.md" (:key %)) (:warnings result)))))
 
     (it "warns about a dangling cron markdown companion without a matching cron job"
@@ -267,7 +267,7 @@
           (marigold/write-cron-md! :ghost "I have no matching cron job.")
           (let [result (marigold/load-config)]
             (should= [] (:errors result))
-            (should= [{:key "cron/ghost.md" :value "dangling: no matching cron entry"}]
+            (should= [{:key "cron/ghost.md" :value "dangling: no matching cron-job entry"}]
                      (filter #(= "cron/ghost.md" (:key %)) (:warnings result)))))))
 
     (it "does not warn when a berth markdown companion has a matching entity file"

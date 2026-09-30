@@ -6,7 +6,8 @@
     [isaac.cli.host :as host]
     [isaac.config.cli.common :as common]
     [isaac.config.cli.inspect :as inspect]
-    [isaac.config.loader :as loader]))
+    [isaac.config.loader :as loader]
+    [isaac.config.schema-compose :as schema-compose]))
 
 (def option-spec
   (into [[nil  "--as CONFIG-PATH" "Overlay stdin EDN at the given config path before validating"]]
@@ -20,12 +21,10 @@
      :option-spec   option-spec
      :post-sections [["Arguments" "  -  Read EDN to validate from stdin (isolated when no --as)"]]}))
 
-(def ^:private entity-collections #{:berths :gauges :foundries :crew :models :providers})
-
-(defn- parse-data-path [path-str]
+(defn- parse-data-path [root-schema path-str]
   (let [segments (str/split path-str #"\.")
         head     (keyword (first segments))
-        entity?  (contains? entity-collections head)
+        entity?  (schema-compose/entity-collection-key? root-schema head)
         tail     (cond->> (rest segments)
                    entity? (map-indexed (fn [idx seg] (if (zero? idx) seg (keyword seg))))
                    (not entity?) (map keyword))]
@@ -65,11 +64,12 @@
         (binding [*out* *err*]
           (println (str "invalid EDN from stdin: " (:error stdin-value))))
         1)
-      (report-validation!
-        (loader/load-config-result {:root         (common/resolve-root opts)
-                                    :data-path-overlay {:path  (parse-data-path data-path-str)
-                                                        :value (:value stdin-value)}})
-        options))))
+      (let [root-schema (:root (common/schema-context opts))]
+        (report-validation!
+          (loader/load-config-result {:root         (common/resolve-root opts)
+                                      :data-path-overlay {:path  (parse-data-path root-schema data-path-str)
+                                                          :value (:value stdin-value)}})
+          options)))))
 
 (defn- validate-config! [opts options]
   (report-validation! (common/load-result opts) options))

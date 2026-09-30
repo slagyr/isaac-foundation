@@ -13,7 +13,8 @@
     [isaac.config.nav :as nav]
     [isaac.config.schema.resolve :as schema-resolve]
     [isaac.logger :as log]
-    [isaac.schema.lexicon :as lexicon]))
+    [isaac.schema.lexicon :as lexicon]
+    [isaac.schema.registered-in :as registered-in]))
 
 (defn- root-schema [opts]
   (:root (common/schema-context opts)))
@@ -211,7 +212,14 @@
           (common/print-cli-error! "missing value")
           (let [value-result (if (= "-" raw-value)
                                (read-stdin-value)
-                               (parse-set-value (target-spec-for opts path-str) raw-value))]
+                               ;; A field spec structurally resolved through an entity
+                               ;; table's :value-spec (isaac-n140) may carry a
+                               ;; :registered-in? validation, which reads the ambient
+                               ;; module-index/config the same way `config schema`
+                               ;; binds it for display (isaac.config.cli.schema).
+                               (binding [registered-in/*module-index* (:module-index schema-context)
+                                         registered-in/*config*       (:config schema-context)]
+                                 (parse-set-value (target-spec-for opts path-str) raw-value)))]
             (if (:error value-result)
               (do
                 (binding [*out* *err*]
