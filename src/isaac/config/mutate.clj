@@ -9,10 +9,15 @@
                 | :not-found | :invalid-config
       :file     \"<relative-path>\"   ; file that changed (nil on failure)
       :errors   [{:key :value} ...]   ; structured validation errors
-      :warnings [{:key :value} ...]}  ; structured warnings"
+      :warnings [{:key :value} ...]}  ; structured warnings
+
+   set-many! applies several {:op :set|:unset :path :value} operations as one
+   atomic, all-or-nothing write (isaac-cvri); see its docstring for its
+   :files-plural result shape."
   (:require
      [clj-yaml.core :as yaml]
      [clojure.edn :as edn]
+     [clojure.set :as set]
      [clojure.string :as str]
      [isaac.cli.host :as host]
      [isaac.config.env :as env]
@@ -152,12 +157,33 @@
            :companion?    (and entity? (companion-field? root-key field-path))
            :whole-entity? (and entity? (= 2 (count segments)))})))))
 
+(defn- inline-siblings?
+  "True when the root-key's inline map in root-data has any entries at all
+   (any id) — an inline sibling of any kind means \"not every entry is a
+   file\", regardless of whether it matches this write's entity id."
+  [root-data root-key]
+  (boolean (seq (value-at-path root-data [root-key]))))
+
+(defn- dir-has-files?
+  "True when entity-path's parent directory exists and has at least one
+   child — a sibling already stored as its own file. `fs/children` (not
+   `fs/dir?`) is the right check: MemFs never clears a directory's presence
+   marker after its last child is deleted, but `children` reports the
+   now-empty set, so a kind whose last file sibling was just unset correctly
+   reads as \"no file siblings\" (falls through to rules 3/4) rather than
+   wrongly keeping the all-files placement alive."
+  [entity-path]
+  (boolean (when-let [dir (some-> entity-path fs/parent)]
+             (seq (fs/children (runtime-fs) dir)))))
+
 (defn- config-state [root parsed]
   (let [root-path              (paths/root-config-file root)
         root-data              (or (read-edn-path root-path) {})
         entity-relative        (when (:entity? parsed) (paths/entity-relative (:root-key parsed) (:entity-id parsed)))
         entity-path            (when entity-relative (paths/config-path root entity-relative))
         entity-data            (or (some-> entity-path read-edn-path) {})
+        entity-exists?         (boolean (and entity-path (fs/exists? (runtime-fs) entity-path)))
+        entity-root-exists?    (and (:entity? parsed) (path-present? root-data (:root-path parsed)))
         md-relative            (when entity-relative (str/replace entity-relative #"\.edn$" ".md"))
         md-path                (when md-relative (paths/config-path root md-relative))
         md-content             (when (and md-path (fs/exists? (runtime-fs) md-path))
@@ -176,10 +202,10 @@
      :companion-path        companion-path
      :companion-relative    companion-relative
      :entity-data           entity-data
-     :entity-exists?        (boolean (and entity-path (fs/exists? (runtime-fs) entity-path)))
+     :entity-exists?        entity-exists?
      :entity-path           entity-path
      :entity-relative       entity-relative
-     :entity-root-exists?   (and (:entity? parsed) (path-present? root-data (:root-path parsed)))
+     :entity-root-exists?   entity-root-exists?
      :inline-entity-companion? (and (:companion? parsed)
                                     (path-present? entity-data [companion-field]))
      :inline-root-companion?   (and (:companion? parsed)
@@ -192,6 +218,14 @@
      :root-key-inline?      (path-present? root-data [(:root-key parsed)])
      :root-path-exists?     (path-present? root-data (:segments parsed))
      :root-path             root-path
+     ;; rule 2 (isaac-cvri): a NEW entity (not already a file, not already
+     ;; inline) whose kind has no inline siblings and at least one sibling
+     ;; already living in its own file — the new one follows suit.
+     :siblings-all-files?  (and (:entity? parsed)
+                                (not entity-exists?)
+                                (not entity-root-exists?)
+                                (not (inline-siblings? root-data (:root-key parsed)))
+                                (dir-has-files? entity-path))
      ;; config/<key>.edn — the whole value of one top-level key in its own file
      :slice-data            slice-data
      :slice-exists?         (boolean (fs/exists? (runtime-fs) slice-path))
@@ -218,12 +252,14 @@
       (assoc-in [:writes relative] content)))
 
 (defn- choose-set-location
-  "Where a written value lands. Whichever form already holds the key wins, then
-   `:prefer-entity-files`, then `isaac.edn` — the same rule the entity files
-   have always followed, extended to the `config/<key>.edn` slice (isaac-49zp).
-   The slice is checked before the entity forms: a key stored as one file
-   cannot also be a directory, so routing a write into `<key>/<id>.edn` would
-   manufacture the very conflict the loader refuses."
+  "Where a written value lands, in precedence order: (1) whichever form
+   already holds the key wins; (2) a brand-new entity whose kind's other
+   entries are ALL already entity files becomes one too (isaac-cvri); (3)
+   `:prefer-entity-files`; (4) else `isaac.edn`. Extended to the
+   `config/<key>.edn` slice (isaac-49zp) — the slice is checked before the
+   entity forms: a key stored as one file cannot also be a directory, so
+   routing a write into `<key>/<id>.edn` would manufacture the very conflict
+   the loader refuses."
   [parsed state]
   (cond
     (and (:companion? parsed) (:md-exists? state)) :md
@@ -232,10 +268,11 @@
     (:slice-exists? state) :slice
     (and (:entity? parsed) (:frontmatter-relative state)) :frontmatter
     (and (:entity? parsed) (:entity-root-exists? state)) :root
-    (and (:entity? parsed) (:entity-exists? state)) :entity
-    (and (:entity? parsed) (:prefer-entity-files? state)) :entity
+    (and (:entity? parsed) (:entity-exists? state)) :entity      ; rule 1 (same id already a file)
+    (and (:entity? parsed) (:siblings-all-files? state)) :entity ; rule 2 (isaac-cvri, NEW)
+    (and (:entity? parsed) (:prefer-entity-files? state)) :entity ; rule 3
     (and (:prefer-entity-files? state) (not (:root-key-inline? state))) :slice
-    :else :root))
+    :else :root))                                                 ; rule 4
 
 (defn- choose-unset-location [parsed state]
   (cond
@@ -257,6 +294,19 @@
        (not (:inline-entity-companion? state))
        (string? value)
        (> (count value) companion-inline-limit)))
+
+(defn- whole-entity-companion-field
+  "The companion field name when `parsed` is a whole-entity write and
+   `value` is a map carrying that field as a string — the shape a new
+   entity file placed by rule 1/2/3 (isaac-cvri) needs split out to its
+   companion .md, same as a per-field write already does. nil otherwise
+   (no companion kind, no whole-entity write, or the field isn't in
+   `value` as a string), meaning the whole map is written as-is."
+  [parsed value]
+  (when (:whole-entity? parsed)
+    (when-let [field (:field (companion-spec (:root-key parsed)))]
+      (when (and (map? value) (string? (get value field)))
+        field))))
 
 (defn- update-frontmatter [plan state data]
   ;; Keep the delimiters and *all* bytes following the closing delimiter.
@@ -288,11 +338,16 @@
         (update-frontmatter {:deletes #{} :file (:frontmatter-relative state) :writes {}} state data))
 
       (= :entity location)
-      (let [entity-data' (if (:whole-entity? parsed)
-                           value
-                           (assoc-path (:entity-data state) (:field-path parsed) value))]
-        (-> {:deletes #{} :file (:entity-relative state) :writes {}}
-            (update-edn-file (:entity-relative state) entity-data')))
+      (if-let [field (whole-entity-companion-field parsed value)]
+        (let [md-relative (companion-md-relative (:root-key parsed) (:entity-id parsed))]
+          (-> {:deletes #{} :file md-relative :writes {}}
+              (update-text-file md-relative (get value field))
+              (update-edn-file (:entity-relative state) (dissoc value field))))
+        (let [entity-data' (if (:whole-entity? parsed)
+                             value
+                             (assoc-path (:entity-data state) (:field-path parsed) value))]
+          (-> {:deletes #{} :file (:entity-relative state) :writes {}}
+              (update-edn-file (:entity-relative state) entity-data'))))
 
       (= :slice location)
       (let [slice-data' (assoc-path (:slice-data state) (rest (:segments parsed)) value)]
@@ -568,5 +623,93 @@
                      :warnings (if force?
                                  (concat warnings new-errors)
                                  warnings)}))))))))))
+
+(defn- merge-op-plan
+  "Folds one op's `{:writes :deletes}` plan into the running `combined` plan:
+   writes merge left-to-right (a later op's write to the same relative file
+   wins), deletes union — minus anything a later op re-writes."
+  [combined op-plan]
+  (let [writes'  (-> (:writes combined)
+                     (as-> w (apply dissoc w (:deletes op-plan)))
+                     (merge (:writes op-plan)))
+        deletes' (-> (:deletes combined)
+                    (into (:deletes op-plan))
+                    (set/difference (set (keys (:writes op-plan)))))]
+    (assoc combined :writes writes' :deletes deletes')))
+
+(defn- combined-op-plan
+  "Builds the merged plan for `parsed-ops` by applying each op's plan, in
+   order, onto a throwaway scratch copy of the config tree — so a later op's
+   `set-plan`/`unset-plan` sees the earlier ops' effects (two ops touching the
+   same file, an unset that empties a directory before a later placement
+   decision, ...) rather than the original on-disk state. The scratch copy is
+   discarded; only the combined `{:writes :deletes}` plan survives."
+  [root parsed-ops]
+  (let [source-fs   (or (:fs (nexus/necho)) (fs/mem-fs))
+        scratch-fs  (fs/mem-fs)
+        config-root (paths/config-root root)]
+    (fs/copy-tree! source-fs scratch-fs config-root)
+    (nexus/-with-nested-nexus {:fs scratch-fs}
+      (reduce (fn [combined {:keys [op parsed value]}]
+                (let [state   (config-state root parsed)
+                      op-plan (case op
+                                :set   (set-plan parsed state value)
+                                :unset (unset-plan parsed state))]
+                  (if (nil? op-plan)
+                    combined
+                    (do
+                      (apply-plan! root op-plan)
+                      (merge-op-plan combined op-plan)))))
+              {:deletes #{} :writes {}}
+              parsed-ops))))
+
+(defn- plan-touched-files [plan]
+  (vec (sort (into (set (keys (:writes plan))) (:deletes plan)))))
+
+(defn set-many!
+  "Applies `ops` — `[{:op :set :path \"...\" :value ...} {:op :unset :path
+   \"...\"} ...]` — as ONE atomic write: every path is parsed first (a parse
+   failure on any op refuses the whole batch untouched), each op's plan is
+   built with the same `set-plan`/`unset-plan`/`choose-set-location` rules
+   `set-config`/`unset-config` use (including the rule-2 siblings-all-files
+   placement fix), the plans are merged into one, staged, and validated ONCE
+   against the resulting config (`validate-plan`, same pre-existing-error /
+   new-error semantics as `set-config`). A blocking new error refuses the
+   whole batch — nothing is written, not even the individually-valid ops.
+   No `--force`: the caller never bypasses validation. Reference errors
+   (model-exists?, gauge-exists?, etc.) never block, same as the CLI's own
+   `set-config`/`unset-config` calls (`:skip-ref-validation? true`) — a batch
+   exists to wire up several mutually-referencing entities together, so a
+   reference to an id defined elsewhere (or not yet at all) is not this
+   caller's error to refuse over.
+
+   Returns {:status :ok | :invalid | :invalid-path | :missing-path
+                    | :missing-entity-id
+            :files   [\"<relative-path>\" ...]   ; plural — a batch can touch several
+            :errors   [{:key :value} ...]
+            :warnings [{:key :value} ...]}"
+  [root ops]
+  (let [parsed-ops (mapv (fn [op] (assoc op :parsed (parse-config-path root (:path op)))) ops)]
+    (if-let [parse-failure (some #(:status (:parsed %)) parsed-ops)]
+      {:status parse-failure :files [] :errors [] :warnings []}
+      (let [current     (loader/load-config-result {:root root :skip-cache? true})
+            root-schema (root-schema-from current)
+            refusals    (vec (keep #(undeclared-key-refusal false root-schema (:path (:parsed %))) parsed-ops))]
+        (if (seq refusals)
+          {:status :invalid :files [] :errors refusals :warnings []}
+          (let [pre-errors  (or (:errors current) [])
+                plan        (combined-op-plan root parsed-ops)
+                result      (validate-plan root plan)
+                [new-errors carried-errors] (partition-errors pre-errors (:errors result))
+                unresolved  (unresolved-reference-paths result)
+                new-errors  (as-> new-errors $
+                              (vec (remove reference-error? $))
+                              (vec (remove #(contains? unresolved (:key %)) $)))
+                warnings    (concat (:warnings result) (pre-existing->warnings carried-errors))]
+            (if (seq new-errors)
+              {:status :invalid :files [] :errors new-errors :warnings warnings}
+              (do
+                (apply-plan! root plan)
+                {:status :ok :files (plan-touched-files plan) :errors [] :warnings warnings}))))))))
 
 ;; endregion ^^^^^ Public API ^^^^^

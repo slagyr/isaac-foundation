@@ -21,7 +21,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
        :station {:primary "grover"}}
       """
 
-  @wip
   Scenario: two pairs on different top-level keys are written together
     When config is set atomically:
       | op  | path            | value  |
@@ -35,7 +34,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
       | station.primary  | helm  |
       | relay.tower.gain | 5     |
 
-  @wip
   Scenario: an invalid pair refuses the whole batch; nothing is written
     When config is set atomically:
       | op  | path                    | value      |
@@ -48,7 +46,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
       | station.primary | grover |
     And the config file "isaac.edn" does not contain "helm"
 
-  @wip
   Scenario: an unset rides in the same atomic batch as a set
     Given config file "isaac.edn" containing:
       """
@@ -66,7 +63,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
       | relay.tower.gain | 5     |
     And the config file "isaac.edn" does not contain "steady"
 
-  @wip
   Scenario: an undeclared path in one op refuses the whole batch before any write
     When config is set atomically:
       | op  | path            | value |
@@ -75,7 +71,6 @@ Feature: Atomic multi-path config writes (isaac-cvri)
     Then the mutation is refused with an error matching "bogus"
     And the config file "isaac.edn" does not contain "helm"
 
-  @wip
   Scenario: a new whole-entity value in a batch follows the same siblings-all-files placement precedent as config set
     Given the isaac file "config/berths/captain.edn" exists with:
       """

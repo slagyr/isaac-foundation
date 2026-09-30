@@ -33,6 +33,15 @@
 (defn- write-env! [content]
   (fs/spit (nexus/get :fs) (str marigold/root "/.env") content))
 
+(defn- write-siblings-baseline!
+  "A valid config with the berths kind holding exactly ONE entry, already
+   stored as its own file, and no inline :berths (nor :watch, which would
+   otherwise reference a berth by id) at all — the shape rule 2 (isaac-cvri)
+   targets."
+  []
+  (config-marigold/write-config! (dissoc config-marigold/baseline-config :berths :watch))
+  (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii}))
+
 (def ^:private parlor-module-root
   (str (config-marigold/fixture-modules-root) "/marigold.comm.parlor"))
 
@@ -461,6 +470,44 @@
         (should= :ok (:status result))
         (should= :helm-mark-iii (get-in (read-edn "isaac.edn") [:berths :newcomer :gauge]))))
 
+    (describe "siblings-all-files placement (isaac-cvri, rule 2)"
+
+      (it "routes a new entity to a file when every sibling of its kind is already a file"
+        (write-siblings-baseline!)
+        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
+          (should= :ok (:status result))
+          (should= "berths/newcomer.edn" (:file result))
+          (should= :helm-mark-iii (:gauge (read-edn "berths/newcomer.edn")))
+          (should-not-contain :newcomer (:berths (read-edn "isaac.edn")))))
+
+      (it "still lands inline when the kind has no siblings at all (rule 4, unaffected)"
+        (config-marigold/write-config! (dissoc config-marigold/baseline-config :berths :watch))
+        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
+          (should= :ok (:status result))
+          (should= "isaac.edn" (:file result))
+          (should-not (file-exists? "berths/newcomer.edn"))))
+
+      (it "stays inline when a sibling of its kind is inline, even with another already a file (mixed, unaffected)"
+        (config-marigold/write-config! (dissoc config-marigold/baseline-config :watch))
+        (config-marigold/write-berth! test-berth-id {:gauge :helm-mark-iii})
+        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
+          (should= :ok (:status result))
+          (should= "isaac.edn" (:file result))
+          (should-not (file-exists? "berths/newcomer.edn"))))
+
+      (it "still writes to the existing file when the entity itself already lives there (rule 1 wins first, unaffected)"
+        (write-siblings-baseline!)
+        (let [result (sut/set-config marigold/root (str "berths." test-berth-path ".gauge") :helm-mark-iii)]
+          (should= :ok (:status result))
+          (should= (str "berths/" test-berth-path ".edn") (:file result))))
+
+      (it "falls through to rule 4 once the last file-backed sibling was just unset (open question, resolved: no siblings left)"
+        (write-siblings-baseline!)
+        (should= :ok (:status (sut/unset-config marigold/root (str "berths." test-berth-path))))
+        (let [result (sut/set-config marigold/root "berths.newcomer.gauge" :helm-mark-iii)]
+          (should= :ok (:status result))
+          (should= "isaac.edn" (:file result)))))
+
   (describe "a key in its own file (isaac-49zp)"
 
     (it "writes to config/<key>.edn when the key already lives there"
@@ -570,3 +617,81 @@
           (should= :ok (:status result))
           (should-not-contain :gchat/allow-from
                               (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain)]))))))))
+
+(describe "isaac.config.mutate/set-many!"
+
+  (config-marigold/aboard)
+
+  (it "applies two ops on different top-level keys as one atomic write"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/captain}
+                                 {:op :set :path "relay.tower.gain" :value 5}])]
+      (should= :ok (:status result))
+      (should= marigold/captain (get-in (read-edn "isaac.edn") [:station :primary]))
+      (should= 5 (get-in (read-edn "isaac.edn") [:relay :tower :gain]))
+      (should-contain "isaac.edn" (:files result))))
+
+  (it "a later op's set to the same path wins over an earlier op in the same batch"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/first-mate}
+                                 {:op :set :path "station.primary" :value marigold/captain}])]
+      (should= :ok (:status result))
+      (should= marigold/captain (get-in (read-edn "isaac.edn") [:station :primary]))))
+
+  (it "rides an unset in the same atomic batch as a set targeting the same file, both landing in the merged plan"
+    (config-marigold/write-config! (assoc config-marigold/baseline-config
+                                          :station {:primary marigold/captain :backup marigold/first-mate}))
+    (let [result (sut/set-many! marigold/root
+                                [{:op :unset :path "station.backup"}
+                                 {:op :set :path "station.primary" :value marigold/first-mate}])]
+      (should= :ok (:status result))
+      (should= {:primary marigold/first-mate} (:station (read-edn "isaac.edn")))))
+
+  (it "refuses the whole batch when any op introduces a new validation error; nothing is written"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/captain}
+                                 {:op :set :path "relay.alpha.gain" :value "not-a-number"}])]
+      (should= :invalid (:status result))
+      (should= [] (:files result))
+      (should (seq (:errors result)))
+      (should-not-contain :station (read-edn "isaac.edn"))
+      (should-not-contain :relay (read-edn "isaac.edn"))))
+
+  (it "never blocks on a reference error (skip-ref-validation?, matches the CLI's set-config/unset-config default)"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/captain}
+                                 {:op :set :path (str "berths." test-berth-path ".gauge") :value :not-yet-defined}])]
+      (should= :ok (:status result))
+      (should= :not-yet-defined (get-in (read-edn "isaac.edn") [:berths test-berth-id :gauge]))))
+
+  (it "refuses the whole batch on an undeclared key in one op, before any write"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/captain}
+                                 {:op :set :path "station.bogus" :value "oops"}])]
+      (should= :invalid (:status result))
+      (should= [] (:files result))
+      (should (some #(str/includes? (:value %) "bogus") (:errors result)))
+      (should-not-contain :station (read-edn "isaac.edn"))))
+
+  (it "refuses the whole batch on a parse failure in one op, before touching the filesystem"
+    (config-marigold/write-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "station.primary" :value marigold/captain}
+                                 {:op :set :path "berths.*.gauge" :value :helm-mark-iii}])]
+      (should= :invalid-path (:status result))
+      (should= [] (:files result))
+      (should-not-contain :station (read-edn "isaac.edn"))))
+
+  (it "applies the rule-2 siblings-all-files placement inside a batch (isaac-cvri)"
+    (write-siblings-baseline!)
+    (let [result (sut/set-many! marigold/root
+                                [{:op :set :path "berths.newcomer" :value {:gauge :helm-mark-iii}}])]
+      (should= :ok (:status result))
+      (should= {:gauge :helm-mark-iii} (read-edn "berths/newcomer.edn"))
+      (should-not-contain :newcomer (:berths (read-edn "isaac.edn")))
+      (should-contain "berths/newcomer.edn" (:files result)))))

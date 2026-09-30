@@ -235,20 +235,25 @@ operator to write anyway and surface what's left wrong as warnings;
 refused write stays refused.
 
 That matters most for fields that are only valid **together** — two
-required fields on the same entity, say. Setting one at a time would
-always be refused on the first call (the second one's still missing).
-`handbook__configure` takes several path/value pairs in one call and
-applies them atomically, the same way `isaac config set`'s stdin-map
-form does (`echo '{:client-id "…" :client-secret "…"}' | isaac config
-set google.oauth -`): either every pair lands, or none does, and an
-invalid combination is refused whole with nothing written. Set
+required fields on the same entity, say, or a grant on one entity plus
+a companion entry on another. Setting one at a time would always be
+refused on the first call (the second one's still missing, or doesn't
+exist yet). `isaac config set`'s stdin-map form
+(`echo '{:client-id "…" :client-secret "…"}' | isaac config set
+google.oauth -`) gives that atomicity for several fields under one
+shared entity. `handbook__configure` covers the broader case — several
+path/value pairs spanning **different** entities or top-level keys in
+one call, applied atomically: either every pair lands, or none does,
+and an invalid combination is refused whole with nothing written. Set
 related fields in one call rather than one at a time when they depend
 on each other.
 
 **Where a write lands.** A `set`/`unset` writes to whichever file
 already holds that key (a split-out `<key>.edn`, an entity file, or a
-markdown companion); if the key doesn't exist anywhere yet, it's added
-to the root `isaac.edn`.
+markdown companion). If the key doesn't exist anywhere yet: a **new
+entity** whose kind's other entries are already ALL stored as their
+own files becomes a file too, following its siblings; otherwise it's
+added to the root `isaac.edn`.
 
 **Confirmation.** A successful set or unset reports what it did and
 where: `set crew.cordelia.model = "quantum-anvil" (crew/cordelia.edn)`.

@@ -37,7 +37,6 @@ Feature: config set follows the same placement precedent for a brand-new entry (
       {:modules {:marigold.lshz.roster {:local/root "/tmp/modules/marigold.lshz.roster"}}}
       """
 
-  @wip
   Scenario: a new entry follows suit when every sibling of its kind is already a file
     Given the isaac file "config/roster/first-mate.edn" exists with:
       """
@@ -50,7 +49,6 @@ Feature: config set follows the same placement precedent for a brand-new entry (
       | rank | able  |
     And the isaac file "isaac.edn" does not contain "boatswain"
 
-  @wip
   Scenario: a new entry with no existing siblings still lands inline (unaffected)
     When isaac is run with "config set roster.quartermaster.rank petty"
     Then the exit code is 0
@@ -59,7 +57,6 @@ Feature: config set follows the same placement precedent for a brand-new entry (
       | roster.quartermaster.rank | petty |
     And the isaac file "config/roster/quartermaster.edn" does not exist
 
-  @wip
   Scenario: a new entry stays inline when a sibling already lives inline (mixed, not all-files, unaffected)
     Given the isaac file "isaac.edn" exists with:
       """
@@ -73,7 +70,6 @@ Feature: config set follows the same placement precedent for a brand-new entry (
       | roster.boatswain.rank | able  |
     And the isaac file "config/roster/boatswain.edn" does not exist
 
-  @wip
   Scenario: editing an existing entry stays where it already lives, regardless of siblings (unaffected)
     Given the isaac file "config/roster/first-mate.edn" exists with:
       """

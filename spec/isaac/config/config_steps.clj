@@ -8,6 +8,7 @@
     [isaac.config.loader :as loader]
     [isaac.config.env :as env]
     [isaac.config.marigold :as config-marigold]
+    [isaac.config.mutate :as mutate]
     [isaac.fs :as fs]
     [isaac.module.berths :as module-berths]
     [isaac.module.classpath :as classpath]
@@ -21,7 +22,16 @@
 ;; region ----- Helpers -----
 
 (defn- root []
-  (or (g/get :root) "/isaac-state"))
+  ;; Persist the default into g state (not just return it): other step
+  ;; namespaces (isaac.foundation.fs-steps' "the isaac file ... EDN
+  ;; contains:"/"exists") read (g/get :root) directly with no fallback of
+  ;; their own, so a scenario that never runs a root-setting Given (only
+  ;; this namespace's own "config file ... containing:") would otherwise
+  ;; have them resolve against a nil root (isaac-cvri).
+  (or (g/get :root)
+      (let [default "/isaac-state"]
+        (g/assoc! :root default)
+        default)))
 
 (defn- config-root []
   (str (root) "/config"))
@@ -394,6 +404,51 @@
 
 ;; endregion ^^^^^ Then step bodies ^^^^^
 
+;; region ----- Atomic multi-path write (isaac-cvri) -----
+
+(defn- with-foundation-index-override
+  "Runs f with this scenario's foundation-index override bound (see
+   'the chartroom fixture modules are available'), same as `load-result`.
+   `isaac.config.mutate/set-many!` calls the loader directly rather than
+   through this namespace's own wrapped `load-result`, so callers that need
+   the override visible to it (schema composition, entity-dir discovery)
+   bind it explicitly around the call."
+  [f]
+  (if-let [override (g/get :foundation-index-override)]
+    (binding [discovery/*foundation-index-override* override]
+      (f))
+    (f)))
+
+(defn- op-from-row [row]
+  (let [op   (keyword (get row "op"))
+        path (get row "path")]
+    (cond-> {:op op :path path}
+      (= op :set) (assoc :value (parse-state-value (get row "value"))))))
+
+(defn config-set-atomically [table]
+  (let [ops (mapv (fn [row] (op-from-row (zipmap (:headers table) row))) (:rows table))]
+    (with-config-fs
+      (fn []
+        (with-foundation-index-override
+          (fn [] (g/assoc! :mutation-result (mutate/set-many! (root) ops))))))))
+
+(defn- mutation-result []
+  (or (g/get :mutation-result)
+      (throw (ex-info "no atomic mutation has run yet — pair with 'config is set atomically:'" {}))))
+
+(defn mutation-succeeds []
+  (g/should= :ok (:status (mutation-result))))
+
+(defn mutation-is-refused []
+  (g/should-not (= :ok (:status (mutation-result)))))
+
+(defn mutation-is-refused-matching [pattern]
+  (let [result (mutation-result)]
+    (g/should-not (= :ok (:status result)))
+    (g/should (some #(re-find (re-pattern pattern) (str (:value %))) (:errors result)))))
+
+;; endregion ^^^^^ Atomic multi-path write (isaac-cvri) ^^^^^
+
 ;; region ----- Routing -----
 
 (defgiven "the effective working directory is {path:string}" isaac.config.config-steps/effective-cwd-is
@@ -433,6 +488,20 @@
    config: Reconfigurable nodes get on-config-change!, plain nodes are
    recreated, removed slots deregister. Use after rewriting isaac.edn
    mid-scenario.")
+
+(defwhen "config is set atomically:" isaac.config.config-steps/config-set-atomically
+  "Calls isaac.config.mutate/set-many! with one {:op :set|:unset :path
+   :value} per row (op/path/value columns; value is parsed like
+   'the nexus node ... has state:' — ints, booleans, EDN maps/vectors/
+   keywords/quoted strings, else a bare string; blank for unset rows).
+   Stores the result for 'the mutation succeeds/is refused' below.")
+
+(defthen "the mutation succeeds" isaac.config.config-steps/mutation-succeeds)
+
+(defthen "the mutation is refused" isaac.config.config-steps/mutation-is-refused)
+
+(defthen "the mutation is refused with an error matching {pattern:string}"
+  isaac.config.config-steps/mutation-is-refused-matching)
 
 (defthen #"the nexus node at (.+) has state:" isaac.config.config-steps/nexus-node-state-has
   "Reads the config-berth node registered at the EDN path (e.g.
