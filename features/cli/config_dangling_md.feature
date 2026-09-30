@@ -34,7 +34,6 @@ Feature: Config validation — dangling .md warnings (isaac-yo8d)
       {:modules {:marigold.cln1.widgets {:local/root "target/test-cln1-dangling/widgets-module"}}}
       """
 
-  @wip
   Scenario: a dangling <entity-dir>/<id>.md with no matching entity warns
     Given the isaac file "config/widgets/gizmo.edn" exists with:
       """
@@ -49,7 +48,6 @@ Feature: Config validation — dangling .md warnings (isaac-yo8d)
     And the stderr contains "widgets/ghost.md"
     And the exit code is 0
 
-  @wip
   Scenario: a single-file <entity-dir>/<id>.md entity is not dangling
     Given the isaac file "config/widgets/gizmo.md" exists with:
       """
