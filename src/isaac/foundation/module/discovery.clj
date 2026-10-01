@@ -6,6 +6,7 @@
     [clojure.set :as set]
     [clojure.string :as str]
     [isaac.foundation.cli.host :as host]
+    [isaac.foundation.config.validation-lexicon :as vlex]
     [isaac.foundation.fs :as fs]
     [isaac.foundation.module.classpath :as classpath]
     [isaac.foundation.module.coords :as coords]
@@ -468,6 +469,20 @@
         ;; nested-nexus wrap or the wrap's restore discards any
         ;; nexus registrations the factories make. Callers invoke
         ;; process-manifest-berths! after load returns.
+        ;;
+        ;; Register the FULL module index's :isaac.config/validation-ref
+        ;; contributions (isaac-h2oo) into the global lexicon before
+        ;; validate-contributions! below — and before any caller's later
+        ;; manifest/schema-map meta-check (isaac.foundation.schema.meta/
+        ;; valid-schema?) or config schema composition reads it. discover!
+        ;; is the single chokepoint every entry point (CLI launcher,
+        ;; config load, server boot, modules commands) calls to build the
+        ;; index, so registering here — as soon as the whole index is known
+        ;; — guarantees a module's own existence ref (isaac-agent's
+        ;; :crew-exists?/:model-exists?, …) is resolvable before any
+        ;; consumer's :extra-schema that references it is judged
+        ;; (isaac-v9ef). Idempotent; safe to call again downstream.
+        (vlex/register-contributed-existence-refs! index)
         {:index    index
          :errors   (into (into init-errors errors)
                          (concat (cycle-errors index)

@@ -26,6 +26,13 @@
                 isaac.foundation.module.discovery/manifest-resource local-manifest-path]
     (discovery/discover! {:modules (into {} (map (fn [id] [id (mod-coord id)]) ids))} ctx)))
 
+(defn known-v9ef-widget-ids
+  "Fixture :known fn for the isaac-v9ef ordering-regression test below —
+   resolved by symbol from a module's :isaac.config/validation-ref
+   contribution, so it must stay public and named."
+  [_config]
+  ["gadget"])
+
 (defn- fixture-url [path]
   (io/as-url (io/file path)))
 
@@ -241,4 +248,35 @@
         ;; discover!s a fixture module whose deps.edn back-references its repo.
         (should-contain :mod.a index)
         (should-contain :mod.b index)
-        (should-contain :isaac.foundation index)))))
+        (should-contain :isaac.foundation index)))
+
+    (it "registers a module-contributed validation ref before validating another module's schema-map contribution (isaac-v9ef)"
+      ;; marigold.v9ef.provider owns the :v9ef-widget-exists? existence ref
+      ;; (contributed via :isaac.config/validation-ref, isaac-h2oo) AND
+      ;; declares a berth whose per-entry :extra-schema is a :schema-map —
+      ;; the same shape isaac.agent/comm uses for :crew-exists?/:model-exists?.
+      ;; marigold.v9ef.consumer contributes an entry whose :extra-schema field
+      ;; references that ref. Discovery must register the whole module
+      ;; index's contributed refs before validate-contributions! conforms
+      ;; that :extra-schema against the lexicon — else the ref is unknown and
+      ;; the schema-map is wrongly judged invalid.
+      (let [widget-schema {:type       :map
+                           :key-spec   {:type :keyword}
+                           :value-spec {:type   :map
+                                        :schema {:extra-schema {:type :schema-map}}}}
+            provider      {:id :marigold.v9ef.provider
+                          :version "0.1.0"
+                          :isaac.config/validation-ref
+                          {:v9ef-widget-exists?
+                           {:known   'isaac.foundation.module.discovery-spec/known-v9ef-widget-ids
+                            :message "references undefined widget"}}
+                          :berths {:v9ef/widget {:description "test schema-map berth (isaac-v9ef)"
+                                                 :schema      widget-schema}}}
+            consumer      {:id          :marigold.v9ef.consumer
+                          :version     "0.1.0"
+                          :v9ef/widget {:gizmo {:extra-schema {:name {:type        :string
+                                                                      :validations [[:v9ef-widget-exists?]]}}}}}]
+        (write-local-module! :marigold.v9ef.provider provider)
+        (write-local-module! :marigold.v9ef.consumer consumer)
+        (let [{:keys [errors]} (discover-local! [:marigold.v9ef.provider :marigold.v9ef.consumer])]
+          (should= [] errors))))))
