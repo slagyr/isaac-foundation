@@ -426,10 +426,10 @@
      (filter (fn [e] (contains? pre-set (error-signature e))) post-errors)]))
 
 (defn- reference-error?
-  "True for errors produced by existence-ref validators — foundation's own
-   (:berth-exists?, :gauge-exists?) plus any module-contributed ref (e.g.
-   isaac-agent's entity-reference checks). Value-validator errors carry
-   :bad-value too; only
+  "True for errors produced by existence-ref validators — module-contributed
+   refs declared through foundation's :isaac.config/validation-ref berth
+   (e.g. isaac-agent's :crew-exists?/:model-exists?, isaac-h2oo). Value-
+   validator errors carry :bad-value too; only
    entries tagged :reference? — or check contributions that reuse the
    existence-ref message — are skipped under skip-ref-validation?."
   [e]
@@ -488,8 +488,8 @@
    :key-spec/:value-spec entity table) does not declare, refuse the
    mutation in the same shape as a fun8 validator error — nothing is
    written, and the message names the parent path plus the keys that
-   level knows. Open entity tables (crews, models, berths, relays, …)
-   accept any key at the id level, unchanged (nav/path->spec never fails
+   level knows. Open entity tables (crews, models, providers, resource-pools,
+   …) accept any key at the id level, unchanged (nav/path->spec never fails
    there). `force?` skips this check entirely — the caller writes and the
    nq4c load-time warning still fires from the post-write reload."
   [force? root-schema path]
@@ -647,7 +647,7 @@
    new-error semantics as `set-config`). A blocking new error refuses the
    whole batch — nothing is written, not even the individually-valid ops.
    No `--force`: the caller never bypasses validation. Reference errors
-   (model-exists?, gauge-exists?, etc.) never block, same as the CLI's own
+   (crew-exists?, model-exists?, etc.) never block, same as the CLI's own
    `set-config`/`unset-config` calls (`:skip-ref-validation? true`) — a batch
    exists to wire up several mutually-referencing entities together, so a
    reference to an id defined elsewhere (or not yet at all) is not this

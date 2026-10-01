@@ -54,7 +54,7 @@
 (def ^:dynamic *reference-path*
   "Config path prefix for recorded references. An entity file substitutes values
    whose paths are relative to the entity, so `crew/main.edn` binds `[:crew
-   \"main\"]` and a dropped `:gauge` records `[:crew \"main\" :gauge]`."
+   \"main\"]` and a dropped `:model` records `[:crew \"main\" :model]`."
   [])
 
 (defn unresolved-references

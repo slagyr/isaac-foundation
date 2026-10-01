@@ -1,7 +1,7 @@
 (ns isaac.foundation.config.validation-lexicon
   "Registers the config-specific validation refs (:one-of?, :present-when?,
-   :percentage?, :less-than?, foundation's own :berth-exists?/:gauge-exists?,
-   …) into apron's schema validations lexicon at load time.
+   :percentage?, :less-than?, …) into apron's schema validations lexicon at
+   load time.
 
    A LEAF namespace (requires only apron schema + schema-base) so it can be
    required by BOTH isaac.foundation.config.validation (the validation engine, which uses
@@ -13,12 +13,14 @@
    schema in schema-compose's cache.
 
    A module that owns its own entity concept (an agent's own reference kinds,
-   …) contributes its OWN existence-ref validations through the
+   isaac-foundation's own config-spec fixture's entity concepts, …)
+   contributes its OWN existence-ref validations through the
    :isaac.config/validation-ref berth (declared in foundation's own manifest)
    rather than foundation naming that concept here — see
    `contributed-existence-refs` below. Foundation supplies the generic
    exists-ref shape; the module supplies the ref keyword, a :known symbol
-   (fn [config] -> known id strings), and the error :message (isaac-h2oo)."
+   (fn [config] -> known id strings), and the error :message (isaac-h2oo,
+   isaac-67cq)."
   (:require
     [c3kit.apron.schema :as cs]
     [clojure.string :as str]
@@ -32,12 +34,6 @@
 (defn- ->id [value]
   (schema-base/->id value))
 
-(defn known-berth-ids [config]
-  (->> (keys (:berths config)) (map ->id) distinct sort vec))
-
-(defn known-gauge-ids [config]
-  (->> (keys (:gauges config)) (map ->id) distinct sort vec))
-
 (defn- exists-ref [ref-key known-fn message]
   {:validate (fn [value]
                (contains? (or (get-in *config* [:known-sets ref-key])
@@ -49,16 +45,13 @@
                (or (get-in *config* [:known-values ref-key])
                    (known-fn (or (:raw *config*) *config*))))})
 
-(def ^:private existence-refs
-  ;; Indirected through #(...) rather than passing known-gauge-ids /
-  ;; known-berth-ids as bare values: this def runs once at load time, so a
-  ;; bare symbol would capture that fn value into the closure forever —
-  ;; with-redefs on the var (tests) would never be seen. The wrapper looks
-  ;; the var up fresh on every call.
-  {:gauge-exists? (exists-ref :gauge-exists? #(known-gauge-ids %) "references undefined gauge")
-   :berth-exists? (exists-ref :berth-exists? #(known-berth-ids %) "references undefined berth")})
-
 ;; ----- Module-contributed existence refs (isaac-h2oo) -----
+;;
+;; Foundation itself contributes no existence refs any more — its last two
+;; existed only to exercise this mechanism from its own config-spec test
+;; fixture (isaac.foundation.config.marigold's :marigold.chartroom module);
+;; that fixture now contributes them itself through the berth below, same
+;; as isaac-agent's :crew-exists?/:model-exists? (isaac-67cq).
 
 (def ^:private contributed-berth-key :isaac.config/validation-ref)
 
@@ -157,7 +150,7 @@
 (defonce ^:private _refs-registered
          (do
            (cs/update-lexicon! :validations assoc :one-of? one-of-ref)
-           (doseq [[k v] (merge existence-refs value-refs)]
+           (doseq [[k v] value-refs]
              (cs/update-lexicon! :validations assoc k v))
            (cs/update-lexicon! :validations assoc :present-when? present-when-ref)
            (cs/update-lexicon! :validations assoc :retired? retired-ref)

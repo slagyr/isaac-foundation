@@ -7,6 +7,7 @@
     [clojure.string :as str]
     [isaac.foundation.config.loader :as loader]
     [isaac.foundation.config.env :as env]
+    [isaac.foundation.config.schema-base :as schema-base]
     [isaac.foundation.config.schema-compose :as schema-compose]
     [isaac.foundation.fs :as fs]
     [isaac.foundation.marigold :as marigold]
@@ -20,6 +21,23 @@
    fixture never has to reference another module's factory ns."
   [_node-path slice]
   slice)
+
+(defn known-gauge-ids
+  "Gauge ids known to this config. Contributed to foundation's
+   :isaac.config/validation-ref berth as :gauge-exists?'s :known fn — the
+   same module-contributed mechanism isaac-agent uses for its own
+   :crew-exists?/:model-exists? refs (isaac-h2oo, isaac-67cq). Foundation
+   names no gauge/berth vocabulary of its own any more; this fixture owns
+   it, the same as every other marigold.* concept."
+  [config]
+  (->> (keys (:gauges config)) (map schema-base/->id) distinct sort vec))
+
+(defn known-berth-ids
+  "Berth ids known to this config. Contributed to foundation's
+   :isaac.config/validation-ref berth as :berth-exists?'s :known fn (see
+   `known-gauge-ids`)."
+  [config]
+  (->> (keys (:berths config)) (map schema-base/->id) distinct sort vec))
 
 (def baseline-chartroom-manifest
   "Fictional chartroom module for config-spec schema composition."
@@ -174,7 +192,13 @@
                                                                :validations  [[:registered-in? :marigold.chartroom/signal [:signals]]]}
                                                         :berth {:type        :id
                                                                 :description "Berth id this signal routes into"
-                                                                :validations [:berth-exists?]}}}}}}})
+                                                                :validations [:berth-exists?]}}}}}}
+
+   :isaac.config/validation-ref
+   {:gauge-exists? {:known   'isaac.foundation.config.marigold/known-gauge-ids
+                    :message "references undefined gauge"}
+    :berth-exists? {:known   'isaac.foundation.config.marigold/known-berth-ids
+                    :message "references undefined berth"}}})
 
 (def baseline-config
   "Fully-valid baseline isaac.edn for config-spec tests."

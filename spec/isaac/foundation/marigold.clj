@@ -194,7 +194,14 @@
                                  :schema      {:type       :map
                                                :key-spec   {:type :keyword}
                                                :value-spec {:type :map
-                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}}
+                                                            :schema {:fn {:type :symbol :validations [:present?]}}}}}
+             :isaac.config/validation-ref
+             {:description "Schema validation-lexicon existence refs contributed by modules that own their own entity concept."
+              :schema      {:type       :map
+                            :key-spec   {:type :keyword}
+                            :value-spec {:type   :map
+                                        :schema {:known   {:type :symbol :validations [:present?]}
+                                                 :message {:type :string :validations [:present?]}}}}}}
 
    :isaac.config/schema
    {:tz {:schema {:type        :string

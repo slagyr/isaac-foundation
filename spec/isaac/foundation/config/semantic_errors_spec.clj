@@ -20,7 +20,6 @@
     [isaac.foundation.config.schema-compose :as schema-compose]
     [isaac.foundation.schema.lexicon :as lexicon]
     [isaac.foundation.config.validation :as validation]
-    [isaac.foundation.config.validation-lexicon :as vlex]
     [isaac.foundation.fs :as fs]
     [isaac.foundation.module.discovery :as discovery]
     [speclj.core :refer :all]))
@@ -160,12 +159,12 @@
                                               :foundry marigold/starcore}}
                           :gauges    {"llama" {:reading "llama3" :foundry marigold/starcore}}
                           :foundries {marigold/starcore {:api marigold/sky-api}}}]
-        (with-redefs-fn {#'vlex/known-berth-ids (fn [_]
-                                                  (swap! berth-calls inc)
-                                                  ["main"])
-                         #'vlex/known-gauge-ids (fn [_]
-                                                  (swap! gauge-calls inc)
-                                                  ["llama"])}
+        (with-redefs-fn {#'config-marigold/known-berth-ids (fn [_]
+                                                             (swap! berth-calls inc)
+                                                             ["main"])
+                         #'config-marigold/known-gauge-ids (fn [_]
+                                                             (swap! gauge-calls inc)
+                                                             ["llama"])}
           #(should= [] (validation/semantic-errors config)))
         (should= 1 @berth-calls)
         (should= 1 @gauge-calls))))
