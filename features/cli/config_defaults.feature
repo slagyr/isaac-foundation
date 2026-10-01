@@ -277,3 +277,29 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
       | :local/root                         |
     And the stderr does not contain "Path not found"
     And the exit code is 0
+
+  # isaac-zmub (Micah, 2026-09-30, option A): a schema'd section that is
+  # absent from config entirely still gets its nested defaults, so modules
+  # can rely on them. Required fields inside a wholly absent section are not
+  # enforced: you haven't configured that module yet.
+
+  @wip
+  Scenario: an absent schema'd section still gets its nested defaults
+    Given the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.dflt.beacon {:local/root "/tmp/modules/marigold.dflt.beacon"}}}
+      """
+    When isaac is run with "config get beacon.power"
+    Then the exit code is 0
+    And the stdout contains "42"
+    And the stdout contains "(default)"
+
+  @wip
+  Scenario: an absent section's required fields are not enforced
+    Given the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.dflt.beacon {:local/root "/tmp/modules/marigold.dflt.beacon"}}}
+      """
+    When isaac is run with "config validate"
+    Then the exit code is 0
+    And the stdout contains "OK - config is valid"
