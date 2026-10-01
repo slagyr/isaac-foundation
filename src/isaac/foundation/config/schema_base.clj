@@ -80,6 +80,37 @@
 
     :else conformed))
 
+(defn- drop-required-errors
+  "Recursively drops any map entry whose conformed value is a FieldError —
+   the shape apron's conform leaves at a required-but-absent field — instead
+   of letting that error object leak into runtime config as a value. Used
+   only on the synthetic {} conform in `conform-absent-section`: a wholly
+   absent section hasn't been configured yet, so its required fields are not
+   a validation failure, just absent (isaac-zmub)."
+  [v]
+  (cond
+    (cs/field-error? v) ::drop
+    (map? v) (into {} (keep (fn [[k x]]
+                              (let [x' (drop-required-errors x)]
+                                (when-not (= x' ::drop) [k x']))))
+                   v)
+    :else v))
+
+(defn conform-absent-section
+  "A schema-declared section — a root-level :isaac.config/schema fragment or
+   a config-berth-claimed slice — that is wholly absent from raw config still
+   conforms as {} so its nested :default values fill; a module can rely on
+   them before the section is ever written (isaac-zmub). A :required field
+   inside the synthetic {} conforms to a ValidateError — that is not a
+   validation failure (nothing has been configured yet), so it is dropped
+   rather than reported or leaked into the runtime value as an error object.
+   Returns the filled map, or nil when there is nothing to contribute (not a
+   :map section, or conforming {} yields no defaults)."
+  [spec]
+  (when (= :map (:type (cs/normalize-spec spec)))
+    (let [filled (drop-required-errors (lexicon/conform (strip-validation-annotations spec) {}))]
+      (when (seq filled) filled))))
+
 (def base-root
   {:name        :isaac
    :type        :map

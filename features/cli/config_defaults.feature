@@ -283,7 +283,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
   # can rely on them. Required fields inside a wholly absent section are not
   # enforced: you haven't configured that module yet.
 
-  @wip
   Scenario: an absent schema'd section still gets its nested defaults
     Given the isaac file "isaac.edn" exists with:
       """
@@ -294,7 +293,6 @@ Feature: schema-declared defaults and required fields (isaac-dnib)
     And the stdout contains "42"
     And the stdout contains "(default)"
 
-  @wip
   Scenario: an absent section's required fields are not enforced
     Given the isaac file "isaac.edn" exists with:
       """

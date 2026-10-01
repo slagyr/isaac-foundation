@@ -83,6 +83,21 @@
       :else
       {:data nil :errors [] :warnings [] :sources []})))
 
+(defn- fill-absent-root-sections
+  "Each top-level schema field whose section is wholly absent from `data`
+   still conforms as {}, so a module's nested :default values fill before
+   the section is ever written (isaac-zmub). A present section is untouched
+   here — the ordinary conform above already enforces its required fields."
+  [root-schema data root-result]
+  (reduce (fn [acc [field-key field-spec]]
+            (if (contains? data field-key)
+              acc
+              (if-let [filled (schema-base/conform-absent-section field-spec)]
+                (assoc acc field-key filled)
+                acc)))
+          root-result
+          (dissoc (schema-base/schema-fields root-schema) :*)))
+
 (defn -validate-root-config
   "Private intent, but feature spies (isaac-v1la) wrap this var.
 
@@ -98,6 +113,7 @@
    (if-not data
      result
      (let [root-result     (lexicon/conform (runtime-schema root-schema) data)
+           root-result     (if raw-config? root-result (fill-absent-root-sections root-schema data root-result))
            defaults-result (when-let [defaults (:defaults data)]
                              (lexicon/conform (runtime-schema (schema-for root-schema :defaults)) defaults))
            overlaid-data   (if raw-config? data (schema-base/overlay-conformed data root-result))]
@@ -163,15 +179,20 @@
    composed schema from the effective root (validations stripped — the
    annotation layer owns those), storing the coerced values back.
    Uncoercible values become error rows, unknown fields warning rows;
-   berths/normalize-errors rewrites their keys downstream."
+   berths/normalize-errors rewrites their keys downstream. A slice that is
+   wholly absent still conforms as {} so its nested :default values fill,
+   dropping (never reporting) any required-field error that produces —
+   nothing has been configured there yet (isaac-zmub)."
   [module-index root-schema config]
   (reduce
     (fn [acc path]
-      (let [slice (get-in (:config acc) path)]
+      (let [slice (get-in (:config acc) path)
+            spec  (get-in root-schema (vec (mapcat (fn [segment] [:schema segment]) path)))]
         (if (nil? slice)
-          acc
-          (let [spec      (get-in root-schema (vec (mapcat (fn [segment] [:schema segment]) path)))
-                warns     (warnings/slice-unknown-key-warnings path spec slice)
+          (if-let [filled (schema-base/conform-absent-section spec)]
+            (assoc-in acc (into [:config] path) filled)
+            acc)
+          (let [warns     (warnings/slice-unknown-key-warnings path spec slice)
                 conformed (lexicon/conform (runtime-schema spec) slice)
                 acc       (update acc :warnings into warns)]
             (if (cs/error? conformed)

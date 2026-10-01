@@ -124,15 +124,21 @@
                                                    :flags   {:type :ignore :set-type? true}
                                                    :limits  {:type   :map
                                                              :schema {:ceiling {:type :double}}}}}}}
+    ;; isaac-zmub: no :default here — an absent root-level section now
+    ;; conforms as {} so nested defaults fill (schema-base/conform-absent-
+    ;; section), and a default that references another entity (:berth-
+    ;; exists?/:gauge-exists?) would synthesize into every spec that never
+    ;; configures :watch, failing semantic validation for unrelated
+    ;; fixtures that have no berth/gauge named like the default. Every
+    ;; existing :watch scenario sets :berth/:gauge explicitly, so this
+    ;; fixture never relied on a default filling it.
     :watch     {:schema {:name        :watch
                          :type        :map
                          :description "Default berth and gauge on the watch"
                          :schema      {:berth {:type        :id
-                                               :default     "main"
                                                :description "Default berth id"
                                                :validations [:berth-exists?]}
                                        :gauge {:type        :id
-                                               :default     "llama"
                                                :description "Default gauge alias"
                                                :validations [:gauge-exists?]}}}}
     :gauges    {:entity-dir         "gauges"

@@ -107,7 +107,10 @@
         (should-contain "example: 30" out)))
 
     (it "shows default on its own line when present"
-      (let [out (sut/spec->term (watch) plain)]
+      (let [out (sut/spec->term
+                  {:type :map :schema {:berth {:type :id :default "main"}
+                                       :gauge {:type :id :default "llama"}}}
+                  plain)]
         (should-contain "default: \"main\"" out)
         (should-contain "default: \"llama\"" out)))
 

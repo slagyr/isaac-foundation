@@ -1,5 +1,6 @@
 (ns isaac.foundation.config.schema-base-spec
   (:require
+    [c3kit.apron.schema :as cs]
     [isaac.foundation.config.schema-base :as sut]
     [isaac.foundation.schema.lexicon :as lexicon]
     [speclj.core :refer :all]))
@@ -41,4 +42,29 @@
             conformed    (lexicon/conform! table-schema raw)
             overlaid     (sut/overlay-conformed raw conformed)]
         (should= 2 (count overlaid))
-        (should= {:north {:berth 3} :south {:berth 7}} overlaid)))))
+        (should= {:north {:berth 3} :south {:berth 7}} overlaid))))
+
+  (describe "conform-absent-section"
+
+    ;; isaac-zmub: a config-berth-claimed slice (or a root-level schema
+    ;; fragment) that is wholly absent from raw config still conforms as {}
+    ;; so nested :default values fill — the fix conform-berth-slices applies
+    ;; when `(get-in config path)` is nil, same shape apron would compose for
+    ;; a berth like isaac-http's :http.
+    (let [section-spec {:type   :map
+                        :schema {:power  {:type :int :default 42}
+                                 :keeper {:type :string :required true}}}]
+
+      (it "fills nested defaults for a wholly absent section"
+        (should= {:power 42} (sut/conform-absent-section section-spec)))
+
+      (it "drops a required field's error instead of reporting or leaking it"
+        (let [filled (sut/conform-absent-section section-spec)]
+          (should-not-contain :keeper filled)
+          (should-be false (boolean (some cs/field-error? (vals filled))))))
+
+      (it "returns nil when the section contributes no defaults"
+        (should-be-nil (sut/conform-absent-section {:type :map :schema {:name {:type :string}}})))
+
+      (it "returns nil for a non-map section (nothing to recurse into)"
+        (should-be-nil (sut/conform-absent-section {:type :int :default 1}))))))
