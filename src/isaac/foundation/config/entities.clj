@@ -204,7 +204,7 @@
           relative (companions/companion-md-relative kind id)
           load-fn  (if load-md?
                      (fn [] {:exists? true :text body})
-                     #(companions/load-companion-text (str root "/" relative)))]
+                     #(companions/load-companion-text (when relative (str root "/" relative))))]
       (case (:mode companion)
         :exclusive
         (let [{resolved-data :data companion-error :error}

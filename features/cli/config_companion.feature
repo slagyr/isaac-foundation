@@ -122,3 +122,22 @@ Feature: Config companion .md — the load side reads the table's own descriptor
       | level | event       | path                   | value       | file                  |
       | :info | :config/set | vessels.cordelia.notes | First mate. | vessels/cordelia.edn |
     And the exit code is 0
+
+  # ----- Inline entry, no entity file -----
+
+  Scenario: a :cron entry inline in isaac.edn loads cleanly with no module declaring :cron (isaac-208u)
+    # :cron is foundation's own root-level companion table (its `:prompt`
+    # field resolves inline-or-.md the same `:required` way any module's
+    # companion field does), but no module here contributes a `:cron`
+    # schema at all, so companion-md-relative has no `:entity-dir` to build
+    # a `.md` path from. The companion side must still apply only to
+    # entries that have an entity file: with nothing to look up, the inline
+    # entry loads with its own fields rather than the load crashing while
+    # trying to read a bogus "<root>/config" path as if it were a file.
+    Given the isaac file "config/isaac.edn" exists with:
+      """
+      {:cron {:heartbeat {:expr "0 0 * * *" :prompt "x"}}}
+      """
+    When isaac is run with "config validate"
+    Then the stdout contains "OK - config is valid"
+    And the exit code is 0

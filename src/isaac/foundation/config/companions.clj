@@ -78,12 +78,17 @@
   "Root-level companion resolution for `:cron` entries still inline in
    isaac.edn (before any per-id file split): each job's `:prompt` resolves
    the same `:required` way `resolve-required-companion` resolves any other
-   table's companion field."
+   table's companion field. `relative` is nil when no module declares a
+   `:cron` schema (no `:entity-dir` to derive a `.md` path from) — the
+   companion side only applies to an entry with an actual entity file, so a
+   nil `relative` must not be stringified into a bogus `<root>/` path that
+   can crash reading an existing directory as a file (isaac-208u); the job
+   simply resolves from its inline fields instead."
   [root data]
   (reduce-kv (fn [{:keys [cron errors]} id job]
                (let [id       (->id id)
                      relative (companion-md-relative :cron id)
-                     path     (str root "/" relative)
+                     path     (when relative (str root "/" relative))
                      [resolved-job job-errors]
                      (resolve-required-companion :cron :prompt id job #(load-companion-text path) relative)]
                  {:cron   (assoc cron id resolved-job)
