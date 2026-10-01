@@ -22,7 +22,6 @@
     [isaac.foundation.version :as version]))
 
 (def ^:dynamic *extra-opts* nil)
-(def ^:dynamic *remote-runner* nil)
 
 (defn- startup-fs [extra-opts]
   ;; Composition boundary: resolve the runtime fs to install. Prefer an
@@ -107,34 +106,14 @@
   "Run the CLI. Returns exit code."
   [args]
   (config-api/clear-process-memo!)
-  (let [{after-root :args :keys [root log-file log-level local?]} (cli-args/extract-root-flag args)
+  (let [{after-root :args :keys [root log-file log-level]} (cli-args/extract-root-flag args)
         args          (resolve-alias after-root)
         cmd           (first args)
         opts          (rest args)
         extra-opts    (or *extra-opts* {})
         fs*           (startup-fs extra-opts)
-        resolved-root (root/resolve-root root (:root extra-opts) fs*)
-        remote        (get-in (root/pointer-config fs*) [:cli :remote])
-        env-local?    (= "1" (env/env "ISAAC_CLI_LOCAL"))
-        local-only?   (contains? #{"server" "service" "modules" "remote"} cmd)
-        route-remote? (and remote (not local?) (not env-local?) (not local-only?))]
-    (if route-remote?
-      (if-let [runner (or *remote-runner*
-                          (try (requiring-resolve 'isaac.cli-proxy.client/run!)
-                               (catch Exception _ nil)))]
-        (try
-          (runner {:url (:url remote) :argv (vec args) :remote remote})
-          (catch Exception e
-            (binding [*out* *err*]
-              (println (str (:url remote) " is not reachable: " (.getMessage e)))
-              (println "run with --local to bypass"))
-            69))
-        (do
-          (binding [*out* *err*]
-            (println "remote CLI setting requires the isaac.cli-proxy module")
-            (println "run with --local to bypass"))
-          69))
-      (nexus/-with-nested-nexus {:fs fs*}
+        resolved-root (root/resolve-root root (:root extra-opts) fs*)]
+    (nexus/-with-nested-nexus {:fs fs*}
       ;; isaac-89q1: install the CLI's log sink before the first config load
       ;; below (config-api/load-resolved), which can itself log a warning
       ;; (an unknown key, an unresolved ${VAR}) — that must never reach the
@@ -202,7 +181,7 @@
                                                         :_raw-args    (vec opts)})) 0)))
           (do (println (str "Unknown command: " cmd))
               (println (registry/usage-text))
-              1)))))))))))
+              1))))))))))
 
 (defn -main [& args]
   (let [exit-code (binding [host/*host* host/process-host]
