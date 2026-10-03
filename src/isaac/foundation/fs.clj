@@ -39,7 +39,8 @@
   (-delete       [fs path])
   (-move         [fs source destination])
   (-copy         [fs source destination])
-  (-read-bytes   [fs path offset length]))
+  (-read-bytes   [fs path offset length])
+  (-write-bytes  [fs path bytes]))
 
 ;; region ----- RealFs -----
 
@@ -83,6 +84,8 @@
         (Files/copy (.toPath src)
                     (.toPath (io/file destination))
                     (into-array StandardCopyOption [StandardCopyOption/REPLACE_EXISTING])))))
+  (-write-bytes [_ path bytes]
+    (Files/write (.toPath (io/file path)) ^bytes bytes (make-array OpenOption 0)))
   (-read-bytes [_ path offset length]
     (let [f (io/file path)]
       (when (.isFile f)
@@ -110,7 +113,9 @@
 
 (deftype MemFs [store revision]
   Fs
-  (-slurp        [_ path _]       (get @store path))
+  (-slurp        [_ path _]
+    (let [content (get @store path)]
+      (if (bytes? content) (String. ^bytes content StandardCharsets/UTF_8) content)))
   (-spit         [_ path content options]
     (let [new-rev (swap! revision inc)]
       (if (:append (apply hash-map options))
@@ -144,7 +149,8 @@
   (-modified     [_ path]         (get @store [::mtime path]))
   (-size         [_ path]
     (if-let [content (get @store path)]
-      (alength (.getBytes ^String content StandardCharsets/UTF_8))
+      (if (bytes? content) (alength ^bytes content)
+          (alength (.getBytes ^String content StandardCharsets/UTF_8)))
       0))
   (-mkdirs       [_ path]
     (swap! store assoc [::dir path] true)
@@ -167,9 +173,14 @@
         (swap! store #(cond-> (assoc % destination content [::mtime destination] new-rev)
                         (parent-path destination) (assoc [::dir (parent-path destination)] true)))
         nil)))
+  (-write-bytes [_ path bytes]
+    (let [new-rev (swap! revision inc)]
+      (swap! store #(cond-> (assoc % path bytes [::mtime path] new-rev)
+                      (parent-path path) (assoc [::dir (parent-path path)] true)))
+      nil))
   (-read-bytes [_ path offset length]
     (when-let [content (get @store path)]
-      (let [bytes (.getBytes ^String content StandardCharsets/UTF_8)
+      (let [bytes (if (bytes? content) content (.getBytes ^String content StandardCharsets/UTF_8))
             size  (alength bytes)
             off   (max 0 (min (long offset) size))
             n     (max 0 (min (long length) (- size off)))
@@ -231,7 +242,7 @@
 (defn size
   "Returns the on-disk byte length of the file at path, or 0 when the path
    is missing or is not a file. RealFs uses File.length (no content I/O);
-   MemFs uses the UTF-8 byte length of the stored string."
+   MemFs uses the stored byte length (UTF-8 for strings)."
   [fs path] (assert-absolute! path) (-size fs path))
 
 (defn parent
@@ -290,6 +301,12 @@
   (assert-absolute! source)
   (assert-absolute! destination)
   (-copy fs source destination))
+
+(defn write-bytes
+  "Writes raw bytes to a file. The parent directory must exist for RealFs."
+  [fs path bytes]
+  (assert-absolute! path)
+  (-write-bytes fs path bytes))
 
 (defn read-bytes
   "Reads `length` UTF-8 bytes starting at `offset`. Missing file → nil.

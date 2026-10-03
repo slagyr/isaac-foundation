@@ -181,6 +181,14 @@
     (should= "marigold" (fs/slurp @fs "/mem/old.txt"))
     (should= "marigold" (fs/slurp @fs "/mem/new.txt")))
 
+  (it "preserves a PNG signature across binary write, size, read and slurp"
+    (let [payload (byte-array (map unchecked-byte [0x89 0x50 0x4e 0x47]))
+          path    "/mem/badge.png"]
+      (fs/write-bytes @fs path payload)
+      (should= 4 (fs/size @fs path))
+      (should= (seq payload) (seq (fs/read-bytes @fs path 0 4)))
+      (should= (String. ^bytes payload "UTF-8") (fs/slurp @fs path))))
+
   (it "read-bytes returns a UTF-8 slice without the prefix"
     (fs/spit @fs "/mem/log.txt" "ab\ncd\n")
     (let [start (alength (.getBytes "ab\n" "UTF-8"))
@@ -293,6 +301,14 @@
     (fs/copy @fs (test-path* "old.txt") (test-path* "new.txt"))
     (should= "marigold" (fs/slurp @fs (test-path* "old.txt")))
     (should= "marigold" (fs/slurp @fs (test-path* "new.txt"))))
+
+  (it "preserves a PNG signature across binary write, size, read and slurp"
+    (let [payload (byte-array (map unchecked-byte [0x89 0x50 0x4e 0x47]))
+          path    (test-path* "badge.png")]
+      (fs/write-bytes @fs path payload)
+      (should= 4 (fs/size @fs path))
+      (should= (seq payload) (seq (fs/read-bytes @fs path 0 4)))
+      (should= (String. ^bytes payload "UTF-8") (fs/slurp @fs path))))
 
   (it "read-bytes returns a UTF-8 slice without the prefix"
     (fs/spit @fs (test-path* "log.txt") "ab\ncd\n")
