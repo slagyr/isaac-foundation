@@ -36,7 +36,6 @@ Feature: config get labels exactly the fields that came from a schema default
       {:modules {:marigold.dflt.lamps {:local/root "target/test-dflt-lamps/lamps-module"}}}
       """
 
-  @wip
   Scenario: a value set in an entity file is not labeled a default
     Given the isaac file "config/lamps/porch.edn" exists with:
       """
@@ -56,7 +55,6 @@ Feature: config get labels exactly the fields that came from a schema default
     Then the stdout contains "60 (default)"
     And the exit code is 0
 
-  @wip
   Scenario: an entity map labels each defaulted field, and only those
     Given the isaac file "config/lamps/porch.edn" exists with:
       """
@@ -70,7 +68,6 @@ Feature: config get labels exactly the fields that came from a schema default
     And the stdout does not contain "(default)"
     And the exit code is 0
 
-  @wip
   Scenario: an entity map with nothing defaulted carries no labels
     Given the isaac file "config/lamps/porch.edn" exists with:
       """

@@ -48,26 +48,39 @@
     raw?    (common/load-raw-result opts true)
     :else   (common/printable-config opts reveal?)))
 
-(defn- defaulted-value?
-  "True when `path-str` resolves to a value in the runtime (conformed-over-raw)
-   config but is ABSENT from `raw-root` — the pre-conform root-level data the
-   SAME load already computed — at that same path, i.e. the value on display
-   came from a schema `:default`, not the file (isaac-dnib). Text output
-   annotates this; --edn/--json never do. Reads `raw-root` off the result
-   already in hand rather than issuing a second `load-config-result` call,
-   which would break \"the CLI resolves the config once per command\"
-   (isaac-v1la, cli/config_resolution.feature). `raw-root` is absent for a
-   threaded/in-memory config (tests); treat that as \"can't tell, don't
-   annotate\" rather than guess."
-  [raw-root path-str]
-  (and (some? raw-root)
-       (nil? (select (common/queryable-config raw-root) path-str))))
+(defn- raw-at [raw path-str]
+  (when (some? raw)
+    (select raw path-str)))
+
+(defn- raw-field [raw key]
+  (when (map? raw)
+    (let [alternate (if (keyword? key) (name key) (keyword key))]
+      (if (contains? raw key) (get raw key) (get raw alternate)))))
+
+(defn- defaulted-leaf? [value raw]
+  (if (map? value)
+    (some (fn [[k v]] (defaulted-leaf? v (raw-field raw k))) value)
+    (nil? raw)))
+
+(defn- annotated-map [value raw indent]
+  (let [pad     (apply str (repeat indent " "))
+        entries (sort-by (comp pr-str key) value)
+        lines   (for [[k v] entries
+                      :let [source (raw-field raw k)]]
+                  (str pad "  " (pr-str k) " "
+                       (if (and (map? v) (defaulted-leaf? v source))
+                         (annotated-map v source (+ indent 2))
+                         (edn-pretty/pretty v))
+                       (when (and (not (map? v)) (nil? source)) " ; default")))]
+    (str "{\n" (str/join "\n" lines) "\n" pad "}")))
 
 (defn- get-value! [opts path-str options]
   (if-let [format-error (inspect/structured-format-conflict? options)]
     format-error
     (let [{:keys [raw reveal edn json]} options
-          {:keys [config errors missing-config? raw-root]} (load-result opts raw reveal)]
+          {:keys [config errors missing-config? raw-root]
+           raw-config :raw} (load-result opts raw reveal)
+          file-values (when (some? raw-root) (merge-with merge raw-root raw-config))]
       (cond
         missing-config?
         (do (common/print-errors! errors "error") 1)
@@ -86,7 +99,11 @@
                 raw
                 (do (common/print-edn! presented) 0)
 
-                (defaulted-value? raw-root path-str)
+                (and (map? presented) (some? file-values)
+                     (defaulted-leaf? presented (raw-at file-values path-str)))
+                (do (println (annotated-map presented (raw-at file-values path-str) 0)) 0)
+
+                (and (some? file-values) (nil? (raw-at file-values path-str)))
                 (do (println (str (edn-pretty/pretty presented) " (default)")) 0)
 
                 :else

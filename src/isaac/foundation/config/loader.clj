@@ -381,6 +381,7 @@
                                                     (warnings/log-unknown-keys!)
                                                     (warnings/log-unresolved-refs!))
                                      :sources  (vec (sort (:sources result)))
+                                     :raw      (:raw result)
                                      ;; Raw (pre-conform-overlay) root-level data, already computed
                                      ;; above — a companion for callers that need to tell a schema
                                      ;; default apart from a file-set value (isaac-dnib's `(default)`
