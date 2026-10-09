@@ -433,7 +433,7 @@
     (it "refuses a set that creates an unknown key inside a schema'd map (isaac-a5dx, split from isaac-cgxa)"
       (config-marigold/write-baseline!)
       (let [path   (str "berths." marigold/captain ".gchat/allow-from")
-            result (sut/set-config marigold/root path ["*@tonotop.com"])]
+            result (sut/set-config marigold/root path ["*@marigold.example"])]
         (should= :invalid (:status result))
         (should-contain path (map :key (:errors result)))
         (should-not-contain :gchat/allow-from (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain)]))))
@@ -441,7 +441,7 @@
     (it "names the parent path and known keys in the refusal message (isaac-a5dx)"
       (config-marigold/write-baseline!)
       (let [path   (str "berths." marigold/captain ".gchat/allow-from")
-            result (sut/set-config marigold/root path ["*@tonotop.com"])
+            result (sut/set-config marigold/root path ["*@marigold.example"])
             value  (:value (first (:errors result)))]
         (should (str/includes? value (str "berths." marigold/captain)))
         (should (str/includes? value "gauge"))
@@ -450,9 +450,9 @@
     (it "--force writes an undeclared key and the load-time warning still fires (isaac-a5dx)"
       (config-marigold/write-baseline!)
       (let [path   (str "berths." marigold/captain ".gchat/allow-from")
-            result (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)]
+            result (sut/set-config marigold/root path ["*@marigold.example"] :force? true)]
         (should= :ok (:status result))
-        (should= ["*@tonotop.com"] (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :gchat/allow-from]))
+        (should= ["*@marigold.example"] (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :gchat/allow-from]))
         (should-contain path (map :key (:warnings result)))))
 
     (it "still writes a new key under an open entity table (key-spec) without force (isaac-a5dx)"
@@ -555,17 +555,17 @@
     (it "refuses an unset that targets an unknown key inside a schema'd map (isaac-a5dx)"
       (config-marigold/write-baseline!)
       (let [path (str "berths." marigold/captain ".gchat/allow-from")]
-        (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)
+        (sut/set-config marigold/root path ["*@marigold.example"] :force? true)
         (let [result (sut/unset-config marigold/root path)]
           (should= :invalid (:status result))
           (should-contain path (map :key (:errors result)))
-          (should= ["*@tonotop.com"]
+          (should= ["*@marigold.example"]
                    (get-in (read-edn "isaac.edn") [:berths (keyword marigold/captain) :gchat/allow-from])))))
 
     (it "--force unsets an undeclared key (isaac-a5dx)"
       (config-marigold/write-baseline!)
       (let [path (str "berths." marigold/captain ".gchat/allow-from")]
-        (sut/set-config marigold/root path ["*@tonotop.com"] :force? true)
+        (sut/set-config marigold/root path ["*@marigold.example"] :force? true)
         (let [result (sut/unset-config marigold/root path :force? true)]
           (should= :ok (:status result))
           (should-not-contain :gchat/allow-from

@@ -377,7 +377,7 @@
                  (baseline-plus (str "berths/." marigold/cook ".edn") (pr-str {:ledger "Gone."})
                                 (str "berths/." marigold/cook ".md")  "Gone.")))
 
-      (it "ignores a dot-directory inside an entity directory — the yopp case"
+      (it "ignores a dot-directory inside an entity directory — the isaac case"
         (should= (baseline-plus)
                  (baseline-plus (str "berths/.removed-20260915/" marigold/cook ".edn")
                                 (pr-str {:ledger "Gone."}))))

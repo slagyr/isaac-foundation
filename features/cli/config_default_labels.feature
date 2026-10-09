@@ -2,7 +2,7 @@ Feature: config get labels exactly the fields that came from a schema default
 
   `config get` text output marks a value that came from a schema `:default`
   rather than from the config (isaac-dnib). Two flaws (field report,
-  2026-10-02, `config get models.claude-opus` on yopp printed a whole
+  2026-10-02, `config get models.claude-opus` on isaac printed a whole
   file-defined model as "(default)"):
 
   - The check compared against root-level config only, so every value
