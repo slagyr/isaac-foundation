@@ -1,7 +1,8 @@
 Feature: isaac modules deps — emit JVM launch deps/classpath from config
   `isaac modules deps` derives the dependency set needed to launch isaac on the
-  JVM from the current root's config :modules — foundation's seed :paths plus
-  every resolved module coordinate, each carrying the seed-authoritative
+  JVM from the current root's config :modules — foundation itself, as a
+  :local/root dependency on its own directory, plus every resolved module
+  coordinate, each carrying the seed-authoritative
   exclusion (io.github.slagyr/isaac-foundation) so the packaged foundation stays
   the single copy. Nothing is materialized: the set is regenerated from config
   each call, mirroring the coords compose-config-modules! adds to bb's classpath.
@@ -22,9 +23,7 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
     When isaac is run with "modules deps --edn"
-    Then the stdout contains ":paths"
-    And the stdout contains "/src"
-    And the stdout contains ":deps"
+    Then the stdout contains ":deps"
     And the stdout contains "marigold.app"
     # marigold.cli.greeter is pulled transitively via marigold.app's deps.edn
     And the stdout contains "marigold.cli.greeter"
@@ -34,21 +33,20 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
     And the stdout does not contain "marigold.util"
     And the exit code is 0
 
-  # A packaged install has no foundation deps.edn — the launcher's bb.edn is
-  # where foundation's own libraries are named — so the emitted map must carry
-  # them, or the JVM has foundation's source and nothing it requires.
+  # Foundation goes in as a dependency on its own directory, not as a bare
+  # source path: the clojure CLI then reads foundation's deps.edn for its
+  # source AND its libraries, and a source path outside the project — which
+  # the CLI warns is deprecated on every launch — never appears.
   @wip
-  Scenario: --edn carries foundation's own libraries
+  Scenario: --edn names foundation as a local dependency
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
       """
       {:modules {}}
       """
     When isaac is run with "modules deps --edn"
-    Then the stdout contains "com.cleancoders.c3kit/apron"
-    And the stdout contains "clj-commons/clj-yaml"
-    And the stdout contains "org.clojure/tools.cli"
-    And the stdout contains "org.clojure/tools.deps.alpha"
+    Then the stdout contains "io.github.slagyr/isaac-foundation"
+    And the stdout contains ":local/root"
     And the exit code is 0
 
   Scenario: --edn is the default when no flag is given
@@ -58,8 +56,7 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
       {:modules {:marigold.app {:local/root "modules/marigold.app"}}}
       """
     When isaac is run with "modules deps"
-    Then the stdout contains ":paths"
-    And the stdout contains ":deps"
+    Then the stdout contains ":deps"
     And the exit code is 0
 
   Scenario: --classpath errors clearly when the clojure CLI is absent
@@ -122,4 +119,5 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
     # cd /tmp/isaac && clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.foundation.main --version
     When a JVM in the Isaac root boots "isaac.foundation.main --version" from the emitted launch deps
     Then the stdout contains "isaac"
+    And the stderr does not contain "deprecated"
     And the exit code is 0
