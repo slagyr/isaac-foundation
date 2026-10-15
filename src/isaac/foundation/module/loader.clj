@@ -124,24 +124,23 @@
      (compose-config-modules! config cwd))))
 
 (defn foundation-seed-path
-  "Absolute path to foundation's own source root — the dir holding its
-   isaac-manifest.edn. This is the seed `:paths` entry a JVM launch needs so
-   `isaac.*` namespaces are on the classpath without a materialized deps.edn."
+  "Absolute path to foundation's root directory (containing deps.edn).
+   The manifest lives in its src directory."
   []
   (some (fn [url]
           (when (= coords/foundation-module-id (:id (coords/read-manifest-edn url)))
             (let [f (try (java.io.File. (.toURI url)) (catch Exception _ nil))]
-              (when f (.getParent f)))))
+              (when f (some-> f .getParentFile .getParent)))))
         (discovery/resource-urls "isaac-manifest.edn")))
 
 (defn config->launch-deps
-  "The `-Sdeps` map to launch isaac on the JVM from `config`: foundation's seed
-   `:paths` plus every resolved module coord (`:deps`), mirroring the exact
-   dependency set `compose-config-modules!` adds to bb's dynamic classpath.
-   No `org.clojure/clojure` is injected — the clojure CLI's root deps supply it."
+  "The `-Sdeps` map to launch isaac on the JVM from `config`: foundation as
+   a local dependency (including its own libraries) plus every resolved module
+   coord. No external source paths or materialized deps.edn are needed."
   ([config] (config->launch-deps config (host/cwd)))
   ([config cwd]
    (let [raw-modules (when (map? (:modules config)) (:modules config))
          pairs       (or (discovery/plan-module-classpath-pairs raw-modules cwd) [])]
      (cond-> {:deps (classpath/compose-module-deps-map pairs)}
-       (foundation-seed-path) (assoc :paths [(foundation-seed-path)])))))
+       (foundation-seed-path) (assoc-in [:deps 'io.github.slagyr/isaac-foundation]
+                                        {:local/root (foundation-seed-path)})))))

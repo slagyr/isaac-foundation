@@ -37,7 +37,6 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
   # source path: the clojure CLI then reads foundation's deps.edn for its
   # source AND its libraries, and a source path outside the project — which
   # the CLI warns is deprecated on every launch — never appears.
-  @wip
   Scenario: --edn names foundation as a local dependency
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -109,7 +108,7 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
   # supplies foundation's libraries, and marigold.app drags them in too. A
   # service boots from the Isaac root with real modules that exclude
   # foundation — so: no checkout underfoot, no modules to lean on.
-  @slow @wip
+  @slow
   Scenario: the emitted --edn deps boot isaac from the Isaac root
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:

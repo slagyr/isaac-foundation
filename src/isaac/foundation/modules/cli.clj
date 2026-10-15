@@ -67,8 +67,8 @@
   (common/render-help
     {:command     "isaac modules deps"
      :description (str "Emit the dependency set needed to launch isaac on the JVM, derived\n"
-                       "from this root's config :modules (foundation seed :paths + each\n"
-                       "module coord with seed-authoritative exclusions). No deps.edn is\n"
+                       "from this root's config :modules (foundation as a local dependency\n"
+                       "plus each module coord with seed-authoritative exclusions). No deps.edn is\n"
                        "materialized — the set is regenerated from config each call.\n\n"
                        "  --edn        (default) print the -Sdeps map; launch with\n"
                        "               clojure -Sdeps \"$(isaac modules deps --edn)\" -M -m isaac.foundation.main server\n"
@@ -370,7 +370,9 @@
                 (do (println (str/trim out)) 0)
                 (common/print-cli-error!
                   (str "clojure -Spath failed (exit " exit "): " (str/trim (or err "")))))))
-          (do (pp/pprint launch-deps) 0))))))
+          (do (binding [*print-namespace-maps* false]
+                (pp/pprint launch-deps))
+              0))))))
 
 (defn- run-available [opts arguments options]
   (let [{:keys [edn json]} options
