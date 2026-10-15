@@ -34,6 +34,23 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
     And the stdout does not contain "marigold.util"
     And the exit code is 0
 
+  # A packaged install has no foundation deps.edn — the launcher's bb.edn is
+  # where foundation's own libraries are named — so the emitted map must carry
+  # them, or the JVM has foundation's source and nothing it requires.
+  @wip
+  Scenario: --edn carries foundation's own libraries
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
+      """
+      {:modules {}}
+      """
+    When isaac is run with "modules deps --edn"
+    Then the stdout contains "com.cleancoders.c3kit/apron"
+    And the stdout contains "clj-commons/clj-yaml"
+    And the stdout contains "org.clojure/tools.cli"
+    And the stdout contains "org.clojure/tools.deps.alpha"
+    And the exit code is 0
+
   Scenario: --edn is the default when no flag is given
     Given an empty Isaac root at "/tmp/isaac"
     And Isaac root "/tmp/isaac" contains config:
@@ -88,5 +105,21 @@ Feature: isaac modules deps — emit JVM launch deps/classpath from config
       """
     # clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.foundation.main --version
     When the emitted launch deps boot "isaac.foundation.main --version"
+    Then the stdout contains "isaac"
+    And the exit code is 0
+
+  # The scenario above boots from this checkout, where deps.edn quietly
+  # supplies foundation's libraries, and marigold.app drags them in too. A
+  # service boots from the Isaac root with real modules that exclude
+  # foundation — so: no checkout underfoot, no modules to lean on.
+  @slow @wip
+  Scenario: the emitted --edn deps boot isaac from the Isaac root
+    Given an empty Isaac root at "/tmp/isaac"
+    And Isaac root "/tmp/isaac" contains config:
+      """
+      {:modules {}}
+      """
+    # cd /tmp/isaac && clojure -Sdeps "$(isaac modules deps --edn)" -M -m isaac.foundation.main --version
+    When a JVM in the Isaac root boots "isaac.foundation.main --version" from the emitted launch deps
     Then the stdout contains "isaac"
     And the exit code is 0
