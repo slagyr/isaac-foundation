@@ -1,5 +1,5 @@
 {:id        :isaac.foundation
- :version   "0.1.29"
+ :version   "0.1.30"
  :factory   isaac.foundation.module/create-module
  :handbook  "isaac/foundation/handbook.md"
 
