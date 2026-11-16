@@ -70,6 +70,14 @@
       (should= 0 (sut/run-embedded (embedded-options ["context"])))
       (should= ["/srv/isaac" "high" true] @seen)))
 
+  (it "passes the live config snapshot to hosted commands"
+    (let [seen (atom nil)
+          live (atom {:tz "America/Chicago"})]
+      (nexus/register! [:config] live)
+      (registry/register! {:name "config" :run-fn (fn [opts] (reset! seen (:config opts)) 0)})
+      (should= 0 (sut/run-embedded (embedded-options ["config"])))
+      (should= {:tz "America/Chicago"} @seen)))
+
   (it "leaves process registries and runtime state untouched"
     (let [before-commands  (registry/snapshot)
           before-logger    ((requiring-resolve 'isaac.foundation.logger/snapshot))

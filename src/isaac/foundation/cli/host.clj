@@ -120,6 +120,8 @@
           (do (print-err! (str cmd " is local-only; run this on the host")) 2)
           (with-bindings {root-var server-root}
             (or ((:run-fn command) {:root         server-root
+                                    :config       (let [live (nexus/get :config)]
+                                                    (if (instance? clojure.lang.IDeref live) @live live))
                                     :display-root server-root
                                     :_raw-args    (vec (rest args))})
                 0)))
