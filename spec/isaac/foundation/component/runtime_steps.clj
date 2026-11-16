@@ -49,6 +49,8 @@
 
 (g/before-scenario #(reset-component-state!))
 
+(g/after-scenario runner/stop!)
+
 (defn- inject-modules! [module-ids]
   (g/update! :server-config
              #(assoc (or % {}) :inject-module-index

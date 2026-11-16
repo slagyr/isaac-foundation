@@ -52,6 +52,11 @@
   [f]
   (swap! isaac-run-postflights* conj f))
 
+(g/after-scenario
+  (fn []
+    (when-let [running (g/get :background-cli-run)]
+      (future-cancel running))))
+
 ;; Run-wrappers wrap the actual main/run call (innermost, inside the
 ;; mem-fs nexus). Each is (fn [thunk] ... (thunk) ...); they compose so a
 ;; server/LLM layer can inject dynamic bindings (e.g. the memory-tool
@@ -68,9 +73,10 @@
 (defn- apply-run-wrappers [thunk]
   (reduce (fn [t wrap] (fn [] (wrap t))) thunk @isaac-run-wrappers*))
 
-(defn- without-captured-ansi [thunk]
+(defn- without-captured-ansi
   "Captured stdout/stderr assertions expect plain text; disable CLI color
    auto-detection (including FORCE_COLOR) for in-process test runs."
+  [thunk]
   (with-redefs [color/force-color? (constantly false)
                 color/console?     (constantly false)]
     (thunk)))
@@ -361,8 +367,9 @@
         error-writer  (java.io.StringWriter.)]
     (g/assoc! :live-output-writer output-writer)
     (g/assoc! :live-error-writer error-writer)
-    (future
-      (let [run! (fn [run-opts]
+    (g/assoc! :background-cli-run
+      (future
+        (let [run! (fn [run-opts]
                    (without-captured-ansi
                      (binding [*out* output-writer
                                *err* error-writer
@@ -376,7 +383,7 @@
         (if mem-fs
           (nexus/-with-nested-nexus {:fs mem-fs}
             (run! (assoc extra-opts :fs mem-fs)))
-          (run! extra-opts))))
+          (run! extra-opts)))))
     (doseq [postflight @isaac-run-postflights*] (postflight))))
 
 (defn user-home-directory [path]
