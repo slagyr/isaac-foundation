@@ -547,6 +547,7 @@ field — and its own chapter covers the field list.
 | `:delay` | once, N milliseconds from registration |
 | `:at` | once, at an absolute instant (a past instant fires on the next tick) |
 | `:cron` | on a cron expression, evaluated in a given time zone |
+| `:calendar` | on an RRULE body in an IANA `:zone`; optional local `:dtstart` anchors phase and finite `COUNT` |
 
 **Policies** (all optional):
 

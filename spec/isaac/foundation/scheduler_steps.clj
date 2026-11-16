@@ -77,6 +77,8 @@
      :trigger       (cond-> {:kind (keyword (cell-value (get row "trigger.kind")))}
                       (cell-value (get row "trigger.ms"))      (assoc :ms (parse-duration-ms (cell-value (get row "trigger.ms"))))
                       (cell-value (get row "trigger.expr"))    (assoc :expr (cell-value (get row "trigger.expr")))
+                      (cell-value (get row "trigger.rule"))    (assoc :rule (cell-value (get row "trigger.rule")))
+                      (cell-value (get row "trigger.dtstart")) (assoc :dtstart (cell-value (get row "trigger.dtstart")))
                       (cell-value (get row "trigger.zone"))    (assoc :zone (cell-value (get row "trigger.zone")))
                       (cell-value (get row "trigger.instant")) (assoc :instant (cell-value (get row "trigger.instant"))))
      :coalesce       (some-> (cell-value (get row "coalesce")) keyword)

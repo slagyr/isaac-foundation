@@ -20,7 +20,7 @@
      isaac.foundation.naming isaac.foundation.scheduler.runtime
      isaac.foundation.spec-helper
      isaac.foundation.module.berths isaac.foundation.module.classpath isaac.foundation.module.coords isaac.foundation.module.discovery isaac.foundation.module.lifecycle isaac.foundation.module.loader isaac.foundation.module.manifest isaac.foundation.module.versions
-     isaac.foundation.scheduler.cron
+     isaac.foundation.scheduler.cron isaac.foundation.scheduler.calendar
      isaac.foundation.schema.dynamic isaac.foundation.schema.lexicon isaac.foundation.schema.meta
      isaac.foundation.schema.registered-in
      isaac.foundation.config.paths isaac.foundation.config.nav isaac.foundation.config.companion isaac.foundation.config.loader

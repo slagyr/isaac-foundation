@@ -2,6 +2,7 @@
   (:require
     [c3kit.apron.schema :as schema]
     [isaac.foundation.scheduler.cron :as cron]
+    [isaac.foundation.scheduler.calendar :as calendar]
     [isaac.foundation.logger :as log])
   (:import
     (java.time Instant OffsetDateTime ZoneId ZonedDateTime)
@@ -29,8 +30,8 @@
 (def trigger-schema
   {:name   :scheduler-trigger
    :type   :map
-   :schema {:kind    {:type :keyword :validations [[:one-of :interval :delay :cron :at]]
-                      :description "Trigger kind: :interval, :delay, :cron, or :at"}
+   :schema {:kind    {:type :keyword :validations [[:one-of :interval :delay :cron :at :calendar]]
+                      :description "Trigger kind: :interval, :delay, :cron, :calendar, or :at"}
             :ms      {:type :long
                       :validations [[:present-when? :kind :interval]
                                     [:present-when? :kind :delay]
@@ -39,7 +40,10 @@
             :expr    {:type        :string
                       :validations [[:present-when? :kind :cron]]
                       :description "Cron expression for :cron triggers"}
-            :zone    {:type :string :description "IANA time zone name used to evaluate :cron triggers"}
+            :rule    {:type :string :validations [[:present-when? :kind :calendar]]
+                      :description "RRULE body for :calendar triggers"}
+            :dtstart {:type :string :description "Local ISO datetime anchoring a :calendar rule"}
+            :zone    {:type :string :description "IANA time zone for :cron and :calendar triggers"}
             :instant {:type        :ignore
                       :coerce      [parse-instant]
                       :validations [[:present-when? :kind :at]]
@@ -80,11 +84,12 @@
     (some-> (cron/next-fire-at expr reference-zdt reference-zdt zone-id)
             .toInstant)))
 
-(defn- next-time [{:keys [kind ms expr zone instant]} now]
+(defn- next-time [{:keys [kind ms expr zone instant rule dtstart]} now]
   (case kind
     :interval (.plusMillis now ms)
     :delay    (.plusMillis now ms)
     :cron     (cron-next-time {:expr expr :zone zone} now)
+    :calendar (calendar/next-fire-at rule dtstart zone now)
     :at       instant))
 
 (defn- ^ThreadFactory daemon-thread-factory []
@@ -359,6 +364,9 @@
   (let [now            ((:clock scheduler))
         validated-task (schema/conform! task-schema task)
         validated-task (apply-retry-defaults validated-task)
+        _ (when (= :calendar (get-in validated-task [:trigger :kind]))
+            (calendar/parse-rule (get-in validated-task [:trigger :rule])
+                                 (get-in validated-task [:trigger :dtstart])))
         task           (assoc validated-task
                          :created-at now
                          :next-fire-at (next-time (:trigger validated-task) now)

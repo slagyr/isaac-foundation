@@ -1,4 +1,3 @@
-@wip
 Feature: Scheduler calendar trigger (iCalendar RRULE)
   A :calendar trigger fires on an RFC 5545 RRULE, evaluated in its :zone.
   Accepted parts: FREQ (MINUTELY..YEARLY), INTERVAL, BYDAY (with nth, 1TU /

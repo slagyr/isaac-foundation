@@ -166,7 +166,7 @@
                      [:handler :message])))
 
   (it "validates trigger kind values before scheduling"
-    (should= "must be one of [:interval :delay :cron :at]"
+    (should= "must be one of [:interval :delay :cron :at :calendar]"
              (get-in (schedule-error-data {:id :bad
                                            :trigger {:kind :bogus :ms 100}
                                            :handler (fn [_] nil)})
