@@ -1,0 +1,5 @@
+{:id :marigold.cli.where
+ :version "0.1.0"
+ :factory isaac.foundation.module.protocol/module
+ :isaac/cli {:where {:usage "where [options]" :summary "Print the current process"
+                     :namespace marigold.cli.where :server-only true}}}

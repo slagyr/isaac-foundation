@@ -184,7 +184,7 @@
    data alone. A later module reusing an id overrides the earlier
    command (last-wins, per the module-contribution collision policy);
    the berth pass surfaces the swap as a :cli/override warning."
-  [[id {:keys [usage summary namespace local-only hosted read-only]}]]
+  [[id {:keys [usage summary namespace local-only server-only hosted read-only]}]]
   (let [name   (clojure.core/name id)
         cmd    {:name       name
                 :id         id
@@ -192,6 +192,7 @@
                 :summary    summary
                 :namespace  namespace
                 :local-only (boolean local-only)
+                :server-only (boolean server-only)
                 :hosted     (boolean hosted)
                 :read-only  read-only}
         run-fn (fn [{:keys [_raw-args] :as opts}]
@@ -208,6 +209,24 @@
     (register! (assoc cmd :run-fn run-fn))))
 
 ;; endregion ^^^^^ Berth registration factory -----
+
+(defonce ^:private forwarder* (atom nil))
+
+(defn clear-forwarder! []
+  (reset! forwarder* nil))
+
+(defn register-forwarder!
+  "Register the one CLI forwarder for this module discovery pass."
+  [forwarder]
+  (when-not (compare-and-set! forwarder* nil forwarder)
+    (throw (ex-info "Only one :isaac/cli-forwarder may be registered" {}))))
+
+(defn forwarder [] @forwarder*)
+
+(defn register-cli-forwarder!
+  "Berth factory; a module contributes {:fn fully.qualified/factory}."
+  [[_ {:keys [fn]}]]
+  (register-forwarder! ((requiring-resolve fn))))
 
 ;; region ----- Module Command Management -----
 

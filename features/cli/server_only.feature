@@ -1,4 +1,3 @@
-@wip
 Feature: Server-only commands are handed to a forwarder
   A module command declared :server-only in its :isaac/cli entry does not make
   sense in a process of its own: it must run inside the Isaac server. When a

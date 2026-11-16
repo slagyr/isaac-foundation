@@ -1,0 +1,4 @@
+{:id :marigold.cli.forwarder
+ :version "0.1.0"
+ :factory isaac.foundation.module.protocol/module
+ :isaac/cli-forwarder {:marigold {:fn marigold.cli.forwarder/create-forwarder}}}

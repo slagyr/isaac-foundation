@@ -71,6 +71,7 @@
              (nexus/-with-nested-nexus {:fs fs*}
                (discovery/discover! config context))]
          (registry/clear-berth-commands!)
+         (registry/clear-forwarder!)
          (lifecycle/reconcile-modules! index)
          (berths/process-manifest-berths! index)))
      (catch Exception _
@@ -175,10 +176,14 @@
           (binding [root/*root* resolved-root]
             (nexus/-with-nested-nexus {:fs fs*}
               (nexus/init! {:fs fs* :root resolved-root})
-              (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
-                                                        :root         resolved-root
-                                                        :log-level    log-level
-                                                        :_raw-args    (vec opts)})) 0)))
+              (let [forwarded (when (and (:server-only command) (registry/forwarder))
+                                ((registry/forwarder) {:argv (vec args) :root resolved-root}))]
+                (if (and forwarded (not (:no-server forwarded)))
+                  (:exit forwarded)
+                  (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
+                                                            :root         resolved-root
+                                                            :log-level    log-level
+                                                            :_raw-args    (vec opts)})) 0)))))
           (do (println (str "Unknown command: " cmd))
               (println (registry/usage-text))
               1))))))))))
