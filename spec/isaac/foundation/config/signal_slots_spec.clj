@@ -22,6 +22,7 @@
     [isaac.foundation.config.validation :as validation]
     [isaac.foundation.config.validation-lexicon :as vlex]
     [isaac.foundation.fs :as fs]
+    [isaac.foundation.module.classpath :as classpath]
     [isaac.foundation.module.discovery :as discovery]
     [speclj.core :refer :all]))
 
@@ -313,6 +314,68 @@
                             (= "account-id" (:key %))
                             (= "signals[:mychan].account-id" (:path %)))
                       logged))))
+
+    (it "does not log unknown keys when the load cannot resolve module classpaths (isaac modules)"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:git/url "https://example.invalid/isaac-crow.git"
+                                     :git/sha "0000000000000000000000000000000000000000"}}
+         :signals {:mychan {:kind :crow :token "abc"}}})
+      (let [result (binding [classpath/*resolve-classpath?* false]
+                     (marigold/load-config))]
+        (should (some #(= "signals[:mychan].token" (:key %)) (:warnings result)))
+        (should-not (some #(= :config/unknown-key (:event %)) @log/captured-logs))))
+
+    (it "still logs unknown keys for an undeclared module when classpaths resolve"
+      (config-marigold/write-config!
+        {:signals {:bert {:kind :telly :loft "rooftop"}}})
+      (marigold/load-config)
+      (should (some #(and (= :config/unknown-key (:event %))
+                          (= "signals[:bert].loft" (:path %)))
+                    @log/captured-logs)))
+
+    ;; ---- reviewer (zane-lbhr) ----
+    (defn- unknown-key-logged? [path]
+      (some #(and (= :config/unknown-key (:event %)) (= :warn (:level %)) (= path (:path %)))
+            @log/captured-logs))
+
+    (it "R1 server-boot load (classpaths on) logs a typo in a core top-level key"
+      (config-marigold/write-config! {:signalz {:bert {:kind :telly}}})
+      (marigold/load-config)
+      (should (unknown-key-logged? "signalz")))
+
+    (it "R2 server-boot load logs a typo'd field on a module-owned slot when the module is declared"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:local/root "/marigold/.isaac/modules/isaac.comm.crow"}}
+         :signals {:mychan {:kind :crow :tokn "abc"}}})
+      (write-crow-module!)
+      (marigold/load-config)
+      (should (unknown-key-logged? "signals[:mychan].tokn")))
+
+    (it "R3 config validate still sees a typo'd core key with classpaths off (row kept)"
+      (config-marigold/write-config! {:signalz {:bert {:kind :telly}}})
+      (let [result (binding [classpath/*resolve-classpath?* false] (marigold/load-config))]
+        (should (some #(= "signalz" (:key %)) (:warnings result)))))
+
+    (it "R4 a classpaths-off load with no git-coord modules can see every schema, so a typo is still logged"
+      (config-marigold/write-config! {:signalz {:bert {:kind :telly}}})
+      (binding [classpath/*resolve-classpath?* false] (marigold/load-config))
+      (should (unknown-key-logged? "signalz")))
+
+    (it "R5 a classpaths-off load whose only module is :local/root still logs that module's typo'd field"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:local/root "/marigold/.isaac/modules/isaac.comm.crow"}}
+         :signals {:mychan {:kind :crow :tokn "abc"}}})
+      (write-crow-module!)
+      (binding [classpath/*resolve-classpath?* false] (marigold/load-config))
+      (should (unknown-key-logged? "signals[:mychan].tokn")))
+
+    (it "R6 a classpaths-off load blind to a git-coord module stays quiet (the zanebot case)"
+      (config-marigold/write-config!
+        {:modules {:isaac.comm.crow {:git/url "https://example.invalid/isaac-crow.git"
+                                     :git/sha "0000000000000000000000000000000000000000"}}
+         :signals {:mychan {:kind :crow :token "abc"}}})
+      (binding [classpath/*resolve-classpath?* false] (marigold/load-config))
+      (should-not (unknown-key-logged? "signals[:mychan].token")))
 
     (it "warns on every key inside a bare :map extension field whose contents conform prunes"
       (config-marigold/write-config!

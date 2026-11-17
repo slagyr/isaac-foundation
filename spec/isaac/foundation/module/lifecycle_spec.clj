@@ -12,7 +12,7 @@
     [isaac.foundation.spec-helper :as helper]
     [speclj.core :refer :all]))
 
-(declare *calls)
+(def ^:dynamic *calls nil)
 
 (defrecord LifecycleModule [id calls]
   module/Module
@@ -42,8 +42,6 @@
 
 (defn exploding-factory []
   (throw (ex-info "factory exploded" {:phase :factory})))
-
-(def ^:dynamic *calls nil)
 
 (defn- module-entry [factory & {:keys [deps]}]
   {:coord    {:local/root "."}

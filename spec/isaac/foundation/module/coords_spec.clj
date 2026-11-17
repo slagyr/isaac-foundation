@@ -16,11 +16,17 @@
       (should= "/tmp/initialized-gitlibs/libs" (coords/gitlibs-root))))
 
   (it "uses the configured property ahead of the GITLIBS environment override"
-    (let [host (host/embedded-host {:env {"GITLIBS" "/tmp/host-gitlibs"}})]
-      (with-redefs [requiring-resolve (constantly nil)]
-        (binding [host/*host* host]
-          (should= (str (System/getProperty "clojure.gitlibs.dir") "/libs")
-                   (coords/gitlibs-root))))))
+    (let [host  (host/embedded-host {:env {"GITLIBS" "/tmp/host-gitlibs"}})
+          prior (System/getProperty "clojure.gitlibs.dir")]
+      (try
+        (System/setProperty "clojure.gitlibs.dir" "/tmp/configured-gitlibs")
+        (with-redefs [requiring-resolve (constantly nil)]
+          (binding [host/*host* host]
+            (should= "/tmp/configured-gitlibs/libs" (coords/gitlibs-root))))
+        (finally
+          (if prior
+            (System/setProperty "clojure.gitlibs.dir" prior)
+            (System/clearProperty "clojure.gitlibs.dir"))))))
 
   (it "uses the active CLI host's GITLIBS override when no property is configured"
     (let [host (host/embedded-host {:env {"GITLIBS" "/tmp/host-gitlibs"}})

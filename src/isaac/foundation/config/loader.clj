@@ -26,6 +26,7 @@
     [isaac.foundation.config.validation :as validation]
     [isaac.foundation.config.warnings :as warnings]
     [isaac.foundation.logger :as log]
+    [isaac.foundation.module.classpath :as classpath]
     [isaac.foundation.module.discovery :as discovery]
     [isaac.foundation.module.lifecycle :as lifecycle]
     [isaac.foundation.nexus :as nexus]
@@ -222,6 +223,13 @@
             (collision-error-row "config-schema" :config-key e)]
            (throw e)))))
 
+(defn- schema-blind?
+  "True when classpath resolution is off and a declared module never made it
+   into the index, so its schema contributions are missing from this load."
+  [index root-data]
+  (and (not classpath/*resolve-classpath?*)
+       (boolean (some #(not (contains? index %)) (keys (:modules root-data))))))
+
 (defn load-config-result
   "Load and validate configuration from the current filesystem.
    `:skip-cache?` remains accepted as a compatibility no-op."
@@ -376,10 +384,16 @@
                                      ;; Log both as they leave the loader: a key the schema silently prunes
                                      ;; (isaac-nq4c) and a field an unresolvable reference silently emptied
                                      ;; (isaac-rxun) are otherwise invisible until someone separately runs
-                                     ;; `isaac config validate`.
-                                     :warnings (->> all-warnings
-                                                    (warnings/log-unknown-keys!)
-                                                    (warnings/log-unresolved-refs!))
+                                     ;; `isaac config validate`. A load that cannot put module
+                                     ;; classpaths in place (`isaac modules`) and so left a declared
+                                     ;; module out of the index never composed that module's schema;
+                                     ;; it cannot tell an unknown key from a module-owned one: keep
+                                     ;; the rows, skip the log. A load that indexed every declared
+                                     ;; module (none, or all :local/root) still logs.
+                                     :warnings (cond-> all-warnings
+                                                 (not (schema-blind? (:index discovery) root-data))
+                                                 (warnings/log-unknown-keys!)
+                                                 true (warnings/log-unresolved-refs!))
                                      :sources  (vec (sort (:sources result)))
                                      :raw      (:raw result)
                                      ;; Raw (pre-conform-overlay) root-level data, already computed

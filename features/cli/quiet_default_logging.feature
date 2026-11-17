@@ -29,6 +29,17 @@ Feature: The CLI never prints structured log entries by default (isaac-89q1)
     And the stderr does not contain ":level"
     And the stderr does not contain ":event"
 
+  # The schema-blind case (a declared git-coord module left out of the index
+  # while classpaths are off) is pinned in signal_slots_spec: `modules list`
+  # resolves git coords itself, so a feature for it would need the network.
+  Scenario: isaac modules still logs an unknown key when it can see every module schema
+    Given config:
+      | log.output | stderr |
+    When isaac is run with "modules list"
+    Then the exit code is 0
+    And the stderr is empty
+    And the CLI log file contains an event "config/unknown-key"
+
   Scenario: An explicit --log-level opts back into seeing logs live on the terminal
     Given config:
       | log.output | stderr |
