@@ -44,7 +44,7 @@
             (:config result))))))
 
 (defn- command-summaries []
-  (mapv #(select-keys % [:name :summary]) (registry/all-commands)))
+  (mapv #(select-keys % [:name :summary :server-only]) (registry/all-commands)))
 
 (defn- register-module-cli-commands!
   "`:isaac/cli` is a berth, so all CLI
@@ -71,7 +71,6 @@
              (nexus/-with-nested-nexus {:fs fs*}
                (discovery/discover! config context))]
          (registry/clear-berth-commands!)
-         (registry/clear-forwarder!)
          (lifecycle/reconcile-modules! index)
          (berths/process-manifest-berths! index)))
      (catch Exception _
@@ -176,14 +175,15 @@
           (binding [root/*root* resolved-root]
             (nexus/-with-nested-nexus {:fs fs*}
               (nexus/init! {:fs fs* :root resolved-root})
-              (let [forwarded (when (and (:server-only command) (registry/forwarder))
-                                ((registry/forwarder) {:argv (vec args) :root resolved-root}))]
-                (if (and forwarded (not (:no-server forwarded)))
-                  (:exit forwarded)
-                  (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
-                                                            :root         resolved-root
-                                                            :log-level    log-level
-                                                            :_raw-args    (vec opts)})) 0)))))
+              (if (:server-only command)
+                (do (binding [*out* *err*]
+                      (println (str cmd " runs on the server: isaac remote <name> -- " cmd)))
+                    2)
+                (or ((:run-fn command) (merge extra-opts {:display-root (or root resolved-root)
+                                                         :root         resolved-root
+                                                         :log-level    log-level
+                                                         :_raw-args    (vec opts)})) 0))))
+
           (do (println (str "Unknown command: " cmd))
               (println (registry/usage-text))
               1))))))))))

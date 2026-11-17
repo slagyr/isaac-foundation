@@ -18,7 +18,6 @@ Feature: Server-only commands run only inside the server
                  :marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
       """
 
-  @wip
   Scenario: local help lists server-only commands in their own section (isaac-crrm)
     When isaac is run with "--help"
     Then the stdout contains "Server-only (run on a server: isaac remote <name> -- <command>):"
@@ -26,7 +25,6 @@ Feature: Server-only commands run only inside the server
     And the stdout contains "Print the current process"
     And the exit code is 0
 
-  @wip
   Scenario: a server-only command typed locally refuses with the remote hint (isaac-crrm)
     When isaac is run with "where --tag tide"
     Then the stderr contains "where runs on the server: isaac remote <name> -- where"

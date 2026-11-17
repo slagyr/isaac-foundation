@@ -12,7 +12,6 @@
          ;; no-op add-module-deps! rather than resolving coordinates.
          marigold.cli.greeter/marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}
          marigold.cli.where/marigold.cli.where {:local/root "modules/marigold.cli.where"}
-         marigold.cli.forwarder/marigold.cli.forwarder {:local/root "modules/marigold.cli.forwarder"}
          marigold.bridge/marigold.bridge       {:local/root "modules/marigold.bridge"}
          marigold.longwave/marigold.longwave   {:local/root "modules/marigold.longwave"}
          marigold.setup/marigold.setup         {:local/root "modules/marigold.setup"}

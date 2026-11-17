@@ -115,34 +115,19 @@
         (should= 0 (sut/run ["test-dispatch" "--agent" "bot"]))
         (should= ["--agent" "bot"] (:_raw-args @received))))
 
-    (it "forwards server-only argv and resolved root, returning the forwarder's exit"
-      (let [received (atom nil)
-            ran      (atom false)]
+    (it "refuses server-only commands locally without running them"
+      (let [ran (atom false)
+            err (java.io.StringWriter.)]
         (registry/register! {:name "where" :server-only true
                              :run-fn (fn [_] (reset! ran true) 0)})
-        (registry/clear-forwarder!)
-        (registry/register-forwarder! (fn [request] (reset! received request) {:exit 3}))
-        (binding [sut/*extra-opts* {:fs (fs/mem-fs)}]
-          (should= 3 (sut/run ["--root" "/srv/isaac" "where" "--tag" "tide"])))
-        (should= {:argv ["where" "--tag" "tide"] :root "/srv/isaac"} @received)
-        (should= false @ran)))
+        (binding [*err* err]
+          (should= 2 (sut/run ["where" "--tag" "tide"])))
+        (should= false @ran)
+        (should (.contains (str err) "where runs on the server: isaac remote <name> -- where"))))
 
-    (it "runs a server-only command locally when the forwarder finds no server"
-      (let [ran (atom false)]
-        (registry/register! {:name "where" :server-only true
-                             :run-fn (fn [_] (reset! ran true) 7)})
-        (registry/clear-forwarder!)
-        (registry/register-forwarder! (fn [_] {:no-server true}))
-        (should= 7 (sut/run ["where"]))
-        (should= true @ran)))
-
-    (it "does not forward an ordinary command"
-      (let [forwarded (atom false)]
-        (registry/register! {:name "ordinary" :run-fn (fn [_] 4)})
-        (registry/clear-forwarder!)
-        (registry/register-forwarder! (fn [_] (reset! forwarded true) {:exit 0}))
-        (should= 4 (sut/run ["ordinary"]))
-        (should= false @forwarded)))
+    (it "runs an ordinary command locally"
+      (registry/register! {:name "ordinary" :run-fn (fn [_] 4)})
+      (should= 4 (sut/run ["ordinary"])))
 
     (it "injects root resolved from the XDG pointer file"
       (let [received (atom nil)

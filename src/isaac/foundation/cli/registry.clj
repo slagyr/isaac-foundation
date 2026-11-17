@@ -34,12 +34,20 @@
   []
   @commands)
 
+(defn- command-list [cmds max-len]
+  (str/join "\n" (map (fn [{:keys [name summary]}]
+                         (str "  " name
+                              (apply str (repeat (- (+ max-len 4) (count name)) " "))
+                              summary))
+                       cmds)))
+
 (defn usage-text
-  "Top-level CLI usage listing. Optional cmds defaults to all-commands.
-   Footer points operators at `isaac help help` for topics."
+  "Top-level CLI usage listing. Optional cmds defaults to all-commands."
   ([] (usage-text (all-commands)))
   ([cmds]
-   (let [max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)]
+   (let [max-len (if (seq cmds) (apply max (map #(count (:name %)) cmds)) 0)
+         ordinary (remove :server-only cmds)
+         server-only (filter :server-only cmds)]
      (str "Usage: isaac [options] <command> [args]\n\n"
           "Global Options:\n"
           "  --root <dir>       Isaac root directory (default: ~/.isaac)\n"
@@ -47,14 +55,11 @@
           "  --log-level <level> Structured log threshold: report, error, warn, info, or debug\n"
           "  --version, -V      Print the isaac version\n"
           "  --help, -h         Show this message\n\n"
-          "Commands:\n"
-          (str/join "\n" (map (fn [cmd]
-                                (str "  " (:name cmd)
-                                     (apply str (repeat (- (+ max-len 4) (count (:name cmd))) " "))
-                                     (:summary cmd)))
-                              cmds))
-          "\n\n"
-          "Topics are documented via isaac help help."))))
+          "Commands:\n" (command-list ordinary max-len)
+          (when (seq server-only)
+            (str "\n\nServer-only (run on a server: isaac remote <name> -- <command>):\n"
+                 (command-list server-only max-len)))
+          "\n\nTopics are documented via isaac help help."))))
 
 (defn- subcommand-summary [subcommands]
   (let [max-len (apply max (map #(count (:name %)) subcommands))]
@@ -209,24 +214,6 @@
     (register! (assoc cmd :run-fn run-fn))))
 
 ;; endregion ^^^^^ Berth registration factory -----
-
-(defonce ^:private forwarder* (atom nil))
-
-(defn clear-forwarder! []
-  (reset! forwarder* nil))
-
-(defn register-forwarder!
-  "Register the one CLI forwarder for this module discovery pass."
-  [forwarder]
-  (when-not (compare-and-set! forwarder* nil forwarder)
-    (throw (ex-info "Only one :isaac/cli-forwarder may be registered" {}))))
-
-(defn forwarder [] @forwarder*)
-
-(defn register-cli-forwarder!
-  "Berth factory; a module contributes {:fn fully.qualified/factory}."
-  [[_ {:keys [fn]}]]
-  (register-forwarder! ((requiring-resolve fn))))
 
 ;; region ----- Module Command Management -----
 

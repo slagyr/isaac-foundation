@@ -100,13 +100,9 @@
       (should= 2 (sut/run-embedded root-opts))
       (should (str/includes? (str root-err) "server root"))))
 
-  (it "runs server-only commands inside the embedded host without forwarding"
-    (let [forwarded (atom false)]
-      (registry/register! {:name "where-embedded" :server-only true :run-fn (fn [_] 5)})
-      (registry/clear-forwarder!)
-      (registry/register-forwarder! (fn [_] (reset! forwarded true) {:exit 3}))
-      (should= 5 (sut/run-embedded (embedded-options ["where-embedded"])))
-      (should= false @forwarded)))
+  (it "runs server-only commands inside the embedded host"
+    (registry/register! {:name "where-embedded" :server-only true :run-fn (fn [_] 5)})
+    (should= 5 (sut/run-embedded (embedded-options ["where-embedded"]))))
 
   (it "reports unknown and throwing commands"
     (registry/register! {:name "explode" :run-fn (fn [_] (throw (ex-info "boom" {})))})
