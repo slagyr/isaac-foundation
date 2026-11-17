@@ -1,77 +1,39 @@
-Feature: Server-only commands are handed to a forwarder
-  A module command declared :server-only in its :isaac/cli entry does not make
-  sense in a process of its own: it must run inside the Isaac server. When a
-  forwarder is registered on the :isaac/cli-forwarder berth, the CLI hands it
-  the full argv and the root, and returns the forwarder's exit code. A
-  forwarder that finds no server answers no-server, and the command then runs
-  locally as before. Commands without the flag never reach the forwarder, and
-  a command already running inside the server (embedded dispatch) is never
-  forwarded again.
+Feature: Server-only commands run only inside the server
+  A module command declared :server-only in its :isaac/cli entry must run
+  inside the Isaac server. The local CLI never runs it: local help lists it in
+  its own section, and typing it refuses with the way to reach it, through
+  `isaac remote <name> -- <command>`. Inside the server (embedded dispatch, the
+  path `isaac remote` uses) it is a plain command. There is no forwarder.
 
-  The fixture forwarder prints "forwarded: <argv>" and answers from the root
-  file forwarder.edn: {:exit <n>} (default 0) or {:result :no-server}. The
-  fixture command "where" prints "process" when it runs in its own process.
+  The fixture command "where" is :server-only and prints "process" when it
+  runs; "greet" is an ordinary command.
 
-  Tracked by isaac-dcxk.
+  Tracked by isaac-crrm (replaces the isaac-dcxk forwarder).
 
   Background:
     Given an Isaac root at "target/test-state"
+    And the isaac file "isaac.edn" exists with:
+      """
+      {:modules {:marigold.cli.where   {:local/root "modules/marigold.cli.where"}
+                 :marigold.cli.greeter {:local/root "modules/marigold.cli.greeter"}}}
+      """
 
-  Scenario: a server-only command is handed to the forwarder with its argv
-    Given the isaac file "isaac.edn" exists with:
-      """
-      {:modules {:marigold.cli.where     {:local/root "modules/marigold.cli.where"}
-                 :marigold.cli.forwarder {:local/root "modules/marigold.cli.forwarder"}}}
-      """
+  @wip
+  Scenario: local help lists server-only commands in their own section (isaac-crrm)
+    When isaac is run with "--help"
+    Then the stdout contains "Server-only (run on a server: isaac remote <name> -- <command>):"
+    And the stdout contains "where"
+    And the stdout contains "Print the current process"
+    And the exit code is 0
+
+  @wip
+  Scenario: a server-only command typed locally refuses with the remote hint (isaac-crrm)
     When isaac is run with "where --tag tide"
-    Then the stdout contains "forwarded: where --tag tide"
+    Then the stderr contains "where runs on the server: isaac remote <name> -- where"
     And the stdout does not contain "process"
-    And the exit code is 0
+    And the exit code is 2
 
-  Scenario: the forwarder's exit code is the command's exit code
-    Given the isaac file "isaac.edn" exists with:
-      """
-      {:modules {:marigold.cli.where     {:local/root "modules/marigold.cli.where"}
-                 :marigold.cli.forwarder {:local/root "modules/marigold.cli.forwarder"}}}
-      """
-    And the isaac file "forwarder.edn" exists with:
-      """
-      {:exit 3}
-      """
-    When isaac is run with "where"
-    Then the stdout contains "forwarded: where"
-    And the exit code is 3
-
-  Scenario: when the forwarder finds no server, the command runs locally
-    Given the isaac file "isaac.edn" exists with:
-      """
-      {:modules {:marigold.cli.where     {:local/root "modules/marigold.cli.where"}
-                 :marigold.cli.forwarder {:local/root "modules/marigold.cli.forwarder"}}}
-      """
-    And the isaac file "forwarder.edn" exists with:
-      """
-      {:result :no-server}
-      """
-    When isaac is run with "where"
-    Then the stdout contains "process"
-    And the exit code is 0
-
-  Scenario: with no forwarder registered, a server-only command runs locally
-    Given the isaac file "isaac.edn" exists with:
-      """
-      {:modules {:marigold.cli.where {:local/root "modules/marigold.cli.where"}}}
-      """
-    When isaac is run with "where"
-    Then the stdout contains "process"
-    And the exit code is 0
-
-  Scenario: a command without the flag never reaches the forwarder
-    Given the isaac file "isaac.edn" exists with:
-      """
-      {:modules {:marigold.cli.greeter   {:local/root "modules/marigold.cli.greeter"}
-                 :marigold.cli.forwarder {:local/root "modules/marigold.cli.forwarder"}}}
-      """
+  Scenario: an ordinary command still runs locally (isaac-crrm)
     When isaac is run with "greet"
     Then the stdout contains "Hello from the greeter module!"
-    And the stdout does not contain "forwarded"
     And the exit code is 0
